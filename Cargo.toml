@@ -1,0 +1,45 @@
+[workspace]
+members = ["crates/funcspec-client", "crates/funcspec-cli"]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+authors = ["Christian Clare <narbs@narbs.net>"]
+license = "MIT"
+repository = "https://github.com/narbs/funcspec-cli"
+
+[workspace.dependencies]
+# HTTP & serialization
+reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+
+# CLI
+clap = { version = "4", features = ["derive", "env"] }
+clap_complete = "4"
+
+# Config
+toml = "0.8"
+dirs = "6"
+
+# Output formatting
+comfy-table = "7"
+colored = "3"
+console = "0.15"
+indicatif = "0.17"
+similar = "2"
+
+# Error handling
+thiserror = "2"
+anyhow = "1"
+
+# Logging/debug
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Misc
+chrono = { version = "0.4", features = ["serde"] }
+url = "2"
+open = "5"
