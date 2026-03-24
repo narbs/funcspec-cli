@@ -32,13 +32,13 @@ pub fn client_and_config() -> Result<(FuncspecClient, Config)> {
     Ok((client, config))
 }
 
-/// Build a client and resolve the project ID. Returns (client, project_id).
+/// Build a client and resolve the default project ID. Returns (client, project_id).
 pub async fn client_and_project() -> Result<(FuncspecClient, u64)> {
     let (client, config) = client_and_config()?;
     let profile = config.active_profile().unwrap();
 
     let project_slug = profile.default_project.as_deref().context(
-        "No default project set. Run `funcspec projects set-default <slug>` or pass --project.",
+        "No default project set. Run `funcspec projects set-default <slug>` or set via `funcspec config set project <slug>`.",
     )?;
 
     let project = client

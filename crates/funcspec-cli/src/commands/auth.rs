@@ -13,23 +13,23 @@ pub enum AuthCmd {
         #[arg(long, default_value = "https://funcspec.net")]
         host: String,
 
-        /// API key (or set FUNCSPEC_API_KEY)
-        #[arg(long)]
+        /// API key (or set FUNCSPEC_API_KEY env var)
+        #[arg(long, env = "FUNCSPEC_API_KEY")]
         key: Option<String>,
 
-        /// Profile name
+        /// Profile name to save credentials under
         #[arg(long, default_value = "default")]
         profile: String,
     },
 
-    /// Log out (remove stored credentials)
+    /// Log out and remove stored credentials
     Logout {
         /// Profile to remove
         #[arg(long, default_value = "default")]
         profile: String,
     },
 
-    /// Show current auth status
+    /// Show current authentication status
     Status,
 }
 
@@ -39,22 +39,33 @@ pub async fn run(cmd: AuthCmd) -> Result<()> {
             let api_key = match key {
                 Some(k) => k,
                 None => {
-                    // Prompt for key
-                    let input = console::Term::stderr()
-                        .read_line()
-                        .context("Failed to read API key. Pass --key or set FUNCSPEC_API_KEY.")?;
                     eprint!("API key: ");
-                    input.trim().to_string()
+                    rpassword::read_password()
+                        .context("Failed to read API key. Pass --key or set FUNCSPEC_API_KEY.")?
                 }
             };
 
-            // Validate
             eprint!("Validating... ");
             let client = FuncspecClient::new(&host, &api_key)?;
-            client.validate_auth().await?;
-            eprintln!("{}", style("✓").green().bold());
+            match client.validate_auth().await {
+                Ok(user) => {
+                    eprintln!("{}", style("✓").green().bold());
+                    eprintln!("Logged in as {} ({})", style(&user.name).cyan(), user.email);
+                }
+                Err(e) => {
+                    eprintln!("{}", style("✗").red().bold());
+                    // Still save if it was a 404 on auth endpoint (endpoint might not exist yet)
+                    // but fail on auth errors
+                    if matches!(e, funcspec_client::Error::Auth(_)) {
+                        return Err(e.into());
+                    }
+                    eprintln!(
+                        "{} Could not validate: {e}",
+                        style("warning:").yellow().bold()
+                    );
+                }
+            }
 
-            // Save
             let mut config = Config::load()?;
             config.profiles.insert(
                 profile.clone(),
@@ -68,7 +79,7 @@ pub async fn run(cmd: AuthCmd) -> Result<()> {
             config.save()?;
 
             eprintln!(
-                "Logged in as profile {} (saved to {})",
+                "Saved profile {} to {}",
                 style(&profile).cyan(),
                 Config::config_path()?.display()
             );
@@ -78,6 +89,15 @@ pub async fn run(cmd: AuthCmd) -> Result<()> {
         AuthCmd::Logout { profile } => {
             let mut config = Config::load()?;
             if config.profiles.remove(&profile).is_some() {
+                // If we removed the active profile, clear it
+                if config.active_profile == profile {
+                    config.active_profile = config
+                        .profiles
+                        .keys()
+                        .next()
+                        .cloned()
+                        .unwrap_or_else(|| "default".into());
+                }
                 config.save()?;
                 eprintln!("Removed profile {}", style(&profile).cyan());
             } else {
@@ -90,19 +110,24 @@ pub async fn run(cmd: AuthCmd) -> Result<()> {
             let config = Config::load()?;
             match config.active_profile() {
                 Some(profile) => {
-                    eprintln!("Active profile: {}", style(&config.active_profile).cyan());
-                    eprintln!("Host: {}", profile.host);
-                    eprintln!("API key: {}…", &profile.api_key[..12.min(profile.api_key.len())]);
+                    eprintln!("Profile:  {}", style(&config.active_profile).cyan().bold());
+                    eprintln!("Host:     {}", profile.host);
+                    let masked = mask_key(&profile.api_key);
+                    eprintln!("API key:  {masked}");
                     if let Some(ref proj) = profile.default_project {
-                        eprintln!("Default project: {proj}");
+                        eprintln!("Project:  {proj}");
                     }
 
-                    // Validate
-                    eprint!("Connection: ");
+                    eprint!("Status:   ");
                     let client = FuncspecClient::new(&profile.host, &profile.api_key)?;
                     match client.validate_auth().await {
-                        Ok(()) => eprintln!("{}", style("✓ authenticated").green()),
-                        Err(e) => eprintln!("{} {e}", style("✗").red()),
+                        Ok(user) => eprintln!(
+                            "{} ({}, {})",
+                            style("authenticated").green(),
+                            user.name,
+                            user.org_name
+                        ),
+                        Err(e) => eprintln!("{} {e}", style("error:").red()),
                     }
                 }
                 None => {
@@ -114,5 +139,32 @@ pub async fn run(cmd: AuthCmd) -> Result<()> {
             }
             Ok(())
         }
+    }
+}
+
+fn mask_key(key: &str) -> String {
+    if key.len() <= 8 {
+        "*".repeat(key.len())
+    } else {
+        format!("{}…{}", &key[..4], &key[key.len() - 4..])
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn mask_key_short() {
+        assert_eq!(mask_key("abc"), "***");
+    }
+
+    #[test]
+    fn mask_key_long() {
+        let key = "abcdefghijklmnop";
+        let masked = mask_key(key);
+        assert!(masked.starts_with("abcd"));
+        assert!(masked.ends_with("mnop"));
+        assert!(masked.contains('…'));
     }
 }

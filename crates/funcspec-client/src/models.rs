@@ -1,7 +1,9 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-// -- API envelope types --
+// ---------------------------------------------------------------------------
+// API envelope
+// ---------------------------------------------------------------------------
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ApiResponse<T> {
@@ -14,16 +16,33 @@ pub struct ApiListResponse<T> {
     pub meta: Option<PaginationMeta>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PaginationMeta {
     pub page: u32,
     pub per: u32,
     pub total: u32,
+    #[serde(default)]
+    pub total_pages: u32,
 }
 
-// -- Project --
+// ---------------------------------------------------------------------------
+// Auth / User
+// ---------------------------------------------------------------------------
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UserInfo {
+    pub id: String,
+    pub email: String,
+    pub name: String,
+    pub org_id: String,
+    pub org_name: String,
+}
+
+// ---------------------------------------------------------------------------
+// Project
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Project {
     pub id: u64,
     #[serde(rename = "type")]
@@ -31,7 +50,7 @@ pub struct Project {
     pub attributes: ProjectAttributes,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProjectAttributes {
     pub name: String,
     pub description: Option<String>,
@@ -40,9 +59,11 @@ pub struct ProjectAttributes {
     pub updated_at: DateTime<Utc>,
 }
 
-// -- Spec Item --
+// ---------------------------------------------------------------------------
+// Spec Item
+// ---------------------------------------------------------------------------
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SpecItem {
     pub id: u64,
     #[serde(rename = "type")]
@@ -50,7 +71,7 @@ pub struct SpecItem {
     pub attributes: SpecItemAttributes,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SpecItemAttributes {
     pub title: String,
     pub description: Option<String>,
@@ -62,6 +83,7 @@ pub struct SpecItemAttributes {
     pub version: u32,
     pub priority: Option<String>,
     pub position: Option<i32>,
+    #[serde(default)]
     pub tags: Vec<String>,
     pub parent_id: Option<u64>,
     pub project_id: u64,
@@ -104,9 +126,11 @@ impl std::fmt::Display for ImplementationStatus {
     }
 }
 
-// -- Review --
+// ---------------------------------------------------------------------------
+// Review
+// ---------------------------------------------------------------------------
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ReviewSummary {
     pub id: u64,
     pub coverage_score: Option<f64>,
@@ -114,7 +138,167 @@ pub struct ReviewSummary {
     pub updated_at: DateTime<Utc>,
 }
 
-// -- Params for creating/updating items --
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Review {
+    pub id: u64,
+    #[serde(rename = "type")]
+    pub resource_type: String,
+    pub attributes: ReviewAttributes,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReviewAttributes {
+    pub spec_item_id: u64,
+    pub reviewer: String,
+    pub status: ReviewStatus,
+    pub comment: Option<String>,
+    pub coverage_score: Option<f64>,
+    pub verdict: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum ReviewStatus {
+    Pending,
+    Approved,
+    Rejected,
+}
+
+impl std::fmt::Display for ReviewStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ReviewStatus::Pending => write!(f, "pending"),
+            ReviewStatus::Approved => write!(f, "approved"),
+            ReviewStatus::Rejected => write!(f, "rejected"),
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Audit
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AuditResult {
+    pub id: u64,
+    #[serde(rename = "type")]
+    pub resource_type: String,
+    pub attributes: AuditResultAttributes,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AuditResultAttributes {
+    pub spec_item_id: u64,
+    pub audit_type: String,
+    pub passed: bool,
+    pub details: String,
+    pub created_at: DateTime<Utc>,
+}
+
+// ---------------------------------------------------------------------------
+// Snapshot
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Snapshot {
+    pub id: u64,
+    #[serde(rename = "type")]
+    pub resource_type: String,
+    pub attributes: SnapshotAttributes,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SnapshotAttributes {
+    pub project_id: u64,
+    pub name: String,
+    pub description: Option<String>,
+    pub spec_items: Vec<SpecItem>,
+    pub created_at: DateTime<Utc>,
+}
+
+// ---------------------------------------------------------------------------
+// Job
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Job {
+    pub id: u64,
+    #[serde(rename = "type")]
+    pub resource_type: String,
+    pub attributes: JobAttributes,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct JobAttributes {
+    pub job_type: String,
+    pub status: JobStatus,
+    pub progress: Option<f32>,
+    pub result: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum JobStatus {
+    Pending,
+    Running,
+    Completed,
+    Failed,
+}
+
+impl std::fmt::Display for JobStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            JobStatus::Pending => write!(f, "pending"),
+            JobStatus::Running => write!(f, "running"),
+            JobStatus::Completed => write!(f, "completed"),
+            JobStatus::Failed => write!(f, "failed"),
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Usage Log
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UsageLog {
+    pub id: u64,
+    #[serde(rename = "type")]
+    pub resource_type: String,
+    pub attributes: UsageLogAttributes,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UsageLogAttributes {
+    pub user_id: String,
+    pub action: String,
+    pub resource_type: String,
+    pub resource_id: String,
+    pub timestamp: DateTime<Utc>,
+}
+
+// ---------------------------------------------------------------------------
+// Request params
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Default, Serialize)]
+pub struct CreateProjectParams {
+    pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+}
+
+#[derive(Debug, Default, Serialize)]
+pub struct UpdateProjectParams {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+}
 
 #[derive(Debug, Default, Serialize)]
 pub struct CreateItemParams {
@@ -140,7 +324,16 @@ pub struct UpdateItemParams {
     pub tags: Option<String>,
 }
 
-// -- Query filters --
+#[derive(Debug, Default, Serialize)]
+pub struct CreateReviewParams {
+    pub status: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub comment: Option<String>,
+}
+
+// ---------------------------------------------------------------------------
+// Query filters
+// ---------------------------------------------------------------------------
 
 #[derive(Debug, Default)]
 pub struct ItemFilter {
@@ -186,5 +379,195 @@ impl ItemFilter {
             pairs.push(("per".into(), p.to_string()));
         }
         pairs
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn item_type_display() {
+        assert_eq!(ItemType::Functional.to_string(), "functional");
+        assert_eq!(ItemType::Technical.to_string(), "technical");
+    }
+
+    #[test]
+    fn item_type_serde_roundtrip() {
+        let json = r#""functional""#;
+        let t: ItemType = serde_json::from_str(json).unwrap();
+        assert_eq!(t, ItemType::Functional);
+        assert_eq!(serde_json::to_string(&t).unwrap(), json);
+    }
+
+    #[test]
+    fn impl_status_display() {
+        assert_eq!(ImplementationStatus::NotStarted.to_string(), "not_started");
+        assert_eq!(ImplementationStatus::InProgress.to_string(), "in_progress");
+        assert_eq!(ImplementationStatus::Implemented.to_string(), "implemented");
+    }
+
+    #[test]
+    fn impl_status_serde_roundtrip() {
+        let json = r#""in_progress""#;
+        let s: ImplementationStatus = serde_json::from_str(json).unwrap();
+        assert_eq!(s, ImplementationStatus::InProgress);
+    }
+
+    #[test]
+    fn job_status_display() {
+        assert_eq!(JobStatus::Pending.to_string(), "pending");
+        assert_eq!(JobStatus::Completed.to_string(), "completed");
+        assert_eq!(JobStatus::Failed.to_string(), "failed");
+    }
+
+    #[test]
+    fn review_status_serde() {
+        let json = r#""approved""#;
+        let s: ReviewStatus = serde_json::from_str(json).unwrap();
+        assert_eq!(s, ReviewStatus::Approved);
+    }
+
+    #[test]
+    fn project_deserialize() {
+        let json = r#"{
+            "id": 42,
+            "type": "project",
+            "attributes": {
+                "name": "My Project",
+                "description": "desc",
+                "slug": "my-project",
+                "created_at": "2024-01-01T00:00:00Z",
+                "updated_at": "2024-06-01T00:00:00Z"
+            }
+        }"#;
+        let p: Project = serde_json::from_str(json).unwrap();
+        assert_eq!(p.id, 42);
+        assert_eq!(p.attributes.name, "My Project");
+        assert_eq!(p.attributes.slug, "my-project");
+    }
+
+    #[test]
+    fn spec_item_deserialize_minimal() {
+        let json = r#"{
+            "id": 1,
+            "type": "spec_item",
+            "attributes": {
+                "title": "Feature X",
+                "description": null,
+                "type_of": "functional",
+                "state": "active",
+                "implementation_status": "not_started",
+                "permalink": "F-1",
+                "url": "https://funcspec.net/items/1",
+                "version": 1,
+                "priority": null,
+                "position": null,
+                "tags": [],
+                "parent_id": null,
+                "project_id": 1,
+                "review": null,
+                "created_at": "2024-01-01T00:00:00Z",
+                "updated_at": "2024-01-01T00:00:00Z"
+            }
+        }"#;
+        let item: SpecItem = serde_json::from_str(json).unwrap();
+        assert_eq!(item.id, 1);
+        assert_eq!(item.attributes.permalink, "F-1");
+        assert_eq!(item.attributes.type_of, ItemType::Functional);
+        assert_eq!(
+            item.attributes.implementation_status,
+            ImplementationStatus::NotStarted
+        );
+    }
+
+    #[test]
+    fn spec_item_with_review_deserialize() {
+        let json = r#"{
+            "id": 5,
+            "type": "spec_item",
+            "attributes": {
+                "title": "Auth flow",
+                "description": "Login/logout",
+                "type_of": "technical",
+                "state": "active",
+                "implementation_status": "implemented",
+                "permalink": "T-5",
+                "url": "https://funcspec.net/items/5",
+                "version": 2,
+                "priority": "high",
+                "position": 1,
+                "tags": ["auth", "backend"],
+                "parent_id": null,
+                "project_id": 1,
+                "review": {
+                    "id": 10,
+                    "coverage_score": 85.5,
+                    "verdict": "looks good",
+                    "updated_at": "2024-06-01T00:00:00Z"
+                },
+                "created_at": "2024-01-01T00:00:00Z",
+                "updated_at": "2024-06-01T00:00:00Z"
+            }
+        }"#;
+        let item: SpecItem = serde_json::from_str(json).unwrap();
+        let review = item.attributes.review.unwrap();
+        assert_eq!(review.coverage_score, Some(85.5));
+        assert_eq!(review.verdict.as_deref(), Some("looks good"));
+    }
+
+    #[test]
+    fn api_list_response_deserialize() {
+        let json = r#"{
+            "data": [],
+            "meta": {"page": 1, "per": 25, "total": 0, "total_pages": 0}
+        }"#;
+        let resp: ApiListResponse<Project> = serde_json::from_str(json).unwrap();
+        assert!(resp.data.is_empty());
+        let meta = resp.meta.unwrap();
+        assert_eq!(meta.page, 1);
+        assert_eq!(meta.total, 0);
+    }
+
+    #[test]
+    fn api_list_response_no_meta() {
+        let json = r#"{"data": [], "meta": null}"#;
+        let resp: ApiListResponse<Project> = serde_json::from_str(json).unwrap();
+        assert!(resp.meta.is_none());
+    }
+
+    #[test]
+    fn item_filter_to_query_pairs_empty() {
+        let filter = ItemFilter::default();
+        assert!(filter.to_query_pairs().is_empty());
+    }
+
+    #[test]
+    fn item_filter_to_query_pairs_full() {
+        let filter = ItemFilter {
+            type_of: Some(ItemType::Functional),
+            status: Some(ImplementationStatus::InProgress),
+            tag: Some("auth".into()),
+            q: Some("login".into()),
+            has_review: Some(true),
+            review_verdict: Some("approved".into()),
+            parent_id: Some(42),
+            page: Some(2),
+            per: Some(10),
+        };
+        let pairs = filter.to_query_pairs();
+        assert!(pairs.iter().any(|(k, v)| k == "type_of" && v == "functional"));
+        assert!(pairs.iter().any(|(k, v)| k == "implementation_status" && v == "in_progress"));
+        assert!(pairs.iter().any(|(k, v)| k == "tag" && v == "auth"));
+        assert!(pairs.iter().any(|(k, v)| k == "q" && v == "login"));
+        assert!(pairs.iter().any(|(k, v)| k == "has_review" && v == "true"));
+        assert!(pairs.iter().any(|(k, v)| k == "review_verdict" && v == "approved"));
+        assert!(pairs.iter().any(|(k, v)| k == "parent_id" && v == "42"));
+        assert!(pairs.iter().any(|(k, v)| k == "page" && v == "2"));
+        assert!(pairs.iter().any(|(k, v)| k == "per" && v == "10"));
     }
 }

@@ -7,6 +7,9 @@ authors.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[features]
+blocking = []
+
 [dependencies]
 reqwest = { workspace = true }
 serde = { workspace = true }
@@ -16,3 +19,10 @@ thiserror = { workspace = true }
 tracing = { workspace = true }
 chrono = { workspace = true }
 url = { workspace = true }
+async-stream = "0.3"
+futures = "0.3"
+
+[dev-dependencies]
+wiremock = "0.6"
+tokio = { workspace = true }
+serde_json = { workspace = true }
