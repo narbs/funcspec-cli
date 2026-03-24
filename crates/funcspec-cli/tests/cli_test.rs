@@ -70,3 +70,95 @@ fn items_subcommand_help() {
 fn unknown_subcommand_fails() {
     cmd().arg("notacommand").assert().failure();
 }
+
+// ── --format flag ────────────────────────────────────────────────────────────
+
+#[test]
+fn format_flag_auto_accepted() {
+    cmd().args(["--format", "auto", "version"]).assert().success();
+}
+
+#[test]
+fn format_flag_json_accepted() {
+    cmd().args(["--format", "json", "version"]).assert().success();
+}
+
+#[test]
+fn format_flag_table_accepted() {
+    cmd().args(["--format", "table", "version"]).assert().success();
+}
+
+#[test]
+fn format_flag_csv_accepted() {
+    cmd().args(["--format", "csv", "version"]).assert().success();
+}
+
+#[test]
+fn format_flag_minimal_accepted() {
+    cmd().args(["--format", "minimal", "version"]).assert().success();
+}
+
+#[test]
+fn format_flag_markdown_accepted() {
+    cmd().args(["--format", "markdown", "version"]).assert().success();
+}
+
+#[test]
+fn format_flag_invalid_value_fails() {
+    cmd().args(["--format", "notaformat", "version"]).assert().failure();
+}
+
+#[test]
+fn format_flag_appears_in_help() {
+    let output = cmd().arg("--help").output().unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("format"), "expected --format in help output");
+}
+
+// ── command argument validation ──────────────────────────────────────────────
+
+#[test]
+fn projects_list_help_exits_zero() {
+    cmd().args(["projects", "list", "--help"]).assert().success();
+}
+
+#[test]
+fn projects_show_requires_slug_arg() {
+    // Missing the required slug positional argument
+    cmd().args(["projects", "show"]).assert().failure();
+}
+
+#[test]
+fn projects_set_default_requires_slug_arg() {
+    cmd().args(["projects", "set-default"]).assert().failure();
+}
+
+#[test]
+fn items_list_help_exits_zero() {
+    cmd().args(["items", "list", "--help"]).assert().success();
+}
+
+#[test]
+fn items_show_requires_item_arg() {
+    cmd().args(["items", "show"]).assert().failure();
+}
+
+#[test]
+fn items_create_requires_title_flag() {
+    cmd().args(["items", "create"]).assert().failure();
+}
+
+#[test]
+fn items_delete_requires_item_arg() {
+    cmd().args(["items", "delete"]).assert().failure();
+}
+
+#[test]
+fn items_edit_requires_item_arg() {
+    cmd().args(["items", "edit"]).assert().failure();
+}
+
+#[test]
+fn items_edit_help_exits_zero() {
+    cmd().args(["items", "edit", "--help"]).assert().success();
+}

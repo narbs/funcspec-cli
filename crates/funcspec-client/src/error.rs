@@ -150,8 +150,6 @@ impl From<reqwest::Error> for Error {
     fn from(e: reqwest::Error) -> Self {
         if e.is_timeout() {
             Error::Timeout { secs: 30 }
-        } else if e.is_connect() || e.is_request() {
-            Error::Network(e.to_string())
         } else {
             Error::Network(e.to_string())
         }

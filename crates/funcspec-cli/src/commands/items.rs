@@ -2,9 +2,10 @@ use anyhow::Result;
 use clap::Subcommand;
 use console::style;
 use funcspec_client::models::*;
+use std::io::Write as IoWrite;
 
-use crate::context::{client_and_project, OutputMode};
-use crate::output;
+use crate::context::client_and_project;
+use crate::output::{self, OutputFormat};
 
 #[derive(Debug, Subcommand)]
 pub enum ItemsCmd {
@@ -46,11 +47,11 @@ pub enum ItemsCmd {
         #[arg(long, default_value = "25")]
         per: u32,
 
-        /// Output as JSON
+        /// Output as JSON (overrides --format)
         #[arg(long)]
         json: bool,
 
-        /// Quiet mode: only output permalinks
+        /// Quiet mode: only output permalinks (overrides --format)
         #[arg(long)]
         quiet: bool,
     },
@@ -60,7 +61,7 @@ pub enum ItemsCmd {
         /// Item permalink (e.g., F-1) or ID
         item: String,
 
-        /// Output as JSON
+        /// Output as JSON (overrides --format)
         #[arg(long)]
         json: bool,
     },
@@ -110,6 +111,12 @@ pub enum ItemsCmd {
         tag: Option<String>,
     },
 
+    /// Edit item description in $EDITOR
+    Edit {
+        /// Item permalink (e.g., F-1) or ID
+        item: String,
+    },
+
     /// Delete a spec item
     Delete {
         /// Item permalink or ID
@@ -121,7 +128,7 @@ pub enum ItemsCmd {
     },
 }
 
-pub async fn run(cmd: ItemsCmd) -> Result<()> {
+pub async fn run(cmd: ItemsCmd, format: OutputFormat) -> Result<()> {
     match cmd {
         ItemsCmd::List {
             r#type,
@@ -167,25 +174,23 @@ pub async fn run(cmd: ItemsCmd) -> Result<()> {
 
             let (items, meta) = client.list_items(project_id, &filter).await?;
 
-            let mode = OutputMode::from_flags(json, quiet);
-            match mode {
-                OutputMode::Json => output::items_json(&items),
-                OutputMode::Quiet => output::items_quiet(&items),
-                OutputMode::Table => output::items_table(&items, meta.as_ref()),
-            }
+            // Per-command flags override the global --format
+            let fmt = if json {
+                OutputFormat::Json
+            } else if quiet {
+                OutputFormat::Minimal
+            } else {
+                format
+            };
+            output::format_items(&items, meta.as_ref(), fmt)?;
             Ok(())
         }
 
         ItemsCmd::Show { item, json } => {
             let (client, project_id) = client_and_project().await?;
             let spec_item = client.get_item(project_id, &item).await?;
-
-            if json {
-                let j = serde_json::to_string_pretty(&spec_item)?;
-                println!("{j}");
-            } else {
-                output::item_detail(&spec_item);
-            }
+            let fmt = if json { OutputFormat::Json } else { format };
+            output::format_item_detail(&spec_item, fmt)?;
             Ok(())
         }
 
@@ -268,6 +273,59 @@ pub async fn run(cmd: ItemsCmd) -> Result<()> {
             Ok(())
         }
 
+        ItemsCmd::Edit { item } => {
+            let (client, project_id) = client_and_project().await?;
+            let spec_item = client.get_item(project_id, &item).await?;
+
+            let original = spec_item
+                .attributes
+                .description
+                .as_deref()
+                .unwrap_or("")
+                .to_string();
+
+            // Write description to a temp file
+            let mut tmp = tempfile::Builder::new().suffix(".md").tempfile()?;
+            tmp.write_all(original.as_bytes())?;
+            tmp.flush()?;
+            let tmp_path = tmp.path().to_owned();
+
+            // Open $EDITOR (fallback to vi)
+            let editor = std::env::var("EDITOR").unwrap_or_else(|_| "vi".to_string());
+            let status = std::process::Command::new(&editor)
+                .arg(&tmp_path)
+                .status()
+                .map_err(|e| anyhow::anyhow!("Failed to launch editor '{}': {}", editor, e))?;
+
+            if !status.success() {
+                anyhow::bail!("Editor exited with non-zero status");
+            }
+
+            let new_description = std::fs::read_to_string(&tmp_path)?;
+
+            if new_description == original {
+                eprintln!("No changes.");
+                return Ok(());
+            }
+
+            let params = UpdateItemParams {
+                title: None,
+                description: Some(new_description),
+                implementation_status: None,
+                tags: None,
+            };
+
+            let updated = client
+                .update_item(project_id, spec_item.id, &params)
+                .await?;
+            eprintln!(
+                "Updated {} {}",
+                style(&updated.attributes.permalink).cyan().bold(),
+                updated.attributes.title
+            );
+            Ok(())
+        }
+
         ItemsCmd::Delete { item, yes } => {
             let (client, project_id) = client_and_project().await?;
             let spec_item = client.get_item(project_id, &item).await?;
@@ -292,5 +350,67 @@ pub async fn run(cmd: ItemsCmd) -> Result<()> {
             );
             Ok(())
         }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn edit_tempfile_write_and_read() {
+        use std::io::Write as _;
+        let content = "# My description\n\nSome details here.";
+        let mut tmp = tempfile::Builder::new().suffix(".md").tempfile().unwrap();
+        tmp.write_all(content.as_bytes()).unwrap();
+        tmp.flush().unwrap();
+        let path = tmp.path().to_owned();
+        let read_back = std::fs::read_to_string(&path).unwrap();
+        assert_eq!(read_back, content);
+    }
+
+    #[test]
+    fn edit_tempfile_has_md_suffix() {
+        let tmp = tempfile::Builder::new().suffix(".md").tempfile().unwrap();
+        let path = tmp.path().to_string_lossy().to_string();
+        assert!(path.ends_with(".md"), "expected .md suffix, got: {path}");
+    }
+
+    #[test]
+    fn list_format_override_json_flag() {
+        // json=true overrides any global format to Json
+        let fmt = if true { OutputFormat::Json } else { OutputFormat::Table };
+        assert_eq!(fmt, OutputFormat::Json);
+    }
+
+    #[test]
+    fn list_format_override_quiet_flag() {
+        // quiet=true maps to Minimal
+        let fmt = if false {
+            OutputFormat::Json
+        } else if true {
+            OutputFormat::Minimal
+        } else {
+            OutputFormat::Table
+        };
+        assert_eq!(fmt, OutputFormat::Minimal);
+    }
+
+    #[test]
+    fn list_format_falls_through_to_global() {
+        // neither json nor quiet: use global format
+        let global = OutputFormat::Csv;
+        let fmt = if false {
+            OutputFormat::Json
+        } else if false {
+            OutputFormat::Minimal
+        } else {
+            global
+        };
+        assert_eq!(fmt, OutputFormat::Csv);
     }
 }

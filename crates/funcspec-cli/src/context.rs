@@ -3,25 +3,6 @@ use funcspec_client::FuncspecClient;
 
 use crate::config::Config;
 
-/// Output mode derived from --json / --quiet flags.
-pub enum OutputMode {
-    Table,
-    Json,
-    Quiet,
-}
-
-impl OutputMode {
-    pub fn from_flags(json: bool, quiet: bool) -> Self {
-        if json {
-            OutputMode::Json
-        } else if quiet {
-            OutputMode::Quiet
-        } else {
-            OutputMode::Table
-        }
-    }
-}
-
 /// Build a client from the active profile. Returns (client, config).
 pub fn client_and_config() -> Result<(FuncspecClient, Config)> {
     let config = Config::load()?;

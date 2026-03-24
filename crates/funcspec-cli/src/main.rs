@@ -1,4 +1,5 @@
 use funcspec_cli::commands;
+use funcspec_cli::output::OutputFormat;
 
 use anyhow::Result;
 use clap::{CommandFactory, Parser, Subcommand};
@@ -24,6 +25,10 @@ struct Cli {
     /// Enable debug output (full headers, bodies, timing)
     #[arg(long, global = true)]
     debug: bool,
+
+    /// Output format (default: table when TTY, json when piped)
+    #[arg(long, global = true, value_enum, default_value = "auto")]
+    format: OutputFormat,
 }
 
 #[derive(Subcommand)]
@@ -83,8 +88,8 @@ async fn run(cli: Cli) -> Result<()> {
     match cli.command {
         Commands::Auth(cmd) => commands::auth::run(cmd).await,
         Commands::Config(cmd) => commands::config::run(cmd).await,
-        Commands::Projects(cmd) => commands::projects::run(cmd).await,
-        Commands::Items(cmd) => commands::items::run(cmd).await,
+        Commands::Projects(cmd) => commands::projects::run(cmd, cli.format).await,
+        Commands::Items(cmd) => commands::items::run(cmd, cli.format).await,
         Commands::Version => commands::version::run(),
         Commands::Completion { shell } => {
             let mut cmd = Cli::command();
