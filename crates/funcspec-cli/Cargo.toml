@@ -6,6 +6,9 @@ edition.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
+keywords = ["funcspec", "cli", "api", "productivity"]
+categories = ["command-line-utilities", "web-programming::http-client"]
 
 [[bin]]
 name = "funcspec"

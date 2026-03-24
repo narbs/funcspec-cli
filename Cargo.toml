@@ -8,6 +8,7 @@ edition = "2024"
 authors = ["Christian Clare <narbs@narbs.net>"]
 license = "MIT"
 repository = "https://github.com/narbs/funcspec-cli"
+homepage = "https://funcspec.net"
 
 [workspace.dependencies]
 # HTTP & serialization
@@ -45,3 +46,10 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 chrono = { version = "0.4", features = ["serde"] }
 url = "2"
 open = "5"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

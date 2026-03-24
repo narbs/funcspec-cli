@@ -6,6 +6,9 @@ edition.workspace = true
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
+keywords = ["funcspec", "api-client", "async", "http"]
+categories = ["api-bindings", "web-programming::http-client"]
 
 [features]
 blocking = []
