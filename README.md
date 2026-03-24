@@ -1,2 +1,1 @@
-# funcspec-cli
-The CLI for funcspec.net
+# funcspec-cli\n\nRust CLI and client library for funcspec.net
