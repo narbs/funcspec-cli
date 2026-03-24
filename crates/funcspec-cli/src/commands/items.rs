@@ -47,6 +47,10 @@ pub enum ItemsCmd {
         #[arg(long, default_value = "25")]
         per: u32,
 
+        /// Sort field: score, title, created_at, updated_at, permalink
+        #[arg(long)]
+        sort: Option<String>,
+
         /// Output as JSON (overrides --format)
         #[arg(long)]
         json: bool,
@@ -54,6 +58,14 @@ pub enum ItemsCmd {
         /// Quiet mode: only output permalinks (overrides --format)
         #[arg(long)]
         quiet: bool,
+
+        /// Bare TSV output without borders or headers (overrides --format)
+        #[arg(long)]
+        bare: bool,
+
+        /// Output only the count of matching items
+        #[arg(long)]
+        count: bool,
     },
 
     /// Show item details
@@ -140,8 +152,11 @@ pub async fn run(cmd: ItemsCmd, format: OutputFormat) -> Result<()> {
             parent,
             page,
             per,
+            sort,
             json,
             quiet,
+            bare,
+            count,
         } => {
             let (client, project_id) = client_and_project().await?;
 
@@ -168,17 +183,25 @@ pub async fn run(cmd: ItemsCmd, format: OutputFormat) -> Result<()> {
                 has_review: if has_review { Some(true) } else { None },
                 review_verdict,
                 parent_id,
+                sort,
                 page: Some(page),
                 per: Some(per),
             };
 
             let (items, meta) = client.list_items(project_id, &filter).await?;
 
+            if count {
+                println!("{}", items.len());
+                return Ok(());
+            }
+
             // Per-command flags override the global --format
             let fmt = if json {
                 OutputFormat::Json
             } else if quiet {
                 OutputFormat::Minimal
+            } else if bare {
+                OutputFormat::Bare
             } else {
                 format
             };
@@ -408,9 +431,25 @@ mod tests {
             OutputFormat::Json
         } else if false {
             OutputFormat::Minimal
+        } else if false {
+            OutputFormat::Bare
         } else {
             global
         };
         assert_eq!(fmt, OutputFormat::Csv);
+    }
+
+    #[test]
+    fn list_format_override_bare_flag() {
+        let fmt = if false {
+            OutputFormat::Json
+        } else if false {
+            OutputFormat::Minimal
+        } else if true {
+            OutputFormat::Bare
+        } else {
+            OutputFormat::Table
+        };
+        assert_eq!(fmt, OutputFormat::Bare);
     }
 }

@@ -49,6 +49,9 @@ enum Commands {
     #[command(subcommand)]
     Items(commands::items::ItemsCmd),
 
+    /// Search spec items by full-text query
+    Search(commands::search::SearchArgs),
+
     /// Show version information
     Version,
 
@@ -90,6 +93,7 @@ async fn run(cli: Cli) -> Result<()> {
         Commands::Config(cmd) => commands::config::run(cmd).await,
         Commands::Projects(cmd) => commands::projects::run(cmd, cli.format).await,
         Commands::Items(cmd) => commands::items::run(cmd, cli.format).await,
+        Commands::Search(args) => commands::search::run(args, cli.format).await,
         Commands::Version => commands::version::run(),
         Commands::Completion { shell } => {
             let mut cmd = Cli::command();

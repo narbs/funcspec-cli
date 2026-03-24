@@ -26,6 +26,8 @@ pub enum OutputFormat {
     Minimal,
     /// Markdown (headers, bold, lists)
     Markdown,
+    /// Tab-separated values without borders or headers (pipe-friendly: grep, awk, cut)
+    Bare,
 }
 
 impl OutputFormat {
@@ -191,6 +193,21 @@ pub fn format_items(
                 println!("{}\t{}", item.attributes.permalink, item.attributes.title);
             }
         }
+        OutputFormat::Bare => {
+            for item in items {
+                let a = &item.attributes;
+                let score = a
+                    .review
+                    .as_ref()
+                    .and_then(|r| r.coverage_score)
+                    .map(|s| format!("{s:.0}"))
+                    .unwrap_or_default();
+                println!(
+                    "{}\t{}\t{}\t{}\t{}",
+                    a.permalink, a.type_of, a.title, a.implementation_status, score
+                );
+            }
+        }
         OutputFormat::Markdown => {
             println!("# Spec Items\n");
             for item in items {
@@ -243,6 +260,19 @@ pub fn format_item_detail(item: &SpecItem, format: OutputFormat) -> Result<()> {
         }
         OutputFormat::Minimal => {
             println!("{}\t{}", item.attributes.permalink, item.attributes.title);
+        }
+        OutputFormat::Bare => {
+            let a = &item.attributes;
+            let score = a
+                .review
+                .as_ref()
+                .and_then(|r| r.coverage_score)
+                .map(|s| format!("{s:.0}"))
+                .unwrap_or_default();
+            println!(
+                "{}\t{}\t{}\t{}\t{}",
+                a.permalink, a.type_of, a.title, a.implementation_status, score
+            );
         }
         OutputFormat::Markdown => item_detail_markdown(item),
         _ => item_detail(item),
@@ -441,6 +471,7 @@ mod tests {
         assert_eq!(OutputFormat::Csv.resolve(), OutputFormat::Csv);
         assert_eq!(OutputFormat::Minimal.resolve(), OutputFormat::Minimal);
         assert_eq!(OutputFormat::Markdown.resolve(), OutputFormat::Markdown);
+        assert_eq!(OutputFormat::Bare.resolve(), OutputFormat::Bare);
     }
 
     #[test]
@@ -521,6 +552,12 @@ mod tests {
     #[test]
     fn format_items_table_empty() {
         let result = format_items(&[], None, OutputFormat::Table);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn format_items_bare_empty() {
+        let result = format_items(&[], None, OutputFormat::Bare);
         assert!(result.is_ok());
     }
 

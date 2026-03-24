@@ -344,6 +344,7 @@ pub struct ItemFilter {
     pub has_review: Option<bool>,
     pub review_verdict: Option<String>,
     pub parent_id: Option<u64>,
+    pub sort: Option<String>,
     pub page: Option<u32>,
     pub per: Option<u32>,
 }
@@ -371,6 +372,9 @@ impl ItemFilter {
         }
         if let Some(id) = self.parent_id {
             pairs.push(("parent_id".into(), id.to_string()));
+        }
+        if let Some(ref s) = self.sort {
+            pairs.push(("sort".into(), s.clone()));
         }
         if let Some(p) = self.page {
             pairs.push(("page".into(), p.to_string()));
@@ -547,6 +551,16 @@ mod tests {
     }
 
     #[test]
+    fn item_filter_sort_param() {
+        let filter = ItemFilter {
+            sort: Some("score".into()),
+            ..Default::default()
+        };
+        let pairs = filter.to_query_pairs();
+        assert!(pairs.iter().any(|(k, v)| k == "sort" && v == "score"));
+    }
+
+    #[test]
     fn item_filter_to_query_pairs_full() {
         let filter = ItemFilter {
             type_of: Some(ItemType::Functional),
@@ -556,6 +570,7 @@ mod tests {
             has_review: Some(true),
             review_verdict: Some("approved".into()),
             parent_id: Some(42),
+            sort: Some("score".into()),
             page: Some(2),
             per: Some(10),
         };
@@ -567,6 +582,7 @@ mod tests {
         assert!(pairs.iter().any(|(k, v)| k == "has_review" && v == "true"));
         assert!(pairs.iter().any(|(k, v)| k == "review_verdict" && v == "approved"));
         assert!(pairs.iter().any(|(k, v)| k == "parent_id" && v == "42"));
+        assert!(pairs.iter().any(|(k, v)| k == "sort" && v == "score"));
         assert!(pairs.iter().any(|(k, v)| k == "page" && v == "2"));
         assert!(pairs.iter().any(|(k, v)| k == "per" && v == "10"));
     }

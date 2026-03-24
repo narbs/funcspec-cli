@@ -323,6 +323,113 @@ async fn delete_item_success() {
     client.delete_item(1, 3).await.unwrap();
 }
 
+// -- search_items ------------------------------------------------------------
+
+#[tokio::test]
+async fn search_items_sends_q_param() {
+    let server = setup_server().await;
+    let body = json!({
+        "data": [make_item_json(1, "F-1", "Auth feature")],
+        "meta": { "page": 1, "per": 25, "total": 1, "total_pages": 1 }
+    });
+
+    Mock::given(method("GET"))
+        .and(path("/api/v1/projects/1/spec/items"))
+        .and(query_param("q", "auth"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&body))
+        .mount(&server)
+        .await;
+
+    let client = client_for(&server);
+    let filter = ItemFilter::default();
+    let result = client.search_items(1, "auth", &filter).await.unwrap();
+    assert_eq!(result.data.len(), 1);
+    assert_eq!(result.data[0].attributes.permalink, "F-1");
+    assert_eq!(result.total_count, 1);
+}
+
+#[tokio::test]
+async fn search_items_with_type_filter() {
+    let server = setup_server().await;
+    let body = json!({ "data": [], "meta": null });
+
+    Mock::given(method("GET"))
+        .and(path("/api/v1/projects/1/spec/items"))
+        .and(query_param("q", "login"))
+        .and(query_param("type_of", "technical"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&body))
+        .mount(&server)
+        .await;
+
+    let client = client_for(&server);
+    let filter = ItemFilter {
+        type_of: Some(ItemType::Technical),
+        ..Default::default()
+    };
+    let result = client.search_items(1, "login", &filter).await.unwrap();
+    assert!(result.data.is_empty());
+}
+
+#[tokio::test]
+async fn search_items_overrides_filter_q() {
+    // If filter already has a q, search_items should replace it with the query arg
+    let server = setup_server().await;
+    let body = json!({ "data": [], "meta": null });
+
+    Mock::given(method("GET"))
+        .and(path("/api/v1/projects/1/spec/items"))
+        .and(query_param("q", "override"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&body))
+        .mount(&server)
+        .await;
+
+    let client = client_for(&server);
+    let filter = ItemFilter {
+        q: Some("ignored".into()), // this should be replaced
+        ..Default::default()
+    };
+    let result = client.search_items(1, "override", &filter).await.unwrap();
+    assert!(result.data.is_empty());
+}
+
+#[tokio::test]
+async fn list_items_with_sort_param() {
+    let server = setup_server().await;
+    let body = json!({ "data": [], "meta": null });
+
+    Mock::given(method("GET"))
+        .and(path("/api/v1/projects/1/spec/items"))
+        .and(query_param("sort", "score"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&body))
+        .mount(&server)
+        .await;
+
+    let client = client_for(&server);
+    let filter = ItemFilter {
+        sort: Some("score".into()),
+        ..Default::default()
+    };
+    let (items, _) = client.list_items(1, &filter).await.unwrap();
+    assert!(items.is_empty());
+}
+
+#[tokio::test]
+async fn search_items_404_returns_not_found() {
+    let server = setup_server().await;
+    let body = json!({ "error": "project not found" });
+
+    Mock::given(method("GET"))
+        .and(path("/api/v1/projects/999/spec/items"))
+        .respond_with(ResponseTemplate::new(404).set_body_json(&body))
+        .mount(&server)
+        .await;
+
+    let client = client_for(&server);
+    let filter = ItemFilter::default();
+    let err = client.search_items(999, "anything", &filter).await.unwrap_err();
+    assert!(matches!(err, Error::NotFound(_)));
+}
+
 // -- rate limit / 429 --------------------------------------------------------
 
 #[tokio::test]

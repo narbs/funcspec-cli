@@ -231,6 +231,31 @@ impl FuncspecClient {
         Ok((body.data, body.meta).into())
     }
 
+    /// Search spec items by full-text query, with optional type/tag filters.
+    ///
+    /// Calls GET /projects/{project_id}/spec/items?q=<query>[&type_of=...][&tag=...]
+    pub async fn search_items(
+        &self,
+        project_id: u64,
+        query: &str,
+        filter: &ItemFilter,
+    ) -> Result<PagedResponse<SpecItem>, Error> {
+        let url = self.api_url(&format!("/projects/{project_id}/spec/items"));
+        debug!(%url, %query, "search_items");
+        // Build query pairs from filter, then force-set q to the search query
+        let mut pairs = filter.to_query_pairs();
+        pairs.retain(|(k, _)| k != "q");
+        pairs.push(("q".into(), query.to_string()));
+        let resp = self
+            .request_with_retry(|| self.http.get(&url).query(&pairs).send())
+            .await?;
+        if !resp.status().is_success() {
+            return Err(Error::from_response(resp).await);
+        }
+        let body: ApiListResponse<SpecItem> = resp.json().await?;
+        Ok((body.data, body.meta).into())
+    }
+
     pub async fn get_item(
         &self,
         project_id: u64,

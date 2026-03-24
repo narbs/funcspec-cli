@@ -162,3 +162,65 @@ fn items_edit_requires_item_arg() {
 fn items_edit_help_exits_zero() {
     cmd().args(["items", "edit", "--help"]).assert().success();
 }
+
+// ── search command ────────────────────────────────────────────────────────────
+
+#[test]
+fn search_subcommand_help_exits_zero() {
+    cmd().args(["search", "--help"]).assert().success();
+}
+
+#[test]
+fn search_requires_query_arg() {
+    // search with no positional arg should fail
+    cmd().arg("search").assert().failure();
+}
+
+#[test]
+fn search_help_mentions_type_flag() {
+    let output = cmd().args(["search", "--help"]).output().unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("type"), "expected --type flag in search help");
+}
+
+#[test]
+fn search_help_mentions_tag_flag() {
+    let output = cmd().args(["search", "--help"]).output().unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("tag"), "expected --tag flag in search help");
+}
+
+#[test]
+fn search_help_mentions_count_flag() {
+    let output = cmd().args(["search", "--help"]).output().unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("count"), "expected --count flag in search help");
+}
+
+// ── items list new flags ─────────────────────────────────────────────────────
+
+#[test]
+fn items_list_sort_flag_in_help() {
+    let output = cmd().args(["items", "list", "--help"]).output().unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("sort"), "expected --sort flag in items list help");
+}
+
+#[test]
+fn items_list_bare_flag_in_help() {
+    let output = cmd().args(["items", "list", "--help"]).output().unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("bare"), "expected --bare flag in items list help");
+}
+
+#[test]
+fn items_list_count_flag_in_help() {
+    let output = cmd().args(["items", "list", "--help"]).output().unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("count"), "expected --count flag in items list help");
+}
+
+#[test]
+fn format_flag_bare_accepted() {
+    cmd().args(["--format", "bare", "version"]).assert().success();
+}
