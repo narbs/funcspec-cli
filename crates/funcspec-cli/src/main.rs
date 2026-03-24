@@ -55,6 +55,12 @@ enum Commands {
     /// Show project stats and dashboard
     Stats(commands::stats::StatsArgs),
 
+    /// Export project spec (markdown, JSON, CSV, HTML, PDF, DOCX)
+    Export(commands::export::ExportArgs),
+
+    /// Open project spec in browser
+    View(commands::view::ViewArgs),
+
     /// Show version information
     Version,
 
@@ -98,6 +104,8 @@ async fn run(cli: Cli) -> Result<()> {
         Commands::Items(cmd) => commands::items::run(cmd, cli.format).await,
         Commands::Search(args) => commands::search::run(args, cli.format).await,
         Commands::Stats(args) => commands::stats::run(args, cli.format).await,
+        Commands::Export(args) => commands::export::run(args).await,
+        Commands::View(args) => commands::view::run(args).await,
         Commands::Version => commands::version::run(),
         Commands::Completion { shell } => {
             let mut cmd = Cli::command();

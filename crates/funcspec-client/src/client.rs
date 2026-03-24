@@ -449,4 +449,206 @@ impl FuncspecClient {
         let body: ApiResponse<UsageStats> = resp.json().await?;
         Ok(body.data)
     }
+
+    // -- Export --
+
+    /// Export a project spec in the specified format.
+    ///
+    /// Text formats (`markdown`, `json`, `csv`, `html`) return [`ExportData::Text`].
+    /// Binary formats (`pdf`, `docx`) return [`ExportData::Binary`].
+    ///
+    /// Optional `item_type` (`"functional"` / `"technical"`) and `tag` filters are
+    /// forwarded as query parameters to the API.
+    pub async fn export_project(
+        &self,
+        project_id: u64,
+        format: &str,
+        item_type: Option<&str>,
+        tag: Option<&str>,
+    ) -> Result<ExportData, Error> {
+        let url = self.api_url(&format!("/projects/{project_id}/spec/export"));
+        debug!(%url, %format, "export_project");
+        let mut pairs: Vec<(String, String)> = vec![("format".into(), format.to_string())];
+        if let Some(t) = item_type {
+            pairs.push(("type_of".into(), t.to_string()));
+        }
+        if let Some(t) = tag {
+            pairs.push(("tag".into(), t.to_string()));
+        }
+        let resp = self
+            .request_with_retry(|| self.http.get(&url).query(&pairs).send())
+            .await?;
+        if !resp.status().is_success() {
+            return Err(Error::from_response(resp).await);
+        }
+        let is_binary = matches!(format, "pdf" | "docx");
+        if is_binary {
+            let bytes = resp.bytes().await.map_err(Error::from)?;
+            Ok(ExportData::Binary(bytes.to_vec()))
+        } else {
+            let text = resp.text().await.map_err(Error::from)?;
+            Ok(ExportData::Text(text))
+        }
+    }
+
+    /// Fetch the viewable HTML spec for a project.
+    ///
+    /// Calls `GET /projects/:id/spec/view` and returns the response body as a
+    /// UTF-8 string.
+    pub async fn get_viewable_html(&self, project_id: u64) -> Result<String, Error> {
+        let url = self.api_url(&format!("/projects/{project_id}/spec/view"));
+        debug!(%url, "get_viewable_html");
+        let resp = self
+            .request_with_retry(|| self.http.get(&url).send())
+            .await?;
+        if !resp.status().is_success() {
+            return Err(Error::from_response(resp).await);
+        }
+        Ok(resp.text().await.map_err(Error::from)?)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use wiremock::matchers::{method, path, query_param};
+    use wiremock::{Mock, MockServer, ResponseTemplate};
+
+    async fn make_client(base_url: &str) -> FuncspecClient {
+        FuncspecClient::new(base_url, "test-key").unwrap()
+    }
+
+    #[tokio::test]
+    async fn export_project_text_format() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/api/v1/projects/42/spec/export"))
+            .and(query_param("format", "markdown"))
+            .respond_with(ResponseTemplate::new(200).set_body_string("# My Spec\n\nContent here."))
+            .mount(&server)
+            .await;
+
+        let client = make_client(&server.uri()).await;
+        let result = client.export_project(42, "markdown", None, None).await.unwrap();
+        match result {
+            ExportData::Text(text) => assert!(text.contains("# My Spec")),
+            ExportData::Binary(_) => panic!("expected text"),
+        }
+    }
+
+    #[tokio::test]
+    async fn export_project_with_filters() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/api/v1/projects/42/spec/export"))
+            .and(query_param("format", "csv"))
+            .and(query_param("type_of", "functional"))
+            .and(query_param("tag", "v1"))
+            .respond_with(ResponseTemplate::new(200).set_body_string("id,title\n1,Login"))
+            .mount(&server)
+            .await;
+
+        let client = make_client(&server.uri()).await;
+        let result = client
+            .export_project(42, "csv", Some("functional"), Some("v1"))
+            .await
+            .unwrap();
+        match result {
+            ExportData::Text(text) => assert!(text.contains("id,title")),
+            ExportData::Binary(_) => panic!("expected text"),
+        }
+    }
+
+    #[tokio::test]
+    async fn export_project_binary_format() {
+        let server = MockServer::start().await;
+        let pdf_bytes = b"%PDF-1.4 fake pdf content".to_vec();
+        Mock::given(method("GET"))
+            .and(path("/api/v1/projects/7/spec/export"))
+            .and(query_param("format", "pdf"))
+            .respond_with(ResponseTemplate::new(200).set_body_bytes(pdf_bytes.clone()))
+            .mount(&server)
+            .await;
+
+        let client = make_client(&server.uri()).await;
+        let result = client.export_project(7, "pdf", None, None).await.unwrap();
+        match result {
+            ExportData::Binary(bytes) => assert_eq!(bytes, pdf_bytes),
+            ExportData::Text(_) => panic!("expected binary"),
+        }
+    }
+
+    #[tokio::test]
+    async fn export_project_docx_binary() {
+        let server = MockServer::start().await;
+        let docx_bytes = b"PK\x03\x04fake docx".to_vec();
+        Mock::given(method("GET"))
+            .and(path("/api/v1/projects/5/spec/export"))
+            .and(query_param("format", "docx"))
+            .respond_with(ResponseTemplate::new(200).set_body_bytes(docx_bytes.clone()))
+            .mount(&server)
+            .await;
+
+        let client = make_client(&server.uri()).await;
+        let result = client.export_project(5, "docx", None, None).await.unwrap();
+        match result {
+            ExportData::Binary(bytes) => assert_eq!(bytes, docx_bytes),
+            ExportData::Text(_) => panic!("expected binary"),
+        }
+    }
+
+    #[tokio::test]
+    async fn export_project_error_response() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/api/v1/projects/99/spec/export"))
+            .respond_with(
+                ResponseTemplate::new(404)
+                    .set_body_json(serde_json::json!({"error": "Project not found"})),
+            )
+            .mount(&server)
+            .await;
+
+        let client = make_client(&server.uri()).await;
+        let result = client.export_project(99, "markdown", None, None).await;
+        assert!(matches!(result, Err(Error::NotFound(_))));
+    }
+
+    #[tokio::test]
+    async fn get_viewable_html_returns_string() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/api/v1/projects/3/spec/view"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_string("<html><body>Spec</body></html>"),
+            )
+            .mount(&server)
+            .await;
+
+        let client = make_client(&server.uri()).await;
+        let html = client.get_viewable_html(3).await.unwrap();
+        assert!(html.contains("<html>"));
+    }
+
+    #[tokio::test]
+    async fn get_viewable_html_error() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/api/v1/projects/0/spec/view"))
+            .respond_with(
+                ResponseTemplate::new(403)
+                    .set_body_json(serde_json::json!({"error": "Forbidden"})),
+            )
+            .mount(&server)
+            .await;
+
+        let client = make_client(&server.uri()).await;
+        let result = client.get_viewable_html(0).await;
+        assert!(matches!(result, Err(Error::Forbidden(_))));
+    }
 }

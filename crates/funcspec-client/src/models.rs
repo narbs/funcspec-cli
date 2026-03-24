@@ -742,3 +742,16 @@ mod tests {
         assert!(pairs.iter().any(|(k, v)| k == "per" && v == "10"));
     }
 }
+
+// ---------------------------------------------------------------------------
+// Export
+// ---------------------------------------------------------------------------
+
+/// Data returned by the export API.
+#[derive(Debug)]
+pub enum ExportData {
+    /// Text-based format (markdown, json, csv, html).
+    Text(String),
+    /// Binary format (pdf, docx).
+    Binary(Vec<u8>),
+}
