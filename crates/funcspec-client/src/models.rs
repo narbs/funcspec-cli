@@ -387,6 +387,87 @@ impl ItemFilter {
 }
 
 // ---------------------------------------------------------------------------
+// Stats
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProjectStats {
+    pub total_items: u32,
+    pub functional_count: u32,
+    pub technical_count: u32,
+    pub status_breakdown: std::collections::HashMap<String, u32>,
+    pub review_coverage: ReviewCoverage,
+    pub verdict_distribution: VerdictDistribution,
+    pub tag_summary: std::collections::HashMap<String, u32>,
+    pub recent_activity: Vec<RecentActivity>,
+    pub last_updated: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReviewCoverage {
+    pub reviewed_count: u32,
+    pub total_count: u32,
+    pub avg_score: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VerdictDistribution {
+    pub pass: u32,
+    pub needs_refinement: u32,
+    pub major_gaps: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RecentActivity {
+    pub item_id: String,
+    pub item_title: String,
+    pub updated_at: DateTime<Utc>,
+    pub activity_type: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UsageStats {
+    pub month: String,
+    pub total_tokens: u32,
+    pub estimated_cost: f64,
+    pub breakdown_by_operation: std::collections::HashMap<String, TokenUsage>,
+    pub last_updated: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TokenUsage {
+    pub tokens: u32,
+    pub cost: f64,
+}
+
+// ---------------------------------------------------------------------------
+// Usage filter
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Default)]
+pub struct UsageFilter {
+    pub month: Option<String>,
+    pub page: Option<u32>,
+    pub per: Option<u32>,
+}
+
+impl UsageFilter {
+    pub fn to_query_pairs(&self) -> Vec<(String, String)> {
+        let mut pairs = Vec::new();
+        if let Some(ref m) = self.month {
+            pairs.push(("month".into(), m.clone()));
+        }
+        if let Some(p) = self.page {
+            pairs.push(("page".into(), p.to_string()));
+        }
+        if let Some(p) = self.per {
+            pairs.push(("per".into(), p.to_string()));
+        }
+        pairs
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
@@ -558,6 +639,80 @@ mod tests {
         };
         let pairs = filter.to_query_pairs();
         assert!(pairs.iter().any(|(k, v)| k == "sort" && v == "score"));
+    }
+
+    #[test]
+    fn project_stats_deserialize() {
+        let json = r#"{
+            "total_items": 42,
+            "functional_count": 12,
+            "technical_count": 30,
+            "status_breakdown": {"implemented": 28, "in_progress": 8, "not_started": 6},
+            "review_coverage": {
+                "reviewed_count": 35,
+                "total_count": 42,
+                "avg_score": 87.2
+            },
+            "verdict_distribution": {
+                "pass": 20,
+                "needs_refinement": 12,
+                "major_gaps": 3
+            },
+            "tag_summary": {"auth": 5, "backend": 10},
+            "recent_activity": [
+                {
+                    "item_id": "F-5",
+                    "item_title": "AI Operations",
+                    "updated_at": "2026-03-20T10:00:00Z",
+                    "activity_type": "updated"
+                }
+            ],
+            "last_updated": "2026-03-20T10:00:00Z"
+        }"#;
+        let s: ProjectStats = serde_json::from_str(json).unwrap();
+        assert_eq!(s.total_items, 42);
+        assert_eq!(s.functional_count, 12);
+        assert_eq!(s.technical_count, 30);
+        assert_eq!(s.status_breakdown.get("implemented"), Some(&28u32));
+        assert_eq!(s.review_coverage.reviewed_count, 35);
+        assert_eq!(s.review_coverage.avg_score, Some(87.2));
+        assert_eq!(s.verdict_distribution.pass, 20);
+        assert_eq!(s.verdict_distribution.needs_refinement, 12);
+        assert_eq!(s.tag_summary.get("auth"), Some(&5u32));
+        assert_eq!(s.recent_activity.len(), 1);
+        assert_eq!(s.recent_activity[0].item_id, "F-5");
+    }
+
+    #[test]
+    fn usage_stats_deserialize() {
+        let json = r#"{
+            "month": "2026-03",
+            "total_tokens": 45200,
+            "estimated_cost": 0.12,
+            "breakdown_by_operation": {
+                "review": {"tokens": 30000, "cost": 0.08},
+                "analysis": {"tokens": 15200, "cost": 0.04}
+            },
+            "last_updated": "2026-03-24T00:00:00Z"
+        }"#;
+        let s: UsageStats = serde_json::from_str(json).unwrap();
+        assert_eq!(s.month, "2026-03");
+        assert_eq!(s.total_tokens, 45200);
+        assert!((s.estimated_cost - 0.12).abs() < 1e-9);
+        assert_eq!(s.breakdown_by_operation.get("review").map(|u| u.tokens), Some(30000));
+    }
+
+    #[test]
+    fn usage_filter_query_pairs() {
+        let f = UsageFilter {
+            month: Some("2026-03".into()),
+            page: Some(2),
+            per: Some(20),
+        };
+        let pairs = f.to_query_pairs();
+        assert!(pairs.iter().any(|(k, v)| k == "month" && v == "2026-03"));
+        assert!(pairs.iter().any(|(k, v)| k == "page" && v == "2"));
+        assert!(pairs.iter().any(|(k, v)| k == "per" && v == "20"));
     }
 
     #[test]

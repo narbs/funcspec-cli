@@ -392,4 +392,61 @@ impl FuncspecClient {
         let body: ApiListResponse<UsageLog> = resp.json().await?;
         Ok(body.data)
     }
+
+    // -- Stats --
+
+    /// Fetch aggregated dashboard stats for a project.
+    pub async fn get_project_stats(&self, project_id: u64) -> Result<ProjectStats, Error> {
+        let url = self.api_url(&format!("/projects/{project_id}/stats"));
+        debug!(%url, "get_project_stats");
+        let resp = self
+            .request_with_retry(|| self.http.get(&url).send())
+            .await?;
+        if !resp.status().is_success() {
+            return Err(Error::from_response(resp).await);
+        }
+        let body: ApiResponse<ProjectStats> = resp.json().await?;
+        Ok(body.data)
+    }
+
+    /// Fetch LLM usage logs for a project, with optional month filter.
+    pub async fn get_usage_logs(
+        &self,
+        project_id: u64,
+        filter: &UsageFilter,
+    ) -> Result<PagedResponse<UsageLog>, Error> {
+        let url = self.api_url(&format!("/projects/{project_id}/usage/logs"));
+        debug!(%url, "get_usage_logs");
+        let pairs = filter.to_query_pairs();
+        let resp = self
+            .request_with_retry(|| self.http.get(&url).query(&pairs).send())
+            .await?;
+        if !resp.status().is_success() {
+            return Err(Error::from_response(resp).await);
+        }
+        let body: ApiListResponse<UsageLog> = resp.json().await?;
+        Ok((body.data, body.meta).into())
+    }
+
+    /// Fetch LLM usage summary for a project. Pass `month` as "YYYY-MM" to filter.
+    pub async fn get_usage_stats(
+        &self,
+        project_id: u64,
+        month: Option<&str>,
+    ) -> Result<UsageStats, Error> {
+        let url = self.api_url(&format!("/projects/{project_id}/usage"));
+        debug!(%url, "get_usage_stats");
+        let mut pairs: Vec<(String, String)> = Vec::new();
+        if let Some(m) = month {
+            pairs.push(("month".into(), m.to_string()));
+        }
+        let resp = self
+            .request_with_retry(|| self.http.get(&url).query(&pairs).send())
+            .await?;
+        if !resp.status().is_success() {
+            return Err(Error::from_response(resp).await);
+        }
+        let body: ApiResponse<UsageStats> = resp.json().await?;
+        Ok(body.data)
+    }
 }

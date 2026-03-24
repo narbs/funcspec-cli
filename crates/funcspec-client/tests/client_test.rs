@@ -504,3 +504,155 @@ async fn forbidden_error_from_403() {
     let err = client.list_projects().await.unwrap_err();
     assert!(matches!(err, Error::Forbidden(_)));
 }
+
+// -- get_project_stats -------------------------------------------------------
+
+fn make_project_stats_json() -> serde_json::Value {
+    json!({
+        "data": {
+            "total_items": 42,
+            "functional_count": 12,
+            "technical_count": 30,
+            "status_breakdown": {
+                "implemented": 28,
+                "in_progress": 8,
+                "not_started": 6
+            },
+            "review_coverage": {
+                "reviewed_count": 35,
+                "total_count": 42,
+                "avg_score": 87.2
+            },
+            "verdict_distribution": {
+                "pass": 20,
+                "needs_refinement": 12,
+                "major_gaps": 3
+            },
+            "tag_summary": {"auth": 5, "backend": 10},
+            "recent_activity": [
+                {
+                    "item_id": "F-5",
+                    "item_title": "AI Operations",
+                    "updated_at": "2026-03-20T10:00:00Z",
+                    "activity_type": "updated"
+                }
+            ],
+            "last_updated": "2026-03-20T10:00:00Z"
+        }
+    })
+}
+
+#[tokio::test]
+async fn get_project_stats_success() {
+    let server = setup_server().await;
+
+    Mock::given(method("GET"))
+        .and(path("/api/v1/projects/1/stats"))
+        .and(header("X-Api-Key", "test-api-key"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&make_project_stats_json()))
+        .mount(&server)
+        .await;
+
+    let client = client_for(&server);
+    let stats = client.get_project_stats(1).await.unwrap();
+    assert_eq!(stats.total_items, 42);
+    assert_eq!(stats.functional_count, 12);
+    assert_eq!(stats.technical_count, 30);
+    assert_eq!(stats.review_coverage.reviewed_count, 35);
+    assert!((stats.review_coverage.avg_score.unwrap() - 87.2).abs() < 1e-9);
+    assert_eq!(stats.verdict_distribution.pass, 20);
+    assert_eq!(stats.recent_activity.len(), 1);
+    assert_eq!(stats.recent_activity[0].item_id, "F-5");
+}
+
+#[tokio::test]
+async fn get_project_stats_not_found() {
+    let server = setup_server().await;
+    let body = json!({ "error": "not found" });
+
+    Mock::given(method("GET"))
+        .and(path("/api/v1/projects/999/stats"))
+        .respond_with(ResponseTemplate::new(404).set_body_json(&body))
+        .mount(&server)
+        .await;
+
+    let client = client_for(&server);
+    let err = client.get_project_stats(999).await.unwrap_err();
+    assert!(matches!(err, Error::NotFound(_)));
+}
+
+// -- get_usage_stats ---------------------------------------------------------
+
+fn make_usage_stats_json() -> serde_json::Value {
+    json!({
+        "data": {
+            "month": "2026-03",
+            "total_tokens": 45200,
+            "estimated_cost": 0.12,
+            "breakdown_by_operation": {
+                "review": {"tokens": 30000, "cost": 0.08},
+                "analysis": {"tokens": 15200, "cost": 0.04}
+            },
+            "last_updated": "2026-03-24T00:00:00Z"
+        }
+    })
+}
+
+#[tokio::test]
+async fn get_usage_stats_success() {
+    let server = setup_server().await;
+
+    Mock::given(method("GET"))
+        .and(path("/api/v1/projects/1/usage"))
+        .and(header("X-Api-Key", "test-api-key"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&make_usage_stats_json()))
+        .mount(&server)
+        .await;
+
+    let client = client_for(&server);
+    let stats = client.get_usage_stats(1, None).await.unwrap();
+    assert_eq!(stats.month, "2026-03");
+    assert_eq!(stats.total_tokens, 45200);
+    assert!((stats.estimated_cost - 0.12).abs() < 1e-9);
+    assert_eq!(stats.breakdown_by_operation.get("review").map(|u| u.tokens), Some(30000));
+}
+
+#[tokio::test]
+async fn get_usage_stats_with_month_param() {
+    let server = setup_server().await;
+
+    Mock::given(method("GET"))
+        .and(path("/api/v1/projects/1/usage"))
+        .and(query_param("month", "2026-02"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&make_usage_stats_json()))
+        .mount(&server)
+        .await;
+
+    let client = client_for(&server);
+    let stats = client.get_usage_stats(1, Some("2026-02")).await.unwrap();
+    assert_eq!(stats.total_tokens, 45200);
+}
+
+// -- get_usage_logs ----------------------------------------------------------
+
+#[tokio::test]
+async fn get_usage_logs_success() {
+    use funcspec_client::models::UsageFilter;
+    let server = setup_server().await;
+    let body = json!({
+        "data": [],
+        "meta": {"page": 1, "per": 25, "total": 0, "total_pages": 0}
+    });
+
+    Mock::given(method("GET"))
+        .and(path("/api/v1/projects/1/usage/logs"))
+        .and(header("X-Api-Key", "test-api-key"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&body))
+        .mount(&server)
+        .await;
+
+    let client = client_for(&server);
+    let result = client.get_usage_logs(1, &UsageFilter::default()).await.unwrap();
+    assert!(result.data.is_empty());
+    assert_eq!(result.total_count, 0);
+}
