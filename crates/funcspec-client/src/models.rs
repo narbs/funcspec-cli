@@ -154,6 +154,12 @@ pub struct ReviewAttributes {
     pub comment: Option<String>,
     pub coverage_score: Option<f64>,
     pub verdict: Option<String>,
+    #[serde(default)]
+    pub coverage_map: Vec<String>,
+    #[serde(default)]
+    pub gaps: Vec<String>,
+    #[serde(default)]
+    pub suggestions: Vec<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -174,6 +180,50 @@ impl std::fmt::Display for ReviewStatus {
             ReviewStatus::Rejected => write!(f, "rejected"),
         }
     }
+}
+
+// ---------------------------------------------------------------------------
+// AI — Proposal
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Proposal {
+    pub id: u64,
+    #[serde(rename = "type")]
+    pub resource_type: String,
+    pub attributes: ProposalAttributes,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProposalAttributes {
+    pub spec_item_id: u64,
+    pub original_description: Option<String>,
+    pub proposed_description: Option<String>,
+    pub rationale: Option<String>,
+    pub status: String,
+    pub created_at: DateTime<Utc>,
+}
+
+// ---------------------------------------------------------------------------
+// AI — Tech Proposals
+// ---------------------------------------------------------------------------
+
+/// A single proposed technical spec item.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TechProposal {
+    pub title: String,
+    pub description: Option<String>,
+    pub type_of: String,
+    pub rationale: Option<String>,
+}
+
+/// Collection of tech spec proposals generated from a functional item.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TechProposals {
+    pub functional_item_id: u64,
+    pub functional_item_permalink: String,
+    #[serde(default)]
+    pub proposals: Vec<TechProposal>,
 }
 
 // ---------------------------------------------------------------------------
@@ -700,6 +750,129 @@ mod tests {
         assert_eq!(s.total_tokens, 45200);
         assert!((s.estimated_cost - 0.12).abs() < 1e-9);
         assert_eq!(s.breakdown_by_operation.get("review").map(|u| u.tokens), Some(30000));
+    }
+
+    #[test]
+    fn review_attributes_with_ai_fields_deserialize() {
+        let json = r#"{
+            "data": {
+                "id": 1,
+                "type": "review",
+                "attributes": {
+                    "spec_item_id": 5,
+                    "reviewer": "ai",
+                    "status": "approved",
+                    "comment": "Looks good",
+                    "coverage_score": 87.5,
+                    "verdict": "pass",
+                    "coverage_map": ["Authentication flow", "Error handling"],
+                    "gaps": ["Missing edge case for expired tokens"],
+                    "suggestions": ["Add retry logic"],
+                    "created_at": "2026-01-01T00:00:00Z",
+                    "updated_at": "2026-01-02T00:00:00Z"
+                }
+            }
+        }"#;
+        let resp: ApiResponse<Review> = serde_json::from_str(json).unwrap();
+        let attrs = &resp.data.attributes;
+        assert_eq!(attrs.coverage_score, Some(87.5));
+        assert_eq!(attrs.coverage_map.len(), 2);
+        assert_eq!(attrs.gaps.len(), 1);
+        assert_eq!(attrs.suggestions.len(), 1);
+        assert_eq!(attrs.gaps[0], "Missing edge case for expired tokens");
+    }
+
+    #[test]
+    fn review_attributes_missing_ai_fields_defaults_empty() {
+        let json = r#"{
+            "data": {
+                "id": 2,
+                "type": "review",
+                "attributes": {
+                    "spec_item_id": 3,
+                    "reviewer": "human",
+                    "status": "pending",
+                    "comment": null,
+                    "coverage_score": null,
+                    "verdict": null,
+                    "created_at": "2026-01-01T00:00:00Z",
+                    "updated_at": "2026-01-01T00:00:00Z"
+                }
+            }
+        }"#;
+        let resp: ApiResponse<Review> = serde_json::from_str(json).unwrap();
+        let attrs = &resp.data.attributes;
+        assert!(attrs.coverage_map.is_empty());
+        assert!(attrs.gaps.is_empty());
+        assert!(attrs.suggestions.is_empty());
+    }
+
+    #[test]
+    fn proposal_deserialize() {
+        let json = r#"{
+            "data": {
+                "id": 10,
+                "type": "proposal",
+                "attributes": {
+                    "spec_item_id": 5,
+                    "original_description": "User can log in with email.",
+                    "proposed_description": "User can log in with email and password. The system validates credentials and returns a JWT.",
+                    "rationale": "More detail improves clarity",
+                    "status": "pending",
+                    "created_at": "2026-03-01T00:00:00Z"
+                }
+            }
+        }"#;
+        let resp: ApiResponse<Proposal> = serde_json::from_str(json).unwrap();
+        let attrs = &resp.data.attributes;
+        assert_eq!(attrs.spec_item_id, 5);
+        assert_eq!(attrs.status, "pending");
+        assert!(attrs.proposed_description.as_deref().unwrap().contains("JWT"));
+        assert!(attrs.rationale.is_some());
+    }
+
+    #[test]
+    fn tech_proposals_deserialize() {
+        let json = r#"{
+            "data": {
+                "functional_item_id": 1,
+                "functional_item_permalink": "F-1",
+                "proposals": [
+                    {
+                        "title": "Database schema for users",
+                        "description": "Create users table",
+                        "type_of": "technical",
+                        "rationale": "Required for auth"
+                    },
+                    {
+                        "title": "JWT middleware",
+                        "description": null,
+                        "type_of": "technical",
+                        "rationale": null
+                    }
+                ]
+            }
+        }"#;
+        let resp: ApiResponse<TechProposals> = serde_json::from_str(json).unwrap();
+        let tp = &resp.data;
+        assert_eq!(tp.functional_item_id, 1);
+        assert_eq!(tp.functional_item_permalink, "F-1");
+        assert_eq!(tp.proposals.len(), 2);
+        assert_eq!(tp.proposals[0].title, "Database schema for users");
+        assert!(tp.proposals[0].rationale.is_some());
+        assert!(tp.proposals[1].rationale.is_none());
+    }
+
+    #[test]
+    fn tech_proposals_empty_proposals_defaults() {
+        let json = r#"{
+            "data": {
+                "functional_item_id": 99,
+                "functional_item_permalink": "F-99"
+            }
+        }"#;
+        let resp: ApiResponse<TechProposals> = serde_json::from_str(json).unwrap();
+        assert!(resp.data.proposals.is_empty());
     }
 
     #[test]

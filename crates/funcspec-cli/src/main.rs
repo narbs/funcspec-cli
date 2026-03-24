@@ -33,6 +33,10 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
+    /// AI-powered review, improvement, generation, and audit operations
+    #[command(subcommand)]
+    Ai(commands::ai::AiCmd),
+
     /// Manage authentication and credentials
     #[command(subcommand)]
     Auth(commands::auth::AuthCmd),
@@ -98,6 +102,7 @@ async fn main() {
 
 async fn run(cli: Cli) -> Result<()> {
     match cli.command {
+        Commands::Ai(cmd) => commands::ai::run(cmd).await,
         Commands::Auth(cmd) => commands::auth::run(cmd).await,
         Commands::Config(cmd) => commands::config::run(cmd).await,
         Commands::Projects(cmd) => commands::projects::run(cmd, cli.format).await,

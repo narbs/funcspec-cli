@@ -11,8 +11,9 @@ pub use error::Error;
 pub use models::{
     AuditResult, CreateItemParams, CreateProjectParams, CreateReviewParams, ExportData,
     ImplementationStatus, ItemFilter, ItemType, Job, JobStatus, PaginationMeta, Project,
-    ProjectAttributes, ProjectStats, RecentActivity, Review, ReviewCoverage, ReviewStatus,
-    ReviewSummary, SpecItem, SpecItemAttributes, Snapshot, TokenUsage, UpdateItemParams,
-    UpdateProjectParams, UsageFilter, UsageLog, UsageStats, UserInfo, VerdictDistribution,
+    ProjectAttributes, ProjectStats, Proposal, ProposalAttributes, RecentActivity, Review,
+    ReviewCoverage, ReviewStatus, ReviewSummary, SpecItem, SpecItemAttributes, Snapshot,
+    TechProposal, TechProposals, TokenUsage, UpdateItemParams, UpdateProjectParams, UsageFilter,
+    UsageLog, UsageStats, UserInfo, VerdictDistribution,
 };
 pub use pagination::{collect_all_pages, stream_all_pages, PagedResponse};

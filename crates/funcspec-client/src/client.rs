@@ -379,6 +379,181 @@ impl FuncspecClient {
         Ok(body.data)
     }
 
+    // -- AI Operations --
+
+    /// Trigger AI review of a single spec item.
+    ///
+    /// Calls `POST /projects/:project_id/work_package/:item_id/review`.
+    pub async fn review_item(&self, project_id: u64, item_id: u64) -> Result<Review, Error> {
+        let url = self.api_url(&format!(
+            "/projects/{project_id}/work_package/{item_id}/review"
+        ));
+        debug!(%url, "review_item");
+        let resp = self
+            .request_with_retry(|| self.http.post(&url).send())
+            .await?;
+        if !resp.status().is_success() {
+            return Err(Error::from_response(resp).await);
+        }
+        let body: ApiResponse<Review> = resp.json().await?;
+        Ok(body.data)
+    }
+
+    /// Trigger batch AI review of all items in a project.
+    ///
+    /// Calls `POST /projects/:project_id/work_package/review_all` and returns an
+    /// async [`Job`] that can be polled via [`poll_job_until_done`].
+    pub async fn review_all(&self, project_id: u64) -> Result<Job, Error> {
+        let url = self.api_url(&format!("/projects/{project_id}/work_package/review_all"));
+        debug!(%url, "review_all");
+        let resp = self
+            .request_with_retry(|| self.http.post(&url).send())
+            .await?;
+        if !resp.status().is_success() {
+            return Err(Error::from_response(resp).await);
+        }
+        let body: ApiResponse<Job> = resp.json().await?;
+        Ok(body.data)
+    }
+
+    /// Propose an AI-generated improvement for a spec item.
+    ///
+    /// Calls `POST /projects/:project_id/work_package/:item_id/propose`.
+    pub async fn propose_improvement(
+        &self,
+        project_id: u64,
+        item_id: u64,
+    ) -> Result<Proposal, Error> {
+        let url = self.api_url(&format!(
+            "/projects/{project_id}/work_package/{item_id}/propose"
+        ));
+        debug!(%url, "propose_improvement");
+        let resp = self
+            .request_with_retry(|| self.http.post(&url).send())
+            .await?;
+        if !resp.status().is_success() {
+            return Err(Error::from_response(resp).await);
+        }
+        let body: ApiResponse<Proposal> = resp.json().await?;
+        Ok(body.data)
+    }
+
+    /// Accept a pending improvement proposal for a spec item.
+    ///
+    /// Calls `POST /projects/:project_id/work_package/:item_id/accept`.
+    pub async fn accept_proposal(&self, project_id: u64, item_id: u64) -> Result<(), Error> {
+        let url = self.api_url(&format!(
+            "/projects/{project_id}/work_package/{item_id}/accept"
+        ));
+        debug!(%url, "accept_proposal");
+        let resp = self
+            .request_with_retry(|| self.http.post(&url).send())
+            .await?;
+        if !resp.status().is_success() {
+            return Err(Error::from_response(resp).await);
+        }
+        Ok(())
+    }
+
+    /// Reject a pending improvement proposal for a spec item.
+    ///
+    /// Calls `POST /projects/:project_id/work_package/:item_id/reject`.
+    pub async fn reject_proposal(&self, project_id: u64, item_id: u64) -> Result<(), Error> {
+        let url = self.api_url(&format!(
+            "/projects/{project_id}/work_package/{item_id}/reject"
+        ));
+        debug!(%url, "reject_proposal");
+        let resp = self
+            .request_with_retry(|| self.http.post(&url).send())
+            .await?;
+        if !resp.status().is_success() {
+            return Err(Error::from_response(resp).await);
+        }
+        Ok(())
+    }
+
+    /// Generate technical spec proposals from a functional spec item.
+    ///
+    /// Calls `POST /projects/:project_id/work_package/:item_id/generate_tech`.
+    pub async fn generate_tech(
+        &self,
+        project_id: u64,
+        item_id: u64,
+    ) -> Result<TechProposals, Error> {
+        let url = self.api_url(&format!(
+            "/projects/{project_id}/work_package/{item_id}/generate_tech"
+        ));
+        debug!(%url, "generate_tech");
+        let resp = self
+            .request_with_retry(|| self.http.post(&url).send())
+            .await?;
+        if !resp.status().is_success() {
+            return Err(Error::from_response(resp).await);
+        }
+        let body: ApiResponse<TechProposals> = resp.json().await?;
+        Ok(body.data)
+    }
+
+    /// Run a code audit for a spec item.
+    ///
+    /// Calls `POST /projects/:project_id/work_package/:item_id/audit`.
+    pub async fn audit_item(&self, project_id: u64, item_id: u64) -> Result<AuditResult, Error> {
+        let url = self.api_url(&format!(
+            "/projects/{project_id}/work_package/{item_id}/audit"
+        ));
+        debug!(%url, "audit_item");
+        let resp = self
+            .request_with_retry(|| self.http.post(&url).send())
+            .await?;
+        if !resp.status().is_success() {
+            return Err(Error::from_response(resp).await);
+        }
+        let body: ApiResponse<AuditResult> = resp.json().await?;
+        Ok(body.data)
+    }
+
+    /// Fetch a job by ID within a project context.
+    ///
+    /// Calls `GET /projects/:project_id/jobs/:job_id`.
+    pub async fn get_project_job(&self, project_id: u64, job_id: u64) -> Result<Job, Error> {
+        let url = self.api_url(&format!("/projects/{project_id}/jobs/{job_id}"));
+        debug!(%url, "get_project_job");
+        let resp = self
+            .request_with_retry(|| self.http.get(&url).send())
+            .await?;
+        if !resp.status().is_success() {
+            return Err(Error::from_response(resp).await);
+        }
+        let body: ApiResponse<Job> = resp.json().await?;
+        Ok(body.data)
+    }
+
+    /// Poll a job until it reaches a terminal state (Completed or Failed).
+    ///
+    /// Returns the final [`Job`] on completion, or [`Error::Timeout`] if `timeout`
+    /// elapses before the job finishes. Polls every 500 ms.
+    pub async fn poll_job_until_done(
+        &self,
+        job_id: u64,
+        timeout: Duration,
+    ) -> Result<Job, Error> {
+        let start = std::time::Instant::now();
+        let poll_interval = Duration::from_millis(500);
+        loop {
+            let job = self.get_job(job_id).await?;
+            match job.attributes.status {
+                JobStatus::Completed | JobStatus::Failed => return Ok(job),
+                _ => {}
+            }
+            if start.elapsed() >= timeout {
+                return Err(Error::Timeout {
+                    secs: timeout.as_secs(),
+                });
+            }
+            tokio::time::sleep(poll_interval).await;
+        }
+    }
+
     // -- Usage --
 
     pub async fn list_usage(&self) -> Result<Vec<UsageLog>, Error> {
@@ -650,5 +825,301 @@ mod tests {
         let client = make_client(&server.uri()).await;
         let result = client.get_viewable_html(0).await;
         assert!(matches!(result, Err(Error::Forbidden(_))));
+    }
+
+    // -- AI Operations --
+
+    #[tokio::test]
+    async fn review_item_returns_review() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/api/v1/projects/1/work_package/5/review"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "data": {
+                    "id": 42,
+                    "type": "review",
+                    "attributes": {
+                        "spec_item_id": 5,
+                        "reviewer": "ai",
+                        "status": "approved",
+                        "comment": "Well defined",
+                        "coverage_score": 90.0,
+                        "verdict": "pass",
+                        "coverage_map": ["Auth flow", "Error cases"],
+                        "gaps": [],
+                        "suggestions": ["Consider adding retry logic"],
+                        "created_at": "2026-01-01T00:00:00Z",
+                        "updated_at": "2026-01-01T00:00:00Z"
+                    }
+                }
+            })))
+            .mount(&server)
+            .await;
+
+        let client = make_client(&server.uri()).await;
+        let review = client.review_item(1, 5).await.unwrap();
+        assert_eq!(review.attributes.coverage_score, Some(90.0));
+        assert_eq!(review.attributes.verdict.as_deref(), Some("pass"));
+        assert_eq!(review.attributes.coverage_map.len(), 2);
+        assert!(review.attributes.gaps.is_empty());
+        assert_eq!(review.attributes.suggestions.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn review_item_not_found() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/api/v1/projects/1/work_package/999/review"))
+            .respond_with(
+                ResponseTemplate::new(404)
+                    .set_body_json(serde_json::json!({"error": "Not found"})),
+            )
+            .mount(&server)
+            .await;
+
+        let client = make_client(&server.uri()).await;
+        let result = client.review_item(1, 999).await;
+        assert!(matches!(result, Err(Error::NotFound(_))));
+    }
+
+    #[tokio::test]
+    async fn review_all_returns_job() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/api/v1/projects/2/work_package/review_all"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "data": {
+                    "id": 77,
+                    "type": "job",
+                    "attributes": {
+                        "job_type": "batch_review",
+                        "status": "pending",
+                        "progress": null,
+                        "result": null,
+                        "created_at": "2026-01-01T00:00:00Z",
+                        "updated_at": "2026-01-01T00:00:00Z"
+                    }
+                }
+            })))
+            .mount(&server)
+            .await;
+
+        let client = make_client(&server.uri()).await;
+        let job = client.review_all(2).await.unwrap();
+        assert_eq!(job.id, 77);
+        assert_eq!(job.attributes.job_type, "batch_review");
+        assert_eq!(job.attributes.status, JobStatus::Pending);
+    }
+
+    #[tokio::test]
+    async fn propose_improvement_returns_proposal() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/api/v1/projects/3/work_package/10/propose"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "data": {
+                    "id": 1,
+                    "type": "proposal",
+                    "attributes": {
+                        "spec_item_id": 10,
+                        "original_description": "User logs in.",
+                        "proposed_description": "User logs in with email and password.",
+                        "rationale": "More specific",
+                        "status": "pending",
+                        "created_at": "2026-01-01T00:00:00Z"
+                    }
+                }
+            })))
+            .mount(&server)
+            .await;
+
+        let client = make_client(&server.uri()).await;
+        let proposal = client.propose_improvement(3, 10).await.unwrap();
+        assert_eq!(proposal.attributes.spec_item_id, 10);
+        assert_eq!(proposal.attributes.status, "pending");
+        assert!(proposal
+            .attributes
+            .proposed_description
+            .unwrap()
+            .contains("email"));
+    }
+
+    #[tokio::test]
+    async fn accept_proposal_success() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/api/v1/projects/4/work_package/20/accept"))
+            .respond_with(ResponseTemplate::new(200).set_body_string(""))
+            .mount(&server)
+            .await;
+
+        let client = make_client(&server.uri()).await;
+        assert!(client.accept_proposal(4, 20).await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn reject_proposal_success() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/api/v1/projects/4/work_package/20/reject"))
+            .respond_with(ResponseTemplate::new(200).set_body_string(""))
+            .mount(&server)
+            .await;
+
+        let client = make_client(&server.uri()).await;
+        assert!(client.reject_proposal(4, 20).await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn generate_tech_returns_proposals() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/api/v1/projects/5/work_package/30/generate_tech"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "data": {
+                    "functional_item_id": 30,
+                    "functional_item_permalink": "F-30",
+                    "proposals": [
+                        {
+                            "title": "Users table schema",
+                            "description": "Create users table",
+                            "type_of": "technical",
+                            "rationale": "Required for auth"
+                        },
+                        {
+                            "title": "JWT service",
+                            "description": null,
+                            "type_of": "technical",
+                            "rationale": null
+                        }
+                    ]
+                }
+            })))
+            .mount(&server)
+            .await;
+
+        let client = make_client(&server.uri()).await;
+        let tp = client.generate_tech(5, 30).await.unwrap();
+        assert_eq!(tp.functional_item_id, 30);
+        assert_eq!(tp.functional_item_permalink, "F-30");
+        assert_eq!(tp.proposals.len(), 2);
+        assert_eq!(tp.proposals[0].title, "Users table schema");
+    }
+
+    #[tokio::test]
+    async fn audit_item_returns_result() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/api/v1/projects/6/work_package/40/audit"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "data": {
+                    "id": 55,
+                    "type": "audit_result",
+                    "attributes": {
+                        "spec_item_id": 40,
+                        "audit_type": "coverage",
+                        "passed": true,
+                        "details": "All requirements covered",
+                        "created_at": "2026-01-01T00:00:00Z"
+                    }
+                }
+            })))
+            .mount(&server)
+            .await;
+
+        let client = make_client(&server.uri()).await;
+        let audit = client.audit_item(6, 40).await.unwrap();
+        assert!(audit.attributes.passed);
+        assert_eq!(audit.attributes.audit_type, "coverage");
+    }
+
+    #[tokio::test]
+    async fn get_project_job_returns_job() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/api/v1/projects/7/jobs/88"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "data": {
+                    "id": 88,
+                    "type": "job",
+                    "attributes": {
+                        "job_type": "review",
+                        "status": "completed",
+                        "progress": 100.0,
+                        "result": "All items reviewed",
+                        "created_at": "2026-01-01T00:00:00Z",
+                        "updated_at": "2026-01-01T00:01:00Z"
+                    }
+                }
+            })))
+            .mount(&server)
+            .await;
+
+        let client = make_client(&server.uri()).await;
+        let job = client.get_project_job(7, 88).await.unwrap();
+        assert_eq!(job.id, 88);
+        assert_eq!(job.attributes.status, JobStatus::Completed);
+    }
+
+    #[tokio::test]
+    async fn poll_job_until_done_completes_immediately() {
+        let server = MockServer::start().await;
+        // The job is already completed on first poll
+        Mock::given(method("GET"))
+            .and(path("/api/v1/jobs/99"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "data": {
+                    "id": 99,
+                    "type": "job",
+                    "attributes": {
+                        "job_type": "review",
+                        "status": "completed",
+                        "progress": 100.0,
+                        "result": "Done",
+                        "created_at": "2026-01-01T00:00:00Z",
+                        "updated_at": "2026-01-01T00:00:30Z"
+                    }
+                }
+            })))
+            .mount(&server)
+            .await;
+
+        let client = make_client(&server.uri()).await;
+        let job = client
+            .poll_job_until_done(99, Duration::from_secs(30))
+            .await
+            .unwrap();
+        assert_eq!(job.attributes.status, JobStatus::Completed);
+    }
+
+    #[tokio::test]
+    async fn poll_job_until_done_returns_failed_job() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/api/v1/jobs/100"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "data": {
+                    "id": 100,
+                    "type": "job",
+                    "attributes": {
+                        "job_type": "audit",
+                        "status": "failed",
+                        "progress": null,
+                        "result": "Internal error",
+                        "created_at": "2026-01-01T00:00:00Z",
+                        "updated_at": "2026-01-01T00:00:05Z"
+                    }
+                }
+            })))
+            .mount(&server)
+            .await;
+
+        let client = make_client(&server.uri()).await;
+        let job = client
+            .poll_job_until_done(100, Duration::from_secs(30))
+            .await
+            .unwrap();
+        // poll_job_until_done returns the job even when failed
+        assert_eq!(job.attributes.status, JobStatus::Failed);
     }
 }

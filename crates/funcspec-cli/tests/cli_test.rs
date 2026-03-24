@@ -224,3 +224,65 @@ fn items_list_count_flag_in_help() {
 fn format_flag_bare_accepted() {
     cmd().args(["--format", "bare", "version"]).assert().success();
 }
+
+// ── ai subcommand ────────────────────────────────────────────────────────────
+
+#[test]
+fn ai_subcommand_help_exits_zero() {
+    cmd().args(["ai", "--help"]).assert().success();
+}
+
+#[test]
+fn ai_review_help_exits_zero() {
+    cmd().args(["ai", "review", "--help"]).assert().success();
+}
+
+#[test]
+fn ai_review_requires_permalink() {
+    cmd().args(["ai", "review"]).assert().failure();
+}
+
+#[test]
+fn ai_review_all_help_exits_zero() {
+    cmd().args(["ai", "review-all", "--help"]).assert().success();
+}
+
+#[test]
+fn ai_improve_help_exits_zero() {
+    cmd().args(["ai", "improve", "--help"]).assert().success();
+}
+
+#[test]
+fn ai_improve_requires_permalink() {
+    cmd().args(["ai", "improve"]).assert().failure();
+}
+
+#[test]
+fn ai_improve_help_mentions_auto_accept() {
+    let output = cmd().args(["ai", "improve", "--help"]).output().unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("auto-accept"),
+        "expected --auto-accept in improve help"
+    );
+}
+
+#[test]
+fn ai_generate_help_exits_zero() {
+    cmd().args(["ai", "generate", "--help"]).assert().success();
+}
+
+#[test]
+fn ai_generate_requires_permalink() {
+    cmd().args(["ai", "generate"]).assert().failure();
+}
+
+#[test]
+fn ai_audit_help_exits_zero() {
+    cmd().args(["ai", "audit", "--help"]).assert().success();
+}
+
+#[test]
+fn ai_audit_requires_permalink() {
+    cmd().args(["ai", "audit"]).assert().failure();
+}
