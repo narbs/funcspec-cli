@@ -518,6 +518,37 @@ impl UsageFilter {
 }
 
 // ---------------------------------------------------------------------------
+// Snapshot diff
+// ---------------------------------------------------------------------------
+
+/// A single modified item: the state before and after the snapshot.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SnapshotDiffItem {
+    pub before: SpecItem,
+    pub after: SpecItem,
+}
+
+/// Diff between a snapshot and the current project state.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SnapshotDiff {
+    pub snapshot_id: u64,
+    pub added: Vec<SpecItem>,
+    pub removed: Vec<SpecItem>,
+    pub modified: Vec<SnapshotDiffItem>,
+}
+
+// ---------------------------------------------------------------------------
+// Request params — Snapshot
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Serialize)]
+pub struct CreateSnapshotParams {
+    pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+}
+
+// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 

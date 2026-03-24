@@ -286,3 +286,127 @@ fn ai_audit_help_exits_zero() {
 fn ai_audit_requires_permalink() {
     cmd().args(["ai", "audit"]).assert().failure();
 }
+
+// ── snapshots subcommand ─────────────────────────────────────────────────────
+
+#[test]
+fn snapshots_subcommand_help_exits_zero() {
+    cmd().args(["snapshots", "--help"]).assert().success();
+}
+
+#[test]
+fn snapshots_list_help_exits_zero() {
+    cmd().args(["snapshots", "list", "--help"]).assert().success();
+}
+
+#[test]
+fn snapshots_create_help_exits_zero() {
+    cmd().args(["snapshots", "create", "--help"]).assert().success();
+}
+
+#[test]
+fn snapshots_create_requires_name_flag() {
+    // Missing required --name flag
+    cmd().args(["snapshots", "create"]).assert().failure();
+}
+
+#[test]
+fn snapshots_show_help_exits_zero() {
+    cmd().args(["snapshots", "show", "--help"]).assert().success();
+}
+
+#[test]
+fn snapshots_show_requires_identifier() {
+    cmd().args(["snapshots", "show"]).assert().failure();
+}
+
+#[test]
+fn snapshots_restore_help_exits_zero() {
+    cmd().args(["snapshots", "restore", "--help"]).assert().success();
+}
+
+#[test]
+fn snapshots_restore_requires_identifier() {
+    cmd().args(["snapshots", "restore"]).assert().failure();
+}
+
+#[test]
+fn snapshots_diff_help_exits_zero() {
+    cmd().args(["snapshots", "diff", "--help"]).assert().success();
+}
+
+#[test]
+fn snapshots_diff_requires_identifier() {
+    cmd().args(["snapshots", "diff"]).assert().failure();
+}
+
+#[test]
+fn snapshots_delete_help_exits_zero() {
+    cmd().args(["snapshots", "delete", "--help"]).assert().success();
+}
+
+#[test]
+fn snapshots_delete_requires_identifier() {
+    cmd().args(["snapshots", "delete"]).assert().failure();
+}
+
+#[test]
+fn snapshots_restore_help_mentions_yes_flag() {
+    let output = cmd().args(["snapshots", "restore", "--help"]).output().unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("yes"), "expected --yes flag in restore help");
+}
+
+#[test]
+fn snapshots_delete_help_mentions_yes_flag() {
+    let output = cmd().args(["snapshots", "delete", "--help"]).output().unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("yes"), "expected --yes flag in delete help");
+}
+
+#[test]
+fn snapshots_create_help_mentions_name_flag() {
+    let output = cmd().args(["snapshots", "create", "--help"]).output().unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("name"), "expected --name flag in create help");
+}
+
+// ── snapshot model deserialization ───────────────────────────────────────────
+
+#[test]
+fn snapshot_model_deserializes() {
+    use funcspec_client::Snapshot;
+    let json = r#"{
+        "id": 1,
+        "type": "snapshot",
+        "attributes": {
+            "project_id": 42,
+            "name": "pre-v2-refactor",
+            "description": "before big refactor",
+            "spec_items": [],
+            "created_at": "2024-06-01T00:00:00Z"
+        }
+    }"#;
+    let s: Snapshot = serde_json::from_str(json).unwrap();
+    assert_eq!(s.id, 1);
+    assert_eq!(s.attributes.name, "pre-v2-refactor");
+    assert_eq!(s.attributes.description.as_deref(), Some("before big refactor"));
+    assert_eq!(s.attributes.project_id, 42);
+    assert!(s.attributes.spec_items.is_empty());
+}
+
+#[test]
+fn snapshot_diff_model_deserializes() {
+    use funcspec_client::SnapshotDiff;
+    let json = r#"{
+        "snapshot_id": 5,
+        "added": [],
+        "removed": [],
+        "modified": []
+    }"#;
+    let d: SnapshotDiff = serde_json::from_str(json).unwrap();
+    assert_eq!(d.snapshot_id, 5);
+    assert!(d.added.is_empty());
+    assert!(d.removed.is_empty());
+    assert!(d.modified.is_empty());
+}

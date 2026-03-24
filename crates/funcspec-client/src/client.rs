@@ -681,6 +681,124 @@ impl FuncspecClient {
         }
         resp.text().await.map_err(Error::from)
     }
+
+    // -- Snapshots --
+
+    /// List all snapshots for a project.
+    ///
+    /// Calls `GET /projects/:project_id/snapshots`.
+    pub async fn list_snapshots(&self, project_id: u64) -> Result<Vec<Snapshot>, Error> {
+        let url = self.api_url(&format!("/projects/{project_id}/snapshots"));
+        debug!(%url, "list_snapshots");
+        let resp = self
+            .request_with_retry(|| self.http.get(&url).send())
+            .await?;
+        if !resp.status().is_success() {
+            return Err(Error::from_response(resp).await);
+        }
+        let body: ApiListResponse<Snapshot> = resp.json().await?;
+        Ok(body.data)
+    }
+
+    /// Create a new snapshot for a project.
+    ///
+    /// Calls `POST /projects/:project_id/snapshots`.
+    pub async fn create_snapshot(
+        &self,
+        project_id: u64,
+        params: &CreateSnapshotParams,
+    ) -> Result<Snapshot, Error> {
+        let url = self.api_url(&format!("/projects/{project_id}/snapshots"));
+        debug!(%url, "create_snapshot");
+        let resp = self
+            .request_with_retry(|| self.http.post(&url).json(params).send())
+            .await?;
+        if !resp.status().is_success() {
+            return Err(Error::from_response(resp).await);
+        }
+        let body: ApiResponse<Snapshot> = resp.json().await?;
+        Ok(body.data)
+    }
+
+    /// Get a single snapshot by ID.
+    ///
+    /// Calls `GET /projects/:project_id/snapshots/:snapshot_id`.
+    pub async fn get_snapshot(
+        &self,
+        project_id: u64,
+        snapshot_id: u64,
+    ) -> Result<Snapshot, Error> {
+        let url = self.api_url(&format!("/projects/{project_id}/snapshots/{snapshot_id}"));
+        debug!(%url, "get_snapshot");
+        let resp = self
+            .request_with_retry(|| self.http.get(&url).send())
+            .await?;
+        if !resp.status().is_success() {
+            return Err(Error::from_response(resp).await);
+        }
+        let body: ApiResponse<Snapshot> = resp.json().await?;
+        Ok(body.data)
+    }
+
+    /// Restore project to the state captured in a snapshot.
+    ///
+    /// Calls `POST /projects/:project_id/snapshots/:snapshot_id/restore`.
+    pub async fn restore_snapshot(
+        &self,
+        project_id: u64,
+        snapshot_id: u64,
+    ) -> Result<(), Error> {
+        let url =
+            self.api_url(&format!("/projects/{project_id}/snapshots/{snapshot_id}/restore"));
+        debug!(%url, "restore_snapshot");
+        let resp = self
+            .request_with_retry(|| self.http.post(&url).send())
+            .await?;
+        if !resp.status().is_success() {
+            return Err(Error::from_response(resp).await);
+        }
+        Ok(())
+    }
+
+    /// Delete a snapshot.
+    ///
+    /// Calls `DELETE /projects/:project_id/snapshots/:snapshot_id`.
+    pub async fn delete_snapshot(
+        &self,
+        project_id: u64,
+        snapshot_id: u64,
+    ) -> Result<(), Error> {
+        let url = self.api_url(&format!("/projects/{project_id}/snapshots/{snapshot_id}"));
+        debug!(%url, "delete_snapshot");
+        let resp = self
+            .request_with_retry(|| self.http.delete(&url).send())
+            .await?;
+        if !resp.status().is_success() {
+            return Err(Error::from_response(resp).await);
+        }
+        Ok(())
+    }
+
+    /// Get the diff between a snapshot and the current project state.
+    ///
+    /// Calls `GET /projects/:project_id/snapshots/:snapshot_id/diff`.
+    pub async fn diff_snapshot(
+        &self,
+        project_id: u64,
+        snapshot_id: u64,
+    ) -> Result<SnapshotDiff, Error> {
+        let url =
+            self.api_url(&format!("/projects/{project_id}/snapshots/{snapshot_id}/diff"));
+        debug!(%url, "diff_snapshot");
+        let resp = self
+            .request_with_retry(|| self.http.get(&url).send())
+            .await?;
+        if !resp.status().is_success() {
+            return Err(Error::from_response(resp).await);
+        }
+        let body: ApiResponse<SnapshotDiff> = resp.json().await?;
+        Ok(body.data)
+    }
 }
 
 // ---------------------------------------------------------------------------

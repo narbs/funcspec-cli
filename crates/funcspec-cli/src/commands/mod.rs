@@ -5,6 +5,7 @@ pub mod export;
 pub mod items;
 pub mod projects;
 pub mod search;
+pub mod snapshots;
 pub mod stats;
 pub mod version;
 pub mod view;

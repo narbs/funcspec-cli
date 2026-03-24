@@ -656,3 +656,259 @@ async fn get_usage_logs_success() {
     assert!(result.data.is_empty());
     assert_eq!(result.total_count, 0);
 }
+
+// -- snapshots ---------------------------------------------------------------
+
+fn make_snapshot_json(id: u64, name: &str) -> serde_json::Value {
+    json!({
+        "id": id,
+        "type": "snapshot",
+        "attributes": {
+            "project_id": 1,
+            "name": name,
+            "description": null,
+            "spec_items": [make_item_json(1, "F-1", "Feature one")],
+            "created_at": "2024-06-01T00:00:00Z"
+        }
+    })
+}
+
+#[tokio::test]
+async fn list_snapshots_success() {
+    let server = setup_server().await;
+    let body = json!({
+        "data": [make_snapshot_json(1, "pre-v2"), make_snapshot_json(2, "baseline")],
+        "meta": null
+    });
+
+    Mock::given(method("GET"))
+        .and(path("/api/v1/projects/10/snapshots"))
+        .and(header("X-Api-Key", "test-api-key"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&body))
+        .mount(&server)
+        .await;
+
+    let client = client_for(&server);
+    let snapshots = client.list_snapshots(10).await.unwrap();
+    assert_eq!(snapshots.len(), 2);
+    assert_eq!(snapshots[0].attributes.name, "pre-v2");
+    assert_eq!(snapshots[1].attributes.name, "baseline");
+}
+
+#[tokio::test]
+async fn list_snapshots_empty() {
+    let server = setup_server().await;
+    let body = json!({ "data": [], "meta": null });
+
+    Mock::given(method("GET"))
+        .and(path("/api/v1/projects/10/snapshots"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&body))
+        .mount(&server)
+        .await;
+
+    let client = client_for(&server);
+    let snapshots = client.list_snapshots(10).await.unwrap();
+    assert!(snapshots.is_empty());
+}
+
+#[tokio::test]
+async fn create_snapshot_success() {
+    use funcspec_client::models::CreateSnapshotParams;
+    let server = setup_server().await;
+    let body = json!({ "data": make_snapshot_json(42, "pre-v2-refactor") });
+
+    Mock::given(method("POST"))
+        .and(path("/api/v1/projects/1/snapshots"))
+        .respond_with(ResponseTemplate::new(201).set_body_json(&body))
+        .mount(&server)
+        .await;
+
+    let client = client_for(&server);
+    let params = CreateSnapshotParams {
+        name: "pre-v2-refactor".into(),
+        description: None,
+    };
+    let snapshot = client.create_snapshot(1, &params).await.unwrap();
+    assert_eq!(snapshot.id, 42);
+    assert_eq!(snapshot.attributes.name, "pre-v2-refactor");
+    assert_eq!(snapshot.attributes.spec_items.len(), 1);
+}
+
+#[tokio::test]
+async fn create_snapshot_with_description() {
+    use funcspec_client::models::CreateSnapshotParams;
+    let server = setup_server().await;
+    let mut snap = make_snapshot_json(5, "with-desc");
+    snap["attributes"]["description"] = serde_json::Value::String("A description".into());
+    let body = json!({ "data": snap });
+
+    Mock::given(method("POST"))
+        .and(path("/api/v1/projects/1/snapshots"))
+        .respond_with(ResponseTemplate::new(201).set_body_json(&body))
+        .mount(&server)
+        .await;
+
+    let client = client_for(&server);
+    let params = CreateSnapshotParams {
+        name: "with-desc".into(),
+        description: Some("A description".into()),
+    };
+    let snapshot = client.create_snapshot(1, &params).await.unwrap();
+    assert_eq!(
+        snapshot.attributes.description.as_deref(),
+        Some("A description")
+    );
+}
+
+#[tokio::test]
+async fn get_snapshot_success() {
+    let server = setup_server().await;
+    let body = json!({ "data": make_snapshot_json(7, "my-snap") });
+
+    Mock::given(method("GET"))
+        .and(path("/api/v1/projects/1/snapshots/7"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&body))
+        .mount(&server)
+        .await;
+
+    let client = client_for(&server);
+    let snapshot = client.get_snapshot(1, 7).await.unwrap();
+    assert_eq!(snapshot.id, 7);
+    assert_eq!(snapshot.attributes.name, "my-snap");
+}
+
+#[tokio::test]
+async fn get_snapshot_404() {
+    let server = setup_server().await;
+    let body = json!({ "error": "not found" });
+
+    Mock::given(method("GET"))
+        .and(path("/api/v1/projects/1/snapshots/999"))
+        .respond_with(ResponseTemplate::new(404).set_body_json(&body))
+        .mount(&server)
+        .await;
+
+    let client = client_for(&server);
+    let err = client.get_snapshot(1, 999).await.unwrap_err();
+    assert!(matches!(err, Error::NotFound(_)));
+}
+
+#[tokio::test]
+async fn restore_snapshot_success() {
+    let server = setup_server().await;
+
+    Mock::given(method("POST"))
+        .and(path("/api/v1/projects/1/snapshots/3/restore"))
+        .respond_with(ResponseTemplate::new(200))
+        .mount(&server)
+        .await;
+
+    let client = client_for(&server);
+    client.restore_snapshot(1, 3).await.unwrap();
+}
+
+#[tokio::test]
+async fn restore_snapshot_not_found() {
+    let server = setup_server().await;
+    let body = json!({ "error": "snapshot not found" });
+
+    Mock::given(method("POST"))
+        .and(path("/api/v1/projects/1/snapshots/999/restore"))
+        .respond_with(ResponseTemplate::new(404).set_body_json(&body))
+        .mount(&server)
+        .await;
+
+    let client = client_for(&server);
+    let err = client.restore_snapshot(1, 999).await.unwrap_err();
+    assert!(matches!(err, Error::NotFound(_)));
+}
+
+#[tokio::test]
+async fn delete_snapshot_success() {
+    let server = setup_server().await;
+
+    Mock::given(method("DELETE"))
+        .and(path("/api/v1/projects/1/snapshots/5"))
+        .respond_with(ResponseTemplate::new(204))
+        .mount(&server)
+        .await;
+
+    let client = client_for(&server);
+    client.delete_snapshot(1, 5).await.unwrap();
+}
+
+#[tokio::test]
+async fn delete_snapshot_not_found() {
+    let server = setup_server().await;
+    let body = json!({ "error": "not found" });
+
+    Mock::given(method("DELETE"))
+        .and(path("/api/v1/projects/1/snapshots/999"))
+        .respond_with(ResponseTemplate::new(404).set_body_json(&body))
+        .mount(&server)
+        .await;
+
+    let client = client_for(&server);
+    let err = client.delete_snapshot(1, 999).await.unwrap_err();
+    assert!(matches!(err, Error::NotFound(_)));
+}
+
+#[tokio::test]
+async fn diff_snapshot_success() {
+    let server = setup_server().await;
+    let body = json!({
+        "data": {
+            "snapshot_id": 1,
+            "added": [make_item_json(10, "F-10", "New feature")],
+            "removed": [make_item_json(2, "F-2", "Removed feature")],
+            "modified": [
+                {
+                    "before": make_item_json(3, "F-3", "Old title"),
+                    "after": make_item_json(3, "F-3", "New title")
+                }
+            ]
+        }
+    });
+
+    Mock::given(method("GET"))
+        .and(path("/api/v1/projects/1/snapshots/1/diff"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&body))
+        .mount(&server)
+        .await;
+
+    let client = client_for(&server);
+    let diff = client.diff_snapshot(1, 1).await.unwrap();
+    assert_eq!(diff.snapshot_id, 1);
+    assert_eq!(diff.added.len(), 1);
+    assert_eq!(diff.added[0].attributes.permalink, "F-10");
+    assert_eq!(diff.removed.len(), 1);
+    assert_eq!(diff.removed[0].attributes.permalink, "F-2");
+    assert_eq!(diff.modified.len(), 1);
+    assert_eq!(diff.modified[0].before.attributes.title, "Old title");
+    assert_eq!(diff.modified[0].after.attributes.title, "New title");
+}
+
+#[tokio::test]
+async fn diff_snapshot_empty() {
+    let server = setup_server().await;
+    let body = json!({
+        "data": {
+            "snapshot_id": 2,
+            "added": [],
+            "removed": [],
+            "modified": []
+        }
+    });
+
+    Mock::given(method("GET"))
+        .and(path("/api/v1/projects/1/snapshots/2/diff"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&body))
+        .mount(&server)
+        .await;
+
+    let client = client_for(&server);
+    let diff = client.diff_snapshot(1, 2).await.unwrap();
+    assert!(diff.added.is_empty());
+    assert!(diff.removed.is_empty());
+    assert!(diff.modified.is_empty());
+}

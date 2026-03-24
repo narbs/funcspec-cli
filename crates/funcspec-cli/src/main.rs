@@ -62,6 +62,10 @@ enum Commands {
     /// Export project spec (markdown, JSON, CSV, HTML, PDF, DOCX)
     Export(commands::export::ExportArgs),
 
+    /// Manage project snapshots (save/restore points)
+    #[command(subcommand)]
+    Snapshots(commands::snapshots::SnapshotsCmd),
+
     /// Open project spec in browser
     View(commands::view::ViewArgs),
 
@@ -110,6 +114,7 @@ async fn run(cli: Cli) -> Result<()> {
         Commands::Search(args) => commands::search::run(args, cli.format).await,
         Commands::Stats(args) => commands::stats::run(args, cli.format).await,
         Commands::Export(args) => commands::export::run(args).await,
+        Commands::Snapshots(cmd) => commands::snapshots::run(cmd, cli.format).await,
         Commands::View(args) => commands::view::run(args).await,
         Commands::Version => commands::version::run(),
         Commands::Completion { shell } => {
