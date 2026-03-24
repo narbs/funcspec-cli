@@ -23,13 +23,13 @@ pub struct StatsArgs {
 
 pub async fn run(args: StatsArgs, _format: OutputFormat) -> Result<()> {
     // Validate month format early
-    if let Some(ref m) = args.month {
-        if !is_valid_month(m) {
-            bail!(
-                "Invalid month format '{}'. Use YYYY-MM (e.g., 2026-03)",
-                m
-            );
-        }
+    if let Some(ref m) = args.month
+        && !is_valid_month(m)
+    {
+        bail!(
+            "Invalid month format '{}'. Use YYYY-MM (e.g., 2026-03)",
+            m
+        );
     }
 
     let (client, config) = client_and_config()?;

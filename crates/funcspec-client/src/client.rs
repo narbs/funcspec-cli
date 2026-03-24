@@ -679,7 +679,7 @@ impl FuncspecClient {
         if !resp.status().is_success() {
             return Err(Error::from_response(resp).await);
         }
-        Ok(resp.text().await.map_err(Error::from)?)
+        resp.text().await.map_err(Error::from)
     }
 }
 
