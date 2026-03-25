@@ -676,9 +676,19 @@ impl FuncspecClient {
         item_type: Option<&str>,
         tag: Option<&str>,
     ) -> Result<ExportData, Error> {
-        let url = self.api_url(&format!("/projects/{project_id}/spec/export"));
+        // Map short format names to API path segments
+        let format_path = match format {
+            "md" => "markdown",
+            "json" => "json",
+            "csv" => "csv",
+            "html" => "html",
+            "pdf" => "pdf",
+            "docx" => "docx",
+            other => other,
+        };
+        let url = self.api_url(&format!("/projects/{project_id}/export/{format_path}"));
         debug!(%url, %format, "export_project");
-        let mut pairs: Vec<(String, String)> = vec![("format".into(), format.to_string())];
+        let mut pairs: Vec<(String, String)> = vec![];
         if let Some(t) = item_type {
             pairs.push(("type_of".into(), t.to_string()));
         }
