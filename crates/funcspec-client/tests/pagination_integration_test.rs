@@ -1,11 +1,6 @@
 //! Integration tests for pagination helpers that require HTTP mocking.
 
-use funcspec_client::{
-    Error, FuncspecClient, collect_all_pages,
-    models::{PaginationMeta, Project},
-    pagination::PagedResponse,
-    stream_all_pages,
-};
+use funcspec_client::{FuncspecClient, collect_all_pages, models::Project, stream_all_pages};
 use futures::StreamExt;
 use serde_json::json;
 use wiremock::{
@@ -36,7 +31,7 @@ async fn stream_projects_across_multiple_pages() {
     Mock::given(method("GET"))
         .and(path("/api/v1/projects"))
         .and(query_param("page", "1"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(&json!({
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
             "data": [make_project_json(1, "proj-1"), make_project_json(2, "proj-2")],
             "meta": {"page": 1, "per": 2, "total": 4, "total_pages": 2}
         })))
@@ -47,7 +42,7 @@ async fn stream_projects_across_multiple_pages() {
     Mock::given(method("GET"))
         .and(path("/api/v1/projects"))
         .and(query_param("page", "2"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(&json!({
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
             "data": [make_project_json(3, "proj-3"), make_project_json(4, "proj-4")],
             "meta": {"page": 2, "per": 2, "total": 4, "total_pages": 2}
         })))
@@ -74,7 +69,7 @@ async fn collect_all_pages_single_request() {
 
     Mock::given(method("GET"))
         .and(path("/api/v1/projects"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(&json!({
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
             "data": [make_project_json(1, "only-proj")],
             "meta": {"page": 1, "per": 50, "total": 1, "total_pages": 1}
         })))

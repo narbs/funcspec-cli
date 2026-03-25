@@ -194,15 +194,15 @@ pub async fn run(cmd: ItemsCmd, format: OutputFormat) -> Result<()> {
             let items: Vec<_> = items
                 .into_iter()
                 .filter(|item| {
-                    if let Some(ref t) = filter.type_of {
-                        if item.attributes.type_of != *t {
-                            return false;
-                        }
+                    if let Some(ref t) = filter.type_of
+                        && item.attributes.type_of != *t
+                    {
+                        return false;
                     }
-                    if let Some(ref s) = filter.status {
-                        if item.attributes.implementation_status != *s {
-                            return false;
-                        }
+                    if let Some(ref s) = filter.status
+                        && item.attributes.implementation_status != *s
+                    {
+                        return false;
                     }
                     true
                 })
@@ -446,13 +446,16 @@ mod tests {
 
     #[test]
     fn list_format_falls_through_to_global() {
-        // neither json nor quiet: use global format
+        // neither json nor quiet nor bare: use global format
         let global = OutputFormat::Csv;
-        let fmt = if false {
+        let json_flag = false;
+        let quiet_flag = false;
+        let bare_flag = false;
+        let fmt = if json_flag {
             OutputFormat::Json
-        } else if false {
+        } else if quiet_flag {
             OutputFormat::Minimal
-        } else if false {
+        } else if bare_flag {
             OutputFormat::Bare
         } else {
             global
@@ -462,11 +465,14 @@ mod tests {
 
     #[test]
     fn list_format_override_bare_flag() {
-        let fmt = if false {
+        let json_flag = false;
+        let quiet_flag = false;
+        let bare_flag = true;
+        let fmt = if json_flag {
             OutputFormat::Json
-        } else if false {
+        } else if quiet_flag {
             OutputFormat::Minimal
-        } else if true {
+        } else if bare_flag {
             OutputFormat::Bare
         } else {
             OutputFormat::Table

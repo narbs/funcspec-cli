@@ -2,10 +2,7 @@
 
 use funcspec_client::{
     Error, FuncspecClient,
-    models::{
-        ApiListResponse, ApiResponse, CreateItemParams, ImplementationStatus, ItemFilter, ItemType,
-        PaginationMeta, Project, ProjectAttributes, SpecItem, SpecItemAttributes, UpdateItemParams,
-    },
+    models::{CreateItemParams, ImplementationStatus, ItemFilter, ItemType, UpdateItemParams},
 };
 use serde_json::json;
 use wiremock::{
@@ -551,7 +548,7 @@ async fn get_project_stats_success() {
     Mock::given(method("GET"))
         .and(path("/api/v1/projects/1/stats"))
         .and(header("X-Api-Key", "test-api-key"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(&make_project_stats_json()))
+        .respond_with(ResponseTemplate::new(200).set_body_json(make_project_stats_json()))
         .mount(&server)
         .await;
 
@@ -607,7 +604,7 @@ async fn get_usage_stats_success() {
     Mock::given(method("GET"))
         .and(path("/api/v1/projects/1/usage"))
         .and(header("X-Api-Key", "test-api-key"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(&make_usage_stats_json()))
+        .respond_with(ResponseTemplate::new(200).set_body_json(make_usage_stats_json()))
         .mount(&server)
         .await;
 
@@ -629,7 +626,7 @@ async fn get_usage_stats_with_month_param() {
     Mock::given(method("GET"))
         .and(path("/api/v1/projects/1/usage"))
         .and(query_param("month", "2026-02"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(&make_usage_stats_json()))
+        .respond_with(ResponseTemplate::new(200).set_body_json(make_usage_stats_json()))
         .mount(&server)
         .await;
 

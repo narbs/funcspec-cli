@@ -151,9 +151,11 @@ mod tests {
     #[test]
     fn search_format_falls_through_to_global() {
         let global = OutputFormat::Csv;
-        let fmt = if false {
+        let json_flag = false;
+        let quiet_flag = false;
+        let fmt = if json_flag {
             OutputFormat::Json
-        } else if false {
+        } else if quiet_flag {
             OutputFormat::Minimal
         } else {
             global
