@@ -77,15 +77,13 @@ jobs:
         shell: bash
         run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
 
-      - name: Package (Unix)
+      - name: Strip binary (Unix)
         if: runner.os != 'Windows'
         shell: bash
         run: |
           BINARY_PATH="target/${{ matrix.target }}/release/${{ env.BINARY_NAME }}"
           strip "$BINARY_PATH" || true
           echo "BINARY_PATH=$BINARY_PATH" >> $GITHUB_ENV
-          ARCHIVE="${{ env.BINARY_NAME }}-${{ steps.version.outputs.VERSION }}-${{ matrix.target }}.tar.gz"
-          echo "ARCHIVE=$ARCHIVE" >> $GITHUB_ENV
 
       - name: Sign macOS binary
         if: runner.os == 'macOS'
@@ -116,10 +114,20 @@ jobs:
           # Cleanup
           rm -f certificate.p12
 
-      - name: Create archive (Unix)
-        if: runner.os != 'Windows'
+      - name: Create archive (macOS)
+        if: runner.os == 'macOS'
         shell: bash
         run: |
+          ARCHIVE="${{ env.BINARY_NAME }}-${{ steps.version.outputs.VERSION }}-${{ matrix.target }}.zip"
+          zip -j "$ARCHIVE" "$BINARY_PATH"
+          echo "ARCHIVE=$ARCHIVE" >> $GITHUB_ENV
+          echo "ASSET=$ARCHIVE" >> $GITHUB_ENV
+
+      - name: Create archive (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          ARCHIVE="${{ env.BINARY_NAME }}-${{ steps.version.outputs.VERSION }}-${{ matrix.target }}.tar.gz"
           tar czf "$ARCHIVE" -C "target/${{ matrix.target }}/release" "${{ env.BINARY_NAME }}"
           echo "ASSET=$ARCHIVE" >> $GITHUB_ENV
 
