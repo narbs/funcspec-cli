@@ -190,6 +190,24 @@ pub async fn run(cmd: ItemsCmd, format: OutputFormat) -> Result<()> {
 
             let (items, meta) = client.list_items(project_id, &filter).await?;
 
+            // Client-side filter: API may not enforce type_of/status filters on all projects
+            let items: Vec<_> = items
+                .into_iter()
+                .filter(|item| {
+                    if let Some(ref t) = filter.type_of {
+                        if item.attributes.type_of != *t {
+                            return false;
+                        }
+                    }
+                    if let Some(ref s) = filter.status {
+                        if item.attributes.implementation_status != *s {
+                            return false;
+                        }
+                    }
+                    true
+                })
+                .collect();
+
             if count {
                 println!("{}", items.len());
                 return Ok(());
