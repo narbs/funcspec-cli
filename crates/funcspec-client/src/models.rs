@@ -132,10 +132,14 @@ impl std::fmt::Display for ImplementationStatus {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ReviewSummary {
-    pub id: u64,
     pub coverage_score: Option<f64>,
     pub verdict: Option<String>,
-    pub updated_at: DateTime<Utc>,
+    pub review_type: Option<String>,
+    pub reviewed_at: Option<DateTime<Utc>>,
+    pub fresh: Option<bool>,
+    pub coverage_map: Option<serde_json::Value>,
+    pub gaps: Option<Vec<String>>,
+    pub suggestions: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
