@@ -28,7 +28,10 @@ fn full_config_roundtrip() {
     let path = dir.path().join("config.toml");
 
     let mut profiles = BTreeMap::new();
-    profiles.insert("default".into(), profile("https://funcspec.net", "key-default"));
+    profiles.insert(
+        "default".into(),
+        profile("https://funcspec.net", "key-default"),
+    );
     profiles.insert(
         "work".into(),
         Profile {

@@ -5,7 +5,7 @@ use funcspec_cli::output::OutputFormat;
 use anyhow::Result;
 use clap::{CommandFactory, Parser, Subcommand};
 use colored::Colorize;
-use tracing_subscriber::{fmt, prelude::*, EnvFilter};
+use tracing_subscriber::{EnvFilter, fmt, prelude::*};
 
 #[derive(Parser)]
 #[command(

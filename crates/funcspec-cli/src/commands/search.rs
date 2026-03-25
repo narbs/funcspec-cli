@@ -48,7 +48,9 @@ pub async fn run(args: SearchArgs, format: OutputFormat) -> Result<()> {
         ..ItemFilter::default()
     };
 
-    let result = client.search_items(project_id, &args.query, &filter).await?;
+    let result = client
+        .search_items(project_id, &args.query, &filter)
+        .await?;
 
     if args.count {
         println!("{}", result.data.len());
@@ -74,7 +76,11 @@ pub async fn run(args: SearchArgs, format: OutputFormat) -> Result<()> {
         total: result.total_count,
         total_pages: result.total_pages,
     };
-    let meta_opt = if result.total_count > 0 { Some(meta) } else { None };
+    let meta_opt = if result.total_count > 0 {
+        Some(meta)
+    } else {
+        None
+    };
 
     output::format_items(&result.data, meta_opt.as_ref(), fmt)?;
     Ok(())
@@ -122,7 +128,11 @@ mod tests {
 
     #[test]
     fn search_format_override_json() {
-        let fmt = if true { OutputFormat::Json } else { OutputFormat::Table };
+        let fmt = if true {
+            OutputFormat::Json
+        } else {
+            OutputFormat::Table
+        };
         assert_eq!(fmt, OutputFormat::Json);
     }
 

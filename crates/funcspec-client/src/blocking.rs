@@ -8,9 +8,9 @@
 //! **Warning:** Do not call blocking methods from inside a Tokio async context —
 //! use the async [`FuncspecClient`] instead.
 
+use crate::FuncspecClient;
 use crate::error::Error;
 use crate::models::*;
-use crate::FuncspecClient;
 
 /// A synchronous wrapper around [`FuncspecClient`].
 ///
@@ -74,8 +74,7 @@ impl BlockingFuncspecClient {
         project_id: u64,
         params: &CreateItemParams,
     ) -> Result<SpecItem, Error> {
-        self.rt
-            .block_on(self.inner.create_item(project_id, params))
+        self.rt.block_on(self.inner.create_item(project_id, params))
     }
 
     pub fn update_item(

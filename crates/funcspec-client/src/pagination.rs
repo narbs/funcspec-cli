@@ -227,10 +227,7 @@ mod tests {
             }
         });
 
-        let items: Vec<i32> = stream
-            .map(|r| r.unwrap())
-            .collect()
-            .await;
+        let items: Vec<i32> = stream.map(|r| r.unwrap()).collect().await;
         assert_eq!(items, vec![10, 20, 30, 40]);
     }
 }

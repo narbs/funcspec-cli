@@ -1,17 +1,16 @@
 //! Integration tests for FuncspecClient — uses wiremock to mock HTTP.
 
 use funcspec_client::{
-    models::{
-        ApiListResponse, ApiResponse, CreateItemParams, ItemFilter, ItemType, PaginationMeta,
-        Project, ProjectAttributes, SpecItem, SpecItemAttributes, UpdateItemParams,
-        ImplementationStatus,
-    },
     Error, FuncspecClient,
+    models::{
+        ApiListResponse, ApiResponse, CreateItemParams, ImplementationStatus, ItemFilter, ItemType,
+        PaginationMeta, Project, ProjectAttributes, SpecItem, SpecItemAttributes, UpdateItemParams,
+    },
 };
 use serde_json::json;
 use wiremock::{
-    matchers::{header, method, path, query_param},
     Mock, MockServer, ResponseTemplate,
+    matchers::{header, method, path, query_param},
 };
 
 // -- Helpers -----------------------------------------------------------------
@@ -426,7 +425,10 @@ async fn search_items_404_returns_not_found() {
 
     let client = client_for(&server);
     let filter = ItemFilter::default();
-    let err = client.search_items(999, "anything", &filter).await.unwrap_err();
+    let err = client
+        .search_items(999, "anything", &filter)
+        .await
+        .unwrap_err();
     assert!(matches!(err, Error::NotFound(_)));
 }
 
@@ -614,7 +616,10 @@ async fn get_usage_stats_success() {
     assert_eq!(stats.month, "2026-03");
     assert_eq!(stats.total_tokens, 45200);
     assert!((stats.estimated_cost - 0.12).abs() < 1e-9);
-    assert_eq!(stats.breakdown_by_operation.get("review").map(|u| u.tokens), Some(30000));
+    assert_eq!(
+        stats.breakdown_by_operation.get("review").map(|u| u.tokens),
+        Some(30000)
+    );
 }
 
 #[tokio::test]
@@ -652,7 +657,10 @@ async fn get_usage_logs_success() {
         .await;
 
     let client = client_for(&server);
-    let result = client.get_usage_logs(1, &UsageFilter::default()).await.unwrap();
+    let result = client
+        .get_usage_logs(1, &UsageFilter::default())
+        .await
+        .unwrap();
     assert!(result.data.is_empty());
     assert_eq!(result.total_count, 0);
 }

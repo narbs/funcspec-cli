@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use clap::{Args, ValueEnum};
 use funcspec_client::ExportData;
 
@@ -109,14 +109,23 @@ pub async fn run(args: ExportArgs) -> Result<()> {
     });
 
     let data = client
-        .export_project(project_id, args.format.api_name(), item_type, args.tag.as_deref())
+        .export_project(
+            project_id,
+            args.format.api_name(),
+            item_type,
+            args.tag.as_deref(),
+        )
         .await?;
 
     // Resolve output path: explicit > default for binary > none (stdout)
     let output_path: Option<PathBuf> = if let Some(p) = args.output {
         Some(p)
     } else if args.format.is_binary() {
-        Some(PathBuf::from(format!("{}.{}", slug, args.format.extension())))
+        Some(PathBuf::from(format!(
+            "{}.{}",
+            slug,
+            args.format.extension()
+        )))
     } else {
         None
     };

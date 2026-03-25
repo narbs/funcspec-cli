@@ -75,51 +75,78 @@ fn unknown_subcommand_fails() {
 
 #[test]
 fn format_flag_auto_accepted() {
-    cmd().args(["--format", "auto", "version"]).assert().success();
+    cmd()
+        .args(["--format", "auto", "version"])
+        .assert()
+        .success();
 }
 
 #[test]
 fn format_flag_json_accepted() {
-    cmd().args(["--format", "json", "version"]).assert().success();
+    cmd()
+        .args(["--format", "json", "version"])
+        .assert()
+        .success();
 }
 
 #[test]
 fn format_flag_table_accepted() {
-    cmd().args(["--format", "table", "version"]).assert().success();
+    cmd()
+        .args(["--format", "table", "version"])
+        .assert()
+        .success();
 }
 
 #[test]
 fn format_flag_csv_accepted() {
-    cmd().args(["--format", "csv", "version"]).assert().success();
+    cmd()
+        .args(["--format", "csv", "version"])
+        .assert()
+        .success();
 }
 
 #[test]
 fn format_flag_minimal_accepted() {
-    cmd().args(["--format", "minimal", "version"]).assert().success();
+    cmd()
+        .args(["--format", "minimal", "version"])
+        .assert()
+        .success();
 }
 
 #[test]
 fn format_flag_markdown_accepted() {
-    cmd().args(["--format", "markdown", "version"]).assert().success();
+    cmd()
+        .args(["--format", "markdown", "version"])
+        .assert()
+        .success();
 }
 
 #[test]
 fn format_flag_invalid_value_fails() {
-    cmd().args(["--format", "notaformat", "version"]).assert().failure();
+    cmd()
+        .args(["--format", "notaformat", "version"])
+        .assert()
+        .failure();
 }
 
 #[test]
 fn format_flag_appears_in_help() {
     let output = cmd().arg("--help").output().unwrap();
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("format"), "expected --format in help output");
+    assert!(
+        stdout.contains("format"),
+        "expected --format in help output"
+    );
 }
 
 // ── command argument validation ──────────────────────────────────────────────
 
 #[test]
 fn projects_list_help_exits_zero() {
-    cmd().args(["projects", "list", "--help"]).assert().success();
+    cmd()
+        .args(["projects", "list", "--help"])
+        .assert()
+        .success();
 }
 
 #[test]
@@ -180,7 +207,10 @@ fn search_requires_query_arg() {
 fn search_help_mentions_type_flag() {
     let output = cmd().args(["search", "--help"]).output().unwrap();
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("type"), "expected --type flag in search help");
+    assert!(
+        stdout.contains("type"),
+        "expected --type flag in search help"
+    );
 }
 
 #[test]
@@ -194,7 +224,10 @@ fn search_help_mentions_tag_flag() {
 fn search_help_mentions_count_flag() {
     let output = cmd().args(["search", "--help"]).output().unwrap();
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("count"), "expected --count flag in search help");
+    assert!(
+        stdout.contains("count"),
+        "expected --count flag in search help"
+    );
 }
 
 // ── items list new flags ─────────────────────────────────────────────────────
@@ -203,26 +236,38 @@ fn search_help_mentions_count_flag() {
 fn items_list_sort_flag_in_help() {
     let output = cmd().args(["items", "list", "--help"]).output().unwrap();
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("sort"), "expected --sort flag in items list help");
+    assert!(
+        stdout.contains("sort"),
+        "expected --sort flag in items list help"
+    );
 }
 
 #[test]
 fn items_list_bare_flag_in_help() {
     let output = cmd().args(["items", "list", "--help"]).output().unwrap();
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("bare"), "expected --bare flag in items list help");
+    assert!(
+        stdout.contains("bare"),
+        "expected --bare flag in items list help"
+    );
 }
 
 #[test]
 fn items_list_count_flag_in_help() {
     let output = cmd().args(["items", "list", "--help"]).output().unwrap();
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("count"), "expected --count flag in items list help");
+    assert!(
+        stdout.contains("count"),
+        "expected --count flag in items list help"
+    );
 }
 
 #[test]
 fn format_flag_bare_accepted() {
-    cmd().args(["--format", "bare", "version"]).assert().success();
+    cmd()
+        .args(["--format", "bare", "version"])
+        .assert()
+        .success();
 }
 
 // ── ai subcommand ────────────────────────────────────────────────────────────
@@ -244,7 +289,10 @@ fn ai_review_requires_permalink() {
 
 #[test]
 fn ai_review_all_help_exits_zero() {
-    cmd().args(["ai", "review-all", "--help"]).assert().success();
+    cmd()
+        .args(["ai", "review-all", "--help"])
+        .assert()
+        .success();
 }
 
 #[test]
@@ -296,12 +344,18 @@ fn snapshots_subcommand_help_exits_zero() {
 
 #[test]
 fn snapshots_list_help_exits_zero() {
-    cmd().args(["snapshots", "list", "--help"]).assert().success();
+    cmd()
+        .args(["snapshots", "list", "--help"])
+        .assert()
+        .success();
 }
 
 #[test]
 fn snapshots_create_help_exits_zero() {
-    cmd().args(["snapshots", "create", "--help"]).assert().success();
+    cmd()
+        .args(["snapshots", "create", "--help"])
+        .assert()
+        .success();
 }
 
 #[test]
@@ -312,7 +366,10 @@ fn snapshots_create_requires_name_flag() {
 
 #[test]
 fn snapshots_show_help_exits_zero() {
-    cmd().args(["snapshots", "show", "--help"]).assert().success();
+    cmd()
+        .args(["snapshots", "show", "--help"])
+        .assert()
+        .success();
 }
 
 #[test]
@@ -322,7 +379,10 @@ fn snapshots_show_requires_identifier() {
 
 #[test]
 fn snapshots_restore_help_exits_zero() {
-    cmd().args(["snapshots", "restore", "--help"]).assert().success();
+    cmd()
+        .args(["snapshots", "restore", "--help"])
+        .assert()
+        .success();
 }
 
 #[test]
@@ -332,7 +392,10 @@ fn snapshots_restore_requires_identifier() {
 
 #[test]
 fn snapshots_diff_help_exits_zero() {
-    cmd().args(["snapshots", "diff", "--help"]).assert().success();
+    cmd()
+        .args(["snapshots", "diff", "--help"])
+        .assert()
+        .success();
 }
 
 #[test]
@@ -342,7 +405,10 @@ fn snapshots_diff_requires_identifier() {
 
 #[test]
 fn snapshots_delete_help_exits_zero() {
-    cmd().args(["snapshots", "delete", "--help"]).assert().success();
+    cmd()
+        .args(["snapshots", "delete", "--help"])
+        .assert()
+        .success();
 }
 
 #[test]
@@ -352,23 +418,38 @@ fn snapshots_delete_requires_identifier() {
 
 #[test]
 fn snapshots_restore_help_mentions_yes_flag() {
-    let output = cmd().args(["snapshots", "restore", "--help"]).output().unwrap();
+    let output = cmd()
+        .args(["snapshots", "restore", "--help"])
+        .output()
+        .unwrap();
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("yes"), "expected --yes flag in restore help");
+    assert!(
+        stdout.contains("yes"),
+        "expected --yes flag in restore help"
+    );
 }
 
 #[test]
 fn snapshots_delete_help_mentions_yes_flag() {
-    let output = cmd().args(["snapshots", "delete", "--help"]).output().unwrap();
+    let output = cmd()
+        .args(["snapshots", "delete", "--help"])
+        .output()
+        .unwrap();
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("yes"), "expected --yes flag in delete help");
 }
 
 #[test]
 fn snapshots_create_help_mentions_name_flag() {
-    let output = cmd().args(["snapshots", "create", "--help"]).output().unwrap();
+    let output = cmd()
+        .args(["snapshots", "create", "--help"])
+        .output()
+        .unwrap();
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("name"), "expected --name flag in create help");
+    assert!(
+        stdout.contains("name"),
+        "expected --name flag in create help"
+    );
 }
 
 // ── snapshot model deserialization ───────────────────────────────────────────
@@ -390,7 +471,10 @@ fn snapshot_model_deserializes() {
     let s: Snapshot = serde_json::from_str(json).unwrap();
     assert_eq!(s.id, 1);
     assert_eq!(s.attributes.name, "pre-v2-refactor");
-    assert_eq!(s.attributes.description.as_deref(), Some("before big refactor"));
+    assert_eq!(
+        s.attributes.description.as_deref(),
+        Some("before big refactor")
+    );
     assert_eq!(s.attributes.project_id, 42);
     assert!(s.attributes.spec_items.is_empty());
 }

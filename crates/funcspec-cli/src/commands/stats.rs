@@ -1,4 +1,4 @@
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use clap::Args;
 
 use crate::context::client_and_config;
@@ -26,10 +26,7 @@ pub async fn run(args: StatsArgs, _format: OutputFormat) -> Result<()> {
     if let Some(ref m) = args.month
         && !is_valid_month(m)
     {
-        bail!(
-            "Invalid month format '{}'. Use YYYY-MM (e.g., 2026-03)",
-            m
-        );
+        bail!("Invalid month format '{}'. Use YYYY-MM (e.g., 2026-03)", m);
     }
 
     let (client, config) = client_and_config()?;
@@ -87,9 +84,8 @@ fn is_valid_month(s: &str) -> bool {
         return false;
     }
     let year_ok = parts[0].len() == 4 && parts[0].chars().all(|c| c.is_ascii_digit());
-    let month_ok = !parts[1].is_empty()
-        && parts[1].len() <= 2
-        && parts[1].chars().all(|c| c.is_ascii_digit());
+    let month_ok =
+        !parts[1].is_empty() && parts[1].len() <= 2 && parts[1].chars().all(|c| c.is_ascii_digit());
     year_ok && month_ok
 }
 

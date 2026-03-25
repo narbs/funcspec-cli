@@ -85,20 +85,29 @@ mod tests {
     #[test]
     fn view_args_defaults() {
         // item_id defaults to None, url defaults to false
-        let args = ViewArgs { item_id: None, url: false };
+        let args = ViewArgs {
+            item_id: None,
+            url: false,
+        };
         assert!(args.item_id.is_none());
         assert!(!args.url);
     }
 
     #[test]
     fn view_args_with_item_id() {
-        let args = ViewArgs { item_id: Some("F-377".into()), url: false };
+        let args = ViewArgs {
+            item_id: Some("F-377".into()),
+            url: false,
+        };
         assert_eq!(args.item_id.as_deref(), Some("F-377"));
     }
 
     #[test]
     fn view_args_url_flag() {
-        let args = ViewArgs { item_id: None, url: true };
+        let args = ViewArgs {
+            item_id: None,
+            url: true,
+        };
         assert!(args.url);
     }
 }

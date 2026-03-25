@@ -151,16 +151,14 @@ async fn handle_list(json: bool, format: OutputFormat) -> Result<()> {
         }
         OutputFormat::Minimal => {
             for s in &snapshots {
-                println!(
-                    "{}\t{}",
-                    s.id,
-                    s.attributes.name
-                );
+                println!("{}\t{}", s.id, s.attributes.name);
             }
         }
         _ => {
             if snapshots.is_empty() {
-                eprintln!("No snapshots found. Create one with `funcspec snapshots create --name <name>`.");
+                eprintln!(
+                    "No snapshots found. Create one with `funcspec snapshots create --name <name>`."
+                );
                 return Ok(());
             }
             let mut table = Table::new();
@@ -384,7 +382,11 @@ async fn handle_diff(identifier: &str, json: bool, format: OutputFormat) -> Resu
                         after.title
                     );
                     if before.title != after.title {
-                        println!("      title: {} → {}", before.title.red(), after.title.green());
+                        println!(
+                            "      title: {} → {}",
+                            before.title.red(),
+                            after.title.green()
+                        );
                     }
                     if before.description != after.description {
                         println!("      description changed");

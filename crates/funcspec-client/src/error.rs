@@ -59,9 +59,7 @@ impl Error {
     /// Returns the recommended retry delay, if any.
     pub fn retry_after(&self) -> Option<Duration> {
         match self {
-            Error::RateLimited { retry_after_secs } => {
-                Some(Duration::from_secs(*retry_after_secs))
-            }
+            Error::RateLimited { retry_after_secs } => Some(Duration::from_secs(*retry_after_secs)),
             _ => None,
         }
     }
@@ -99,11 +97,7 @@ impl Error {
             } else {
                 message
             }),
-            422 => Error::Validation(if message.is_empty() {
-                body
-            } else {
-                message
-            }),
+            422 => Error::Validation(if message.is_empty() { body } else { message }),
             429 => Error::RateLimited {
                 retry_after_secs: retry_after,
             },
@@ -122,9 +116,7 @@ impl Error {
     /// User-friendly CLI message.
     pub fn user_message(&self) -> String {
         match self {
-            Error::Auth(_) => {
-                "Not authenticated. Run `funcspec auth login` to connect.".into()
-            }
+            Error::Auth(_) => "Not authenticated. Run `funcspec auth login` to connect.".into(),
             Error::Forbidden(msg) => format!("Permission denied. {msg}"),
             Error::NotFound(msg) => msg.clone(),
             Error::Validation(msg) => format!("Validation error: {msg}"),
@@ -134,11 +126,11 @@ impl Error {
             Error::Server { status, message } => {
                 format!("Server error ({status}): {message}")
             }
-            Error::Network(_) => {
-                "Cannot reach funcspec.net. Check your connection.".into()
-            }
+            Error::Network(_) => "Cannot reach funcspec.net. Check your connection.".into(),
             Error::Timeout { secs } => {
-                format!("Request timed out after {secs}s. Check your connection or increase --timeout.")
+                format!(
+                    "Request timed out after {secs}s. Check your connection or increase --timeout."
+                )
             }
             Error::Json(e) => format!("Failed to parse server response: {e}"),
             Error::Other(msg) => msg.clone(),
@@ -184,13 +176,17 @@ mod tests {
 
     #[test]
     fn rate_limited_is_retryable() {
-        let e = Error::RateLimited { retry_after_secs: 5 };
+        let e = Error::RateLimited {
+            retry_after_secs: 5,
+        };
         assert!(e.is_retryable());
     }
 
     #[test]
     fn rate_limited_retry_after() {
-        let e = Error::RateLimited { retry_after_secs: 42 };
+        let e = Error::RateLimited {
+            retry_after_secs: 42,
+        };
         assert_eq!(e.retry_after(), Some(Duration::from_secs(42)));
     }
 
@@ -214,7 +210,10 @@ mod tests {
 
     #[test]
     fn server_error_is_retryable() {
-        let e = Error::Server { status: 500, message: "oops".into() };
+        let e = Error::Server {
+            status: 500,
+            message: "oops".into(),
+        };
         assert!(e.is_retryable());
     }
 

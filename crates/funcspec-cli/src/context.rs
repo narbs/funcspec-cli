@@ -12,9 +12,7 @@ pub fn set_project_override(project: Option<String>) {
 }
 
 fn project_override() -> Option<&'static str> {
-    PROJECT_OVERRIDE
-        .get()
-        .and_then(|o| o.as_deref())
+    PROJECT_OVERRIDE.get().and_then(|o| o.as_deref())
 }
 
 /// Build a client from the active profile. Returns (client, config).
@@ -29,7 +27,9 @@ pub fn client_and_config() -> Result<(FuncspecClient, Config)> {
 
 /// Build a client and resolve the project ID. Uses `--project` override if provided,
 /// otherwise falls back to the default project from config.
-pub async fn client_and_project_with(project_override: Option<&str>) -> Result<(FuncspecClient, u64)> {
+pub async fn client_and_project_with(
+    project_override: Option<&str>,
+) -> Result<(FuncspecClient, u64)> {
     let (client, config) = client_and_config()?;
     let profile = config.active_profile().unwrap();
 

@@ -784,7 +784,10 @@ mod tests {
         assert_eq!(s.month, "2026-03");
         assert_eq!(s.total_tokens, 45200);
         assert!((s.estimated_cost - 0.12).abs() < 1e-9);
-        assert_eq!(s.breakdown_by_operation.get("review").map(|u| u.tokens), Some(30000));
+        assert_eq!(
+            s.breakdown_by_operation.get("review").map(|u| u.tokens),
+            Some(30000)
+        );
     }
 
     #[test]
@@ -862,7 +865,13 @@ mod tests {
         let attrs = &resp.data.attributes;
         assert_eq!(attrs.spec_item_id, 5);
         assert_eq!(attrs.status, "pending");
-        assert!(attrs.proposed_description.as_deref().unwrap().contains("JWT"));
+        assert!(
+            attrs
+                .proposed_description
+                .as_deref()
+                .unwrap()
+                .contains("JWT")
+        );
         assert!(attrs.rationale.is_some());
     }
 
@@ -938,12 +947,24 @@ mod tests {
             per: Some(10),
         };
         let pairs = filter.to_query_pairs();
-        assert!(pairs.iter().any(|(k, v)| k == "type_of" && v == "functional"));
-        assert!(pairs.iter().any(|(k, v)| k == "implementation_status" && v == "in_progress"));
+        assert!(
+            pairs
+                .iter()
+                .any(|(k, v)| k == "type_of" && v == "functional")
+        );
+        assert!(
+            pairs
+                .iter()
+                .any(|(k, v)| k == "implementation_status" && v == "in_progress")
+        );
         assert!(pairs.iter().any(|(k, v)| k == "tag" && v == "auth"));
         assert!(pairs.iter().any(|(k, v)| k == "q" && v == "login"));
         assert!(pairs.iter().any(|(k, v)| k == "has_review" && v == "true"));
-        assert!(pairs.iter().any(|(k, v)| k == "review_verdict" && v == "approved"));
+        assert!(
+            pairs
+                .iter()
+                .any(|(k, v)| k == "review_verdict" && v == "approved")
+        );
         assert!(pairs.iter().any(|(k, v)| k == "parent_id" && v == "42"));
         assert!(pairs.iter().any(|(k, v)| k == "sort" && v == "score"));
         assert!(pairs.iter().any(|(k, v)| k == "page" && v == "2"));

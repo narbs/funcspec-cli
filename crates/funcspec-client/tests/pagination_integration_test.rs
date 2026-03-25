@@ -1,9 +1,17 @@
 //! Integration tests for pagination helpers that require HTTP mocking.
 
-use funcspec_client::{collect_all_pages, stream_all_pages, models::{Project, PaginationMeta}, pagination::PagedResponse, Error, FuncspecClient};
+use funcspec_client::{
+    Error, FuncspecClient, collect_all_pages,
+    models::{PaginationMeta, Project},
+    pagination::PagedResponse,
+    stream_all_pages,
+};
 use futures::StreamExt;
 use serde_json::json;
-use wiremock::{matchers::{method, path, query_param}, Mock, MockServer, ResponseTemplate};
+use wiremock::{
+    Mock, MockServer, ResponseTemplate,
+    matchers::{method, path, query_param},
+};
 
 fn make_project_json(id: u64, slug: &str) -> serde_json::Value {
     json!({

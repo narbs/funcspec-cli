@@ -124,7 +124,10 @@ mod tests {
 
     fn make_config_with_profile() -> Config {
         let mut profiles = BTreeMap::new();
-        profiles.insert("default".into(), make_profile("https://funcspec.net", "key123"));
+        profiles.insert(
+            "default".into(),
+            make_profile("https://funcspec.net", "key123"),
+        );
         Config {
             active_profile: "default".into(),
             profiles,
@@ -204,8 +207,14 @@ mod tests {
         let path = dir.path().join("config.toml");
 
         let mut config = Config::default();
-        config.profiles.insert("default".into(), make_profile("https://funcspec.net", "key1"));
-        config.profiles.insert("work".into(), make_profile("https://work.funcspec.net", "key2"));
+        config.profiles.insert(
+            "default".into(),
+            make_profile("https://funcspec.net", "key1"),
+        );
+        config.profiles.insert(
+            "work".into(),
+            make_profile("https://work.funcspec.net", "key2"),
+        );
         config.active_profile = "work".into();
 
         config.save_to_path(&path).unwrap();

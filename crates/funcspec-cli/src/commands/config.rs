@@ -1,4 +1,4 @@
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use clap::Subcommand;
 use console::style;
 
@@ -38,27 +38,21 @@ pub async fn run(cmd: ConfigCmd) -> Result<()> {
                 "project" | "default_project" => {
                     let profile_name = config.active_profile.clone();
                     let profile = config.profiles.get_mut(&profile_name).ok_or_else(|| {
-                        anyhow::anyhow!(
-                            "No active profile. Run `funcspec auth login` first."
-                        )
+                        anyhow::anyhow!("No active profile. Run `funcspec auth login` first.")
                     })?;
                     profile.default_project = Some(value.clone());
                 }
                 "host" => {
                     let profile_name = config.active_profile.clone();
                     let profile = config.profiles.get_mut(&profile_name).ok_or_else(|| {
-                        anyhow::anyhow!(
-                            "No active profile. Run `funcspec auth login` first."
-                        )
+                        anyhow::anyhow!("No active profile. Run `funcspec auth login` first.")
                     })?;
                     profile.host = value.clone();
                 }
                 "api_key" | "key" => {
                     let profile_name = config.active_profile.clone();
                     let profile = config.profiles.get_mut(&profile_name).ok_or_else(|| {
-                        anyhow::anyhow!(
-                            "No active profile. Run `funcspec auth login` first."
-                        )
+                        anyhow::anyhow!("No active profile. Run `funcspec auth login` first.")
                     })?;
                     profile.api_key = value.clone();
                 }
@@ -67,12 +61,19 @@ pub async fn run(cmd: ConfigCmd) -> Result<()> {
                         bail!(
                             "Profile '{}' does not exist. Available: {}",
                             value,
-                            config.profiles.keys().cloned().collect::<Vec<_>>().join(", ")
+                            config
+                                .profiles
+                                .keys()
+                                .cloned()
+                                .collect::<Vec<_>>()
+                                .join(", ")
                         );
                     }
                     config.active_profile = value.clone();
                 }
-                k => bail!("Unknown config key: '{k}'. Valid keys: project, host, api_key, profile"),
+                k => {
+                    bail!("Unknown config key: '{k}'. Valid keys: project, host, api_key, profile")
+                }
             }
             config.save()?;
             eprintln!("Set {} = {}", style(&key).cyan(), style(&value).green());
@@ -96,12 +97,10 @@ pub async fn run(cmd: ConfigCmd) -> Result<()> {
                     None => eprintln!("(not set)"),
                 },
                 "profile" => println!("{}", config.active_profile),
-                "api_key" | "key" => {
-                    match config.active_profile().map(|p| p.api_key.clone()) {
-                        Some(v) => println!("{v}"),
-                        None => eprintln!("(not set)"),
-                    }
-                }
+                "api_key" | "key" => match config.active_profile().map(|p| p.api_key.clone()) {
+                    Some(v) => println!("{v}"),
+                    None => eprintln!("(not set)"),
+                },
                 k => bail!("Unknown config key: '{k}'"),
             }
             Ok(())
@@ -109,14 +108,25 @@ pub async fn run(cmd: ConfigCmd) -> Result<()> {
 
         ConfigCmd::List => {
             let config = Config::load()?;
-            eprintln!("Active profile: {}", style(&config.active_profile).cyan().bold());
+            eprintln!(
+                "Active profile: {}",
+                style(&config.active_profile).cyan().bold()
+            );
             eprintln!();
             for (name, profile) in &config.profiles {
-                let active = if name == &config.active_profile { " (active)" } else { "" };
+                let active = if name == &config.active_profile {
+                    " (active)"
+                } else {
+                    ""
+                };
                 eprintln!("{}{}:", style(name).cyan().bold(), style(active).dim());
                 eprintln!("  host:    {}", profile.host);
                 let masked = if profile.api_key.len() > 8 {
-                    format!("{}…{}", &profile.api_key[..4], &profile.api_key[profile.api_key.len() - 4..])
+                    format!(
+                        "{}…{}",
+                        &profile.api_key[..4],
+                        &profile.api_key[profile.api_key.len() - 4..]
+                    )
                 } else {
                     "*".repeat(profile.api_key.len())
                 };
@@ -134,7 +144,12 @@ pub async fn run(cmd: ConfigCmd) -> Result<()> {
                 bail!(
                     "Profile '{}' does not exist. Available: {}",
                     name,
-                    config.profiles.keys().cloned().collect::<Vec<_>>().join(", ")
+                    config
+                        .profiles
+                        .keys()
+                        .cloned()
+                        .collect::<Vec<_>>()
+                        .join(", ")
                 );
             }
             config.active_profile = name.clone();

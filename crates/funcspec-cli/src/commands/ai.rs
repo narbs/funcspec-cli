@@ -178,7 +178,10 @@ async fn handle_review_all() -> Result<()> {
                 .unwrap_or("unknown error");
             anyhow::bail!("Batch review job failed: {msg}");
         }
-        _ => println!("Job ended with unexpected status: {}", final_job.attributes.status),
+        _ => println!(
+            "Job ended with unexpected status: {}",
+            final_job.attributes.status
+        ),
     }
     Ok(())
 }
@@ -205,8 +208,16 @@ async fn handle_improve(permalink: &str, auto_accept: bool) -> Result<()> {
     pb2.finish_and_clear();
 
     // Show diff
-    let original = proposal.attributes.original_description.as_deref().unwrap_or("");
-    let proposed = proposal.attributes.proposed_description.as_deref().unwrap_or("");
+    let original = proposal
+        .attributes
+        .original_description
+        .as_deref()
+        .unwrap_or("");
+    let proposed = proposal
+        .attributes
+        .proposed_description
+        .as_deref()
+        .unwrap_or("");
 
     println!("\n{}", "=== Proposed Improvement ===".bold());
     println!(
@@ -290,7 +301,10 @@ async fn handle_generate(permalink: &str) -> Result<()> {
         return Ok(());
     }
 
-    println!("{} proposal(s) generated.\n", tech_proposals.proposals.len());
+    println!(
+        "{} proposal(s) generated.\n",
+        tech_proposals.proposals.len()
+    );
 
     let mut table = Table::new();
     table.set_content_arrangement(ContentArrangement::Dynamic);
@@ -487,8 +501,7 @@ mod tests {
             cmd: AiCmd,
         }
 
-        let cli =
-            TestCli::try_parse_from(["test", "improve", "--auto-accept", "F-10"]).unwrap();
+        let cli = TestCli::try_parse_from(["test", "improve", "--auto-accept", "F-10"]).unwrap();
         match cli.cmd {
             AiCmd::Improve {
                 permalink,

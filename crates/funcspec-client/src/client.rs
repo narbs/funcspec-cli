@@ -1,7 +1,7 @@
 use std::time::Duration;
 
-use reqwest::header::{HeaderMap, HeaderValue};
 use reqwest::Client;
+use reqwest::header::{HeaderMap, HeaderValue};
 use tracing::{debug, warn};
 
 use crate::error::Error;
@@ -75,7 +75,11 @@ impl FuncspecClient {
                                 1u64 << attempt.min(6)
                             });
                         let delay = Duration::from_secs(retry_after.min(60));
-                        warn!(attempt, retry_after_secs = retry_after, "Rate limited, backing off");
+                        warn!(
+                            attempt,
+                            retry_after_secs = retry_after,
+                            "Rate limited, backing off"
+                        );
                         tokio::time::sleep(delay).await;
                         attempt += 1;
                         continue;
@@ -196,12 +200,7 @@ impl FuncspecClient {
         let url = self.api_url(&format!("/projects/{project_id}/spec/items"));
         debug!(%url, "list_items");
         let resp = self
-            .request_with_retry(|| {
-                self.http
-                    .get(&url)
-                    .query(&filter.to_query_pairs())
-                    .send()
-            })
+            .request_with_retry(|| self.http.get(&url).query(&filter.to_query_pairs()).send())
             .await?;
         if !resp.status().is_success() {
             return Err(Error::from_response(resp).await);
@@ -297,9 +296,7 @@ impl FuncspecClient {
         item_id: u64,
         params: &UpdateItemParams,
     ) -> Result<SpecItem, Error> {
-        let url = self.api_url(&format!(
-            "/projects/{project_id}/spec/items/{item_id}"
-        ));
+        let url = self.api_url(&format!("/projects/{project_id}/spec/items/{item_id}"));
         let resp = self
             .request_with_retry(|| self.http.patch(&url).json(params).send())
             .await?;
@@ -311,9 +308,7 @@ impl FuncspecClient {
     }
 
     pub async fn delete_item(&self, project_id: u64, item_id: u64) -> Result<(), Error> {
-        let url = self.api_url(&format!(
-            "/projects/{project_id}/spec/items/{item_id}"
-        ));
+        let url = self.api_url(&format!("/projects/{project_id}/spec/items/{item_id}"));
         let resp = self
             .request_with_retry(|| self.http.delete(&url).send())
             .await?;
@@ -532,11 +527,7 @@ impl FuncspecClient {
     ///
     /// Returns the final [`Job`] on completion, or [`Error::Timeout`] if `timeout`
     /// elapses before the job finishes. Polls every 500 ms.
-    pub async fn poll_job_until_done(
-        &self,
-        job_id: u64,
-        timeout: Duration,
-    ) -> Result<Job, Error> {
+    pub async fn poll_job_until_done(&self, job_id: u64, timeout: Duration) -> Result<Job, Error> {
         let start = std::time::Instant::now();
         let poll_interval = Duration::from_millis(500);
         loop {
@@ -723,11 +714,7 @@ impl FuncspecClient {
     /// Get a single snapshot by ID.
     ///
     /// Calls `GET /projects/:project_id/snapshots/:snapshot_id`.
-    pub async fn get_snapshot(
-        &self,
-        project_id: u64,
-        snapshot_id: u64,
-    ) -> Result<Snapshot, Error> {
+    pub async fn get_snapshot(&self, project_id: u64, snapshot_id: u64) -> Result<Snapshot, Error> {
         let url = self.api_url(&format!("/projects/{project_id}/snapshots/{snapshot_id}"));
         debug!(%url, "get_snapshot");
         let resp = self
@@ -743,13 +730,10 @@ impl FuncspecClient {
     /// Restore project to the state captured in a snapshot.
     ///
     /// Calls `POST /projects/:project_id/snapshots/:snapshot_id/restore`.
-    pub async fn restore_snapshot(
-        &self,
-        project_id: u64,
-        snapshot_id: u64,
-    ) -> Result<(), Error> {
-        let url =
-            self.api_url(&format!("/projects/{project_id}/snapshots/{snapshot_id}/restore"));
+    pub async fn restore_snapshot(&self, project_id: u64, snapshot_id: u64) -> Result<(), Error> {
+        let url = self.api_url(&format!(
+            "/projects/{project_id}/snapshots/{snapshot_id}/restore"
+        ));
         debug!(%url, "restore_snapshot");
         let resp = self
             .request_with_retry(|| self.http.post(&url).send())
@@ -763,11 +747,7 @@ impl FuncspecClient {
     /// Delete a snapshot.
     ///
     /// Calls `DELETE /projects/:project_id/snapshots/:snapshot_id`.
-    pub async fn delete_snapshot(
-        &self,
-        project_id: u64,
-        snapshot_id: u64,
-    ) -> Result<(), Error> {
+    pub async fn delete_snapshot(&self, project_id: u64, snapshot_id: u64) -> Result<(), Error> {
         let url = self.api_url(&format!("/projects/{project_id}/snapshots/{snapshot_id}"));
         debug!(%url, "delete_snapshot");
         let resp = self
@@ -787,8 +767,9 @@ impl FuncspecClient {
         project_id: u64,
         snapshot_id: u64,
     ) -> Result<SnapshotDiff, Error> {
-        let url =
-            self.api_url(&format!("/projects/{project_id}/snapshots/{snapshot_id}/diff"));
+        let url = self.api_url(&format!(
+            "/projects/{project_id}/snapshots/{snapshot_id}/diff"
+        ));
         debug!(%url, "diff_snapshot");
         let resp = self
             .request_with_retry(|| self.http.get(&url).send())
@@ -826,7 +807,10 @@ mod tests {
             .await;
 
         let client = make_client(&server.uri()).await;
-        let result = client.export_project(42, "markdown", None, None).await.unwrap();
+        let result = client
+            .export_project(42, "markdown", None, None)
+            .await
+            .unwrap();
         match result {
             ExportData::Text(text) => assert!(text.contains("# My Spec")),
             ExportData::Binary(_) => panic!("expected text"),
@@ -917,8 +901,7 @@ mod tests {
         Mock::given(method("GET"))
             .and(path("/api/v1/projects/3/spec/view"))
             .respond_with(
-                ResponseTemplate::new(200)
-                    .set_body_string("<html><body>Spec</body></html>"),
+                ResponseTemplate::new(200).set_body_string("<html><body>Spec</body></html>"),
             )
             .mount(&server)
             .await;
@@ -934,8 +917,7 @@ mod tests {
         Mock::given(method("GET"))
             .and(path("/api/v1/projects/0/spec/view"))
             .respond_with(
-                ResponseTemplate::new(403)
-                    .set_body_json(serde_json::json!({"error": "Forbidden"})),
+                ResponseTemplate::new(403).set_body_json(serde_json::json!({"error": "Forbidden"})),
             )
             .mount(&server)
             .await;
@@ -989,8 +971,7 @@ mod tests {
         Mock::given(method("POST"))
             .and(path("/api/v1/projects/1/work_package/999/review"))
             .respond_with(
-                ResponseTemplate::new(404)
-                    .set_body_json(serde_json::json!({"error": "Not found"})),
+                ResponseTemplate::new(404).set_body_json(serde_json::json!({"error": "Not found"})),
             )
             .mount(&server)
             .await;
@@ -1055,11 +1036,13 @@ mod tests {
         let proposal = client.propose_improvement(3, 10).await.unwrap();
         assert_eq!(proposal.attributes.spec_item_id, 10);
         assert_eq!(proposal.attributes.status, "pending");
-        assert!(proposal
-            .attributes
-            .proposed_description
-            .unwrap()
-            .contains("email"));
+        assert!(
+            proposal
+                .attributes
+                .proposed_description
+                .unwrap()
+                .contains("email")
+        );
     }
 
     #[tokio::test]

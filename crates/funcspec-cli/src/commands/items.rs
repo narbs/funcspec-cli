@@ -305,7 +305,9 @@ pub async fn run(cmd: ItemsCmd, format: OutputFormat) -> Result<()> {
                 tags: tag,
             };
 
-            let updated = client.update_item(project_id, spec_item.id, &params).await?;
+            let updated = client
+                .update_item(project_id, spec_item.id, &params)
+                .await?;
             eprintln!(
                 "Updated {} {}",
                 style(&updated.attributes.permalink).cyan().bold(),
@@ -385,10 +387,7 @@ pub async fn run(cmd: ItemsCmd, format: OutputFormat) -> Result<()> {
             }
 
             client.delete_item(project_id, spec_item.id).await?;
-            eprintln!(
-                "Deleted {}",
-                style(&spec_item.attributes.permalink).cyan()
-            );
+            eprintln!("Deleted {}", style(&spec_item.attributes.permalink).cyan());
             Ok(())
         }
     }
@@ -424,7 +423,11 @@ mod tests {
     #[test]
     fn list_format_override_json_flag() {
         // json=true overrides any global format to Json
-        let fmt = if true { OutputFormat::Json } else { OutputFormat::Table };
+        let fmt = if true {
+            OutputFormat::Json
+        } else {
+            OutputFormat::Table
+        };
         assert_eq!(fmt, OutputFormat::Json);
     }
 

@@ -75,8 +75,14 @@ pub fn format_projects(projects: &[Project], format: OutputFormat) -> Result<()>
                     p.attributes.slug.as_str(),
                     p.attributes.name.as_str(),
                     p.attributes.description.as_deref().unwrap_or(""),
-                    &p.attributes.created_at.format("%Y-%m-%dT%H:%M:%SZ").to_string(),
-                    &p.attributes.updated_at.format("%Y-%m-%dT%H:%M:%SZ").to_string(),
+                    &p.attributes
+                        .created_at
+                        .format("%Y-%m-%dT%H:%M:%SZ")
+                        .to_string(),
+                    &p.attributes
+                        .updated_at
+                        .format("%Y-%m-%dT%H:%M:%SZ")
+                        .to_string(),
                 ])?;
             }
             wtr.flush()?;
@@ -461,9 +467,21 @@ pub fn format_stats_dashboard(
     );
 
     // Status breakdown
-    let implemented = stats.status_breakdown.get("implemented").copied().unwrap_or(0);
-    let in_progress = stats.status_breakdown.get("in_progress").copied().unwrap_or(0);
-    let not_started = stats.status_breakdown.get("not_started").copied().unwrap_or(0);
+    let implemented = stats
+        .status_breakdown
+        .get("implemented")
+        .copied()
+        .unwrap_or(0);
+    let in_progress = stats
+        .status_breakdown
+        .get("in_progress")
+        .copied()
+        .unwrap_or(0);
+    let not_started = stats
+        .status_breakdown
+        .get("not_started")
+        .copied()
+        .unwrap_or(0);
     let pct_impl = percent(implemented, stats.total_items);
     let bar = progress_bar(pct_impl, 10);
     println!(
@@ -505,7 +523,11 @@ pub fn format_stats_dashboard(
     if !stats.tag_summary.is_empty() {
         let mut tags: Vec<(&String, &u32)> = stats.tag_summary.iter().collect();
         tags.sort_by(|a, b| b.1.cmp(a.1));
-        let top: Vec<String> = tags.iter().take(5).map(|(k, v)| format!("{k} ({v})")).collect();
+        let top: Vec<String> = tags
+            .iter()
+            .take(5)
+            .map(|(k, v)| format!("{k} ({v})"))
+            .collect();
         println!("{:<12}{}", "Tags:".cyan().bold(), top.join(", "));
     }
 
@@ -940,7 +962,13 @@ mod tests {
     fn format_usage_stats_does_not_panic() {
         use funcspec_client::models::*;
         let mut breakdown = std::collections::HashMap::new();
-        breakdown.insert("review".to_string(), TokenUsage { tokens: 30_000, cost: 0.08 });
+        breakdown.insert(
+            "review".to_string(),
+            TokenUsage {
+                tokens: 30_000,
+                cost: 0.08,
+            },
+        );
 
         let stats = UsageStats {
             month: "2026-03".to_string(),
