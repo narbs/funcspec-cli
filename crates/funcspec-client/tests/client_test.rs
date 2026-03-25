@@ -72,7 +72,7 @@ async fn list_projects_success() {
     Mock::given(method("GET"))
         .and(path("/api/v1/projects"))
         .and(header("X-Api-Key", "test-api-key"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(&body))
+        .respond_with(ResponseTemplate::new(200).set_body_json(body))
         .mount(&server)
         .await;
 
@@ -90,7 +90,7 @@ async fn list_projects_empty() {
 
     Mock::given(method("GET"))
         .and(path("/api/v1/projects"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(&body))
+        .respond_with(ResponseTemplate::new(200).set_body_json(body))
         .mount(&server)
         .await;
 
@@ -106,7 +106,7 @@ async fn list_projects_401_returns_auth_error() {
 
     Mock::given(method("GET"))
         .and(path("/api/v1/projects"))
-        .respond_with(ResponseTemplate::new(401).set_body_json(&body))
+        .respond_with(ResponseTemplate::new(401).set_body_json(body))
         .mount(&server)
         .await;
 
@@ -122,7 +122,7 @@ async fn list_projects_500_returns_server_error() {
 
     Mock::given(method("GET"))
         .and(path("/api/v1/projects"))
-        .respond_with(ResponseTemplate::new(500).set_body_json(&body))
+        .respond_with(ResponseTemplate::new(500).set_body_json(body))
         .mount(&server)
         .await;
 
@@ -141,7 +141,7 @@ async fn get_project_success() {
 
     Mock::given(method("GET"))
         .and(path("/api/v1/projects/test-slug"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(&body))
+        .respond_with(ResponseTemplate::new(200).set_body_json(body))
         .mount(&server)
         .await;
 
@@ -158,7 +158,7 @@ async fn get_project_404() {
 
     Mock::given(method("GET"))
         .and(path("/api/v1/projects/no-such"))
-        .respond_with(ResponseTemplate::new(404).set_body_json(&body))
+        .respond_with(ResponseTemplate::new(404).set_body_json(body))
         .mount(&server)
         .await;
 
@@ -183,7 +183,7 @@ async fn list_items_success_with_meta() {
 
     Mock::given(method("GET"))
         .and(path("/api/v1/projects/10/spec/items"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(&body))
+        .respond_with(ResponseTemplate::new(200).set_body_json(body))
         .mount(&server)
         .await;
 
@@ -205,7 +205,7 @@ async fn list_items_filter_sent_as_query_params() {
         .and(path("/api/v1/projects/5/spec/items"))
         .and(query_param("type_of", "functional"))
         .and(query_param("implementation_status", "implemented"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(&body))
+        .respond_with(ResponseTemplate::new(200).set_body_json(body))
         .mount(&server)
         .await;
 
@@ -228,7 +228,7 @@ async fn get_item_by_permalink() {
 
     Mock::given(method("GET"))
         .and(path("/api/v1/projects/1/spec/items/F-7"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(&body))
+        .respond_with(ResponseTemplate::new(200).set_body_json(body))
         .mount(&server)
         .await;
 
@@ -247,7 +247,7 @@ async fn create_item_success() {
 
     Mock::given(method("POST"))
         .and(path("/api/v1/projects/1/spec/items"))
-        .respond_with(ResponseTemplate::new(201).set_body_json(&body))
+        .respond_with(ResponseTemplate::new(201).set_body_json(body))
         .mount(&server)
         .await;
 
@@ -268,7 +268,7 @@ async fn create_item_422_validation_error() {
 
     Mock::given(method("POST"))
         .and(path("/api/v1/projects/1/spec/items"))
-        .respond_with(ResponseTemplate::new(422).set_body_json(&body))
+        .respond_with(ResponseTemplate::new(422).set_body_json(body))
         .mount(&server)
         .await;
 
@@ -290,7 +290,7 @@ async fn update_item_success() {
 
     Mock::given(method("PATCH"))
         .and(path("/api/v1/projects/1/spec/items/5"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(&body))
+        .respond_with(ResponseTemplate::new(200).set_body_json(body))
         .mount(&server)
         .await;
 
@@ -332,7 +332,7 @@ async fn search_items_sends_q_param() {
     Mock::given(method("GET"))
         .and(path("/api/v1/projects/1/spec/items"))
         .and(query_param("q", "auth"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(&body))
+        .respond_with(ResponseTemplate::new(200).set_body_json(body))
         .mount(&server)
         .await;
 
@@ -353,7 +353,7 @@ async fn search_items_with_type_filter() {
         .and(path("/api/v1/projects/1/spec/items"))
         .and(query_param("q", "login"))
         .and(query_param("type_of", "technical"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(&body))
+        .respond_with(ResponseTemplate::new(200).set_body_json(body))
         .mount(&server)
         .await;
 
@@ -375,7 +375,7 @@ async fn search_items_overrides_filter_q() {
     Mock::given(method("GET"))
         .and(path("/api/v1/projects/1/spec/items"))
         .and(query_param("q", "override"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(&body))
+        .respond_with(ResponseTemplate::new(200).set_body_json(body))
         .mount(&server)
         .await;
 
@@ -396,7 +396,7 @@ async fn list_items_with_sort_param() {
     Mock::given(method("GET"))
         .and(path("/api/v1/projects/1/spec/items"))
         .and(query_param("sort", "score"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(&body))
+        .respond_with(ResponseTemplate::new(200).set_body_json(body))
         .mount(&server)
         .await;
 
@@ -416,7 +416,7 @@ async fn search_items_404_returns_not_found() {
 
     Mock::given(method("GET"))
         .and(path("/api/v1/projects/999/spec/items"))
-        .respond_with(ResponseTemplate::new(404).set_body_json(&body))
+        .respond_with(ResponseTemplate::new(404).set_body_json(body))
         .mount(&server)
         .await;
 
@@ -442,7 +442,7 @@ async fn rate_limited_error_classification() {
         .respond_with(
             ResponseTemplate::new(429)
                 .insert_header("retry-after", "1")
-                .set_body_json(&body),
+                .set_body_json(body),
         )
         .expect(1..=4) // up to max_retries + initial attempt
         .mount(&server)
@@ -473,7 +473,7 @@ async fn list_projects_paged_returns_metadata() {
 
     Mock::given(method("GET"))
         .and(path("/api/v1/projects"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(&body))
+        .respond_with(ResponseTemplate::new(200).set_body_json(body))
         .mount(&server)
         .await;
 
@@ -495,7 +495,7 @@ async fn forbidden_error_from_403() {
 
     Mock::given(method("GET"))
         .and(path("/api/v1/projects"))
-        .respond_with(ResponseTemplate::new(403).set_body_json(&body))
+        .respond_with(ResponseTemplate::new(403).set_body_json(body))
         .mount(&server)
         .await;
 
@@ -571,7 +571,7 @@ async fn get_project_stats_not_found() {
 
     Mock::given(method("GET"))
         .and(path("/api/v1/projects/999/stats"))
-        .respond_with(ResponseTemplate::new(404).set_body_json(&body))
+        .respond_with(ResponseTemplate::new(404).set_body_json(body))
         .mount(&server)
         .await;
 
@@ -649,7 +649,7 @@ async fn get_usage_logs_success() {
     Mock::given(method("GET"))
         .and(path("/api/v1/projects/1/usage/logs"))
         .and(header("X-Api-Key", "test-api-key"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(&body))
+        .respond_with(ResponseTemplate::new(200).set_body_json(body))
         .mount(&server)
         .await;
 
@@ -689,7 +689,7 @@ async fn list_snapshots_success() {
     Mock::given(method("GET"))
         .and(path("/api/v1/projects/10/snapshots"))
         .and(header("X-Api-Key", "test-api-key"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(&body))
+        .respond_with(ResponseTemplate::new(200).set_body_json(body))
         .mount(&server)
         .await;
 
@@ -707,7 +707,7 @@ async fn list_snapshots_empty() {
 
     Mock::given(method("GET"))
         .and(path("/api/v1/projects/10/snapshots"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(&body))
+        .respond_with(ResponseTemplate::new(200).set_body_json(body))
         .mount(&server)
         .await;
 
@@ -724,7 +724,7 @@ async fn create_snapshot_success() {
 
     Mock::given(method("POST"))
         .and(path("/api/v1/projects/1/snapshots"))
-        .respond_with(ResponseTemplate::new(201).set_body_json(&body))
+        .respond_with(ResponseTemplate::new(201).set_body_json(body))
         .mount(&server)
         .await;
 
@@ -749,7 +749,7 @@ async fn create_snapshot_with_description() {
 
     Mock::given(method("POST"))
         .and(path("/api/v1/projects/1/snapshots"))
-        .respond_with(ResponseTemplate::new(201).set_body_json(&body))
+        .respond_with(ResponseTemplate::new(201).set_body_json(body))
         .mount(&server)
         .await;
 
@@ -772,7 +772,7 @@ async fn get_snapshot_success() {
 
     Mock::given(method("GET"))
         .and(path("/api/v1/projects/1/snapshots/7"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(&body))
+        .respond_with(ResponseTemplate::new(200).set_body_json(body))
         .mount(&server)
         .await;
 
@@ -789,7 +789,7 @@ async fn get_snapshot_404() {
 
     Mock::given(method("GET"))
         .and(path("/api/v1/projects/1/snapshots/999"))
-        .respond_with(ResponseTemplate::new(404).set_body_json(&body))
+        .respond_with(ResponseTemplate::new(404).set_body_json(body))
         .mount(&server)
         .await;
 
@@ -819,7 +819,7 @@ async fn restore_snapshot_not_found() {
 
     Mock::given(method("POST"))
         .and(path("/api/v1/projects/1/snapshots/999/restore"))
-        .respond_with(ResponseTemplate::new(404).set_body_json(&body))
+        .respond_with(ResponseTemplate::new(404).set_body_json(body))
         .mount(&server)
         .await;
 
@@ -849,7 +849,7 @@ async fn delete_snapshot_not_found() {
 
     Mock::given(method("DELETE"))
         .and(path("/api/v1/projects/1/snapshots/999"))
-        .respond_with(ResponseTemplate::new(404).set_body_json(&body))
+        .respond_with(ResponseTemplate::new(404).set_body_json(body))
         .mount(&server)
         .await;
 
@@ -877,7 +877,7 @@ async fn diff_snapshot_success() {
 
     Mock::given(method("GET"))
         .and(path("/api/v1/projects/1/snapshots/1/diff"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(&body))
+        .respond_with(ResponseTemplate::new(200).set_body_json(body))
         .mount(&server)
         .await;
 
@@ -907,7 +907,7 @@ async fn diff_snapshot_empty() {
 
     Mock::given(method("GET"))
         .and(path("/api/v1/projects/1/snapshots/2/diff"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(&body))
+        .respond_with(ResponseTemplate::new(200).set_body_json(body))
         .mount(&server)
         .await;
 
