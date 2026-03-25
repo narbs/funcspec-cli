@@ -475,7 +475,7 @@ fn snapshot_model_deserializes() {
         s.attributes.description.as_deref(),
         Some("before big refactor")
     );
-    assert_eq!(s.attributes.project_id, 42);
+    assert_eq!(s.attributes.project_id, Some(42));
     assert!(s.attributes.spec_items.is_empty());
 }
 

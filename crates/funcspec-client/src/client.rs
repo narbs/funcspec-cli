@@ -854,8 +854,7 @@ mod tests {
     async fn export_project_text_format() {
         let server = MockServer::start().await;
         Mock::given(method("GET"))
-            .and(path("/api/v1/projects/42/spec/export"))
-            .and(query_param("format", "markdown"))
+            .and(path("/api/v1/projects/42/export/markdown"))
             .respond_with(ResponseTemplate::new(200).set_body_string("# My Spec\n\nContent here."))
             .mount(&server)
             .await;
@@ -875,8 +874,7 @@ mod tests {
     async fn export_project_with_filters() {
         let server = MockServer::start().await;
         Mock::given(method("GET"))
-            .and(path("/api/v1/projects/42/spec/export"))
-            .and(query_param("format", "csv"))
+            .and(path("/api/v1/projects/42/export/csv"))
             .and(query_param("type_of", "functional"))
             .and(query_param("tag", "v1"))
             .respond_with(ResponseTemplate::new(200).set_body_string("id,title\n1,Login"))
@@ -899,8 +897,7 @@ mod tests {
         let server = MockServer::start().await;
         let pdf_bytes = b"%PDF-1.4 fake pdf content".to_vec();
         Mock::given(method("GET"))
-            .and(path("/api/v1/projects/7/spec/export"))
-            .and(query_param("format", "pdf"))
+            .and(path("/api/v1/projects/7/export/pdf"))
             .respond_with(ResponseTemplate::new(200).set_body_bytes(pdf_bytes.clone()))
             .mount(&server)
             .await;
@@ -918,8 +915,7 @@ mod tests {
         let server = MockServer::start().await;
         let docx_bytes = b"PK\x03\x04fake docx".to_vec();
         Mock::given(method("GET"))
-            .and(path("/api/v1/projects/5/spec/export"))
-            .and(query_param("format", "docx"))
+            .and(path("/api/v1/projects/5/export/docx"))
             .respond_with(ResponseTemplate::new(200).set_body_bytes(docx_bytes.clone()))
             .mount(&server)
             .await;
@@ -936,7 +932,7 @@ mod tests {
     async fn export_project_error_response() {
         let server = MockServer::start().await;
         Mock::given(method("GET"))
-            .and(path("/api/v1/projects/99/spec/export"))
+            .and(path("/api/v1/projects/99/export/markdown"))
             .respond_with(
                 ResponseTemplate::new(404)
                     .set_body_json(serde_json::json!({"error": "Project not found"})),
@@ -990,20 +986,23 @@ mod tests {
             .and(path("/api/v1/projects/1/work_package/5/review"))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
                 "data": {
-                    "id": 42,
                     "type": "review",
                     "attributes": {
-                        "spec_item_id": 5,
-                        "reviewer": "ai",
-                        "status": "approved",
-                        "comment": "Well defined",
                         "coverage_score": 90.0,
+                        "collective_coverage_score": null,
                         "verdict": "pass",
-                        "coverage_map": ["Auth flow", "Error cases"],
+                        "tech_item_id": 5,
+                        "tech_item_title": "Auth service",
+                        "func_item_ids": [1],
+                        "functional_requirements_parsed": "Login, logout",
+                        "coverage_map": {
+                            "Auth flow": {"status": "covered", "covered_by": "Auth service", "notes": ""},
+                            "Error cases": {"status": "covered", "covered_by": "Auth service", "notes": ""}
+                        },
                         "gaps": [],
                         "suggestions": ["Consider adding retry logic"],
-                        "created_at": "2026-01-01T00:00:00Z",
-                        "updated_at": "2026-01-01T00:00:00Z"
+                        "risks": [],
+                        "reviewed_at": "2026-01-01T00:00:00Z"
                     }
                 }
             })))

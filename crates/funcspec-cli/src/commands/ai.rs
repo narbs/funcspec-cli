@@ -369,7 +369,10 @@ fn display_review(item: &SpecItem, review: &Review) {
         item.attributes.permalink.cyan(),
         item.attributes.title
     );
-    println!("{} {}", "Reviewer:".bold(), attrs.reviewer);
+
+    if let Some(ref title) = attrs.tech_item_title {
+        println!("{} {}", "Tech spec:".bold(), title);
+    }
 
     let score_str = format!("{score:.1}");
     let score_colored = if score >= 80.0 {
@@ -380,13 +383,16 @@ fn display_review(item: &SpecItem, review: &Review) {
         score_str.red()
     };
     println!("{} {}%", "Score:".bold(), score_colored);
+    if let Some(collective) = attrs.collective_coverage_score {
+        println!("{} {:.1}%", "Collective score:".bold(), collective);
+    }
     println!("{} {}", "Verdict:".bold(), verdict);
-    println!("{} {}", "Status:".bold(), attrs.status);
 
     if !attrs.coverage_map.is_empty() {
-        println!("\n{}", "Coverage Map:".bold());
-        for area in &attrs.coverage_map {
-            println!("  {} {area}", "✓".green());
+        println!("\n{}", "Coverage:".bold());
+        for (req, entry) in &attrs.coverage_map {
+            let status = entry.get("status").and_then(|v| v.as_str()).unwrap_or("?");
+            println!("  {} {req}", if status == "covered" { "✓".green() } else { "✗".red() });
         }
     }
 
@@ -397,15 +403,18 @@ fn display_review(item: &SpecItem, review: &Review) {
         }
     }
 
+    if !attrs.risks.is_empty() {
+        println!("\n{}", "Risks:".bold());
+        for r in &attrs.risks {
+            println!("  {} {r}", "⚠".yellow());
+        }
+    }
+
     if !attrs.suggestions.is_empty() {
         println!("\n{}", "Suggestions:".bold());
         for s in &attrs.suggestions {
             println!("  {} {s}", "→".blue());
         }
-    }
-
-    if let Some(ref comment) = attrs.comment {
-        println!("\n{} {comment}", "Comment:".bold());
     }
 
     println!();
@@ -595,20 +604,28 @@ mod tests {
         };
 
         let review = Review {
-            id: 10,
+            id: Some(10),
             resource_type: "review".into(),
             attributes: ReviewAttributes {
-                spec_item_id: 1,
-                reviewer: "ai".into(),
-                status: ReviewStatus::Approved,
-                comment: Some("Looks good".into()),
                 coverage_score: Some(85.0),
+                collective_coverage_score: None,
                 verdict: Some("pass".into()),
-                coverage_map: vec!["Auth flow".into()],
+                tech_item_id: Some(1),
+                tech_item_title: Some("JWT service".into()),
+                func_item_ids: vec![1],
+                functional_requirements_parsed: None,
+                coverage_map: {
+                    let mut m = std::collections::HashMap::new();
+                    m.insert(
+                        "Auth flow".into(),
+                        serde_json::json!({"status": "covered", "covered_by": "JWT service", "notes": ""}),
+                    );
+                    m
+                },
                 gaps: vec!["Missing error handling".into()],
                 suggestions: vec!["Add retry logic".into()],
-                created_at: Utc::now(),
-                updated_at: Utc::now(),
+                risks: vec!["Token race condition".into()],
+                reviewed_at: Some(Utc::now()),
             },
         };
 

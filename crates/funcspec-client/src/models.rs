@@ -142,9 +142,12 @@ pub struct ReviewSummary {
     pub suggestions: Option<Vec<String>>,
 }
 
+/// Returned by `POST /projects/:id/work_package/:id/review`.
+/// The API does not include a top-level `id` field.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Review {
-    pub id: u64,
+    #[serde(default)]
+    pub id: Option<u64>,
     #[serde(rename = "type")]
     pub resource_type: String,
     pub attributes: ReviewAttributes,
@@ -152,38 +155,31 @@ pub struct Review {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ReviewAttributes {
-    pub spec_item_id: u64,
-    pub reviewer: String,
-    pub status: ReviewStatus,
-    pub comment: Option<String>,
+    #[serde(default)]
     pub coverage_score: Option<f64>,
+    #[serde(default)]
+    pub collective_coverage_score: Option<f64>,
+    #[serde(default)]
     pub verdict: Option<String>,
     #[serde(default)]
-    pub coverage_map: Vec<String>,
+    pub tech_item_id: Option<u64>,
+    #[serde(default)]
+    pub tech_item_title: Option<String>,
+    #[serde(default)]
+    pub func_item_ids: Vec<u64>,
+    #[serde(default)]
+    pub functional_requirements_parsed: Option<String>,
+    /// Map of requirement → coverage entry (status, covered_by, notes).
+    #[serde(default)]
+    pub coverage_map: std::collections::HashMap<String, serde_json::Value>,
     #[serde(default)]
     pub gaps: Vec<String>,
     #[serde(default)]
     pub suggestions: Vec<String>,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "snake_case")]
-pub enum ReviewStatus {
-    Pending,
-    Approved,
-    Rejected,
-}
-
-impl std::fmt::Display for ReviewStatus {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ReviewStatus::Pending => write!(f, "pending"),
-            ReviewStatus::Approved => write!(f, "approved"),
-            ReviewStatus::Rejected => write!(f, "rejected"),
-        }
-    }
+    #[serde(default)]
+    pub risks: Vec<String>,
+    #[serde(default)]
+    pub reviewed_at: Option<DateTime<Utc>>,
 }
 
 // ---------------------------------------------------------------------------
@@ -265,9 +261,12 @@ pub struct Snapshot {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SnapshotAttributes {
-    pub project_id: u64,
+    #[serde(default)]
+    pub project_id: Option<u64>,
     pub name: String,
     pub description: Option<String>,
+    /// Full spec items — present in single-snapshot responses, may be absent in list responses.
+    #[serde(default)]
     pub spec_items: Vec<SpecItem>,
     pub created_at: DateTime<Utc>,
 }
@@ -444,39 +443,63 @@ impl ItemFilter {
 // Stats
 // ---------------------------------------------------------------------------
 
+/// Returned by `GET /projects/:id/stats` (inside `{"data": {...}}`).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProjectStats {
-    pub total_items: u32,
-    pub functional_count: u32,
-    pub technical_count: u32,
-    pub status_breakdown: std::collections::HashMap<String, u32>,
-    pub review_coverage: ReviewCoverage,
-    pub verdict_distribution: VerdictDistribution,
-    pub tag_summary: std::collections::HashMap<String, u32>,
-    pub recent_activity: Vec<RecentActivity>,
-    pub last_updated: DateTime<Utc>,
+    #[serde(rename = "type", default)]
+    pub resource_type: Option<String>,
+    pub spec_items: StatsSpecItems,
+    pub reviews: StatsReviews,
+    pub coverage: StatsCoverage,
+    pub recent_activity: StatsRecentActivity,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ReviewCoverage {
-    pub reviewed_count: u32,
-    pub total_count: u32,
-    pub avg_score: Option<f64>,
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct StatsSpecItems {
+    #[serde(default)]
+    pub total: u32,
+    #[serde(default)]
+    pub by_type: std::collections::HashMap<String, u32>,
+    #[serde(default)]
+    pub by_state: std::collections::HashMap<String, u32>,
+    #[serde(default)]
+    pub by_implementation: std::collections::HashMap<String, u32>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct VerdictDistribution {
-    pub pass: u32,
-    pub needs_refinement: u32,
-    pub major_gaps: u32,
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct StatsReviews {
+    #[serde(default)]
+    pub tech_reviewed: u32,
+    #[serde(default)]
+    pub tech_unreviewed: u32,
+    #[serde(default)]
+    pub func_reviewed: u32,
+    #[serde(default)]
+    pub func_unreviewed: u32,
+    #[serde(default)]
+    pub avg_tech_score: Option<f64>,
+    #[serde(default)]
+    pub avg_func_score: Option<f64>,
+    #[serde(default)]
+    pub by_verdict: std::collections::HashMap<String, u32>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RecentActivity {
-    pub item_id: String,
-    pub item_title: String,
-    pub updated_at: DateTime<Utc>,
-    pub activity_type: String,
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct StatsCoverage {
+    #[serde(default)]
+    pub functional_with_tech: u32,
+    #[serde(default)]
+    pub functional_without_tech: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct StatsRecentActivity {
+    #[serde(default)]
+    pub items_updated_24h: u32,
+    #[serde(default)]
+    pub reviews_24h: u32,
+    #[serde(default)]
+    pub agent_runs_24h: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -593,13 +616,6 @@ mod tests {
         assert_eq!(JobStatus::Pending.to_string(), "pending");
         assert_eq!(JobStatus::Completed.to_string(), "completed");
         assert_eq!(JobStatus::Failed.to_string(), "failed");
-    }
-
-    #[test]
-    fn review_status_serde() {
-        let json = r#""approved""#;
-        let s: ReviewStatus = serde_json::from_str(json).unwrap();
-        assert_eq!(s, ReviewStatus::Approved);
     }
 
     #[test]
@@ -729,43 +745,45 @@ mod tests {
     #[test]
     fn project_stats_deserialize() {
         let json = r#"{
-            "total_items": 42,
-            "functional_count": 12,
-            "technical_count": 30,
-            "status_breakdown": {"implemented": 28, "in_progress": 8, "not_started": 6},
-            "review_coverage": {
-                "reviewed_count": 35,
-                "total_count": 42,
-                "avg_score": 87.2
+            "type": "project_stats",
+            "spec_items": {
+                "total": 42,
+                "by_type": {"functional": 12, "technical": 30},
+                "by_state": {"inbox": 42},
+                "by_implementation": {"implemented": 28, "in_progress": 8, "not_started": 6}
             },
-            "verdict_distribution": {
-                "pass": 20,
-                "needs_refinement": 12,
-                "major_gaps": 3
+            "reviews": {
+                "tech_reviewed": 30,
+                "tech_unreviewed": 0,
+                "func_reviewed": 5,
+                "func_unreviewed": 7,
+                "avg_tech_score": 87.2,
+                "avg_func_score": null,
+                "by_verdict": {"pass": 20, "needs_refinement": 12, "major_gaps": 3}
             },
-            "tag_summary": {"auth": 5, "backend": 10},
-            "recent_activity": [
-                {
-                    "item_id": "F-5",
-                    "item_title": "AI Operations",
-                    "updated_at": "2026-03-20T10:00:00Z",
-                    "activity_type": "updated"
-                }
-            ],
-            "last_updated": "2026-03-20T10:00:00Z"
+            "coverage": {
+                "functional_with_tech": 5,
+                "functional_without_tech": 7
+            },
+            "recent_activity": {
+                "items_updated_24h": 2,
+                "reviews_24h": 3,
+                "agent_runs_24h": 0
+            }
         }"#;
         let s: ProjectStats = serde_json::from_str(json).unwrap();
-        assert_eq!(s.total_items, 42);
-        assert_eq!(s.functional_count, 12);
-        assert_eq!(s.technical_count, 30);
-        assert_eq!(s.status_breakdown.get("implemented"), Some(&28u32));
-        assert_eq!(s.review_coverage.reviewed_count, 35);
-        assert_eq!(s.review_coverage.avg_score, Some(87.2));
-        assert_eq!(s.verdict_distribution.pass, 20);
-        assert_eq!(s.verdict_distribution.needs_refinement, 12);
-        assert_eq!(s.tag_summary.get("auth"), Some(&5u32));
-        assert_eq!(s.recent_activity.len(), 1);
-        assert_eq!(s.recent_activity[0].item_id, "F-5");
+        assert_eq!(s.spec_items.total, 42);
+        assert_eq!(s.spec_items.by_type.get("functional"), Some(&12u32));
+        assert_eq!(s.spec_items.by_type.get("technical"), Some(&30u32));
+        assert_eq!(s.spec_items.by_implementation.get("implemented"), Some(&28u32));
+        assert_eq!(s.reviews.tech_reviewed, 30);
+        assert_eq!(s.reviews.avg_tech_score, Some(87.2));
+        assert_eq!(s.reviews.avg_func_score, None);
+        assert_eq!(s.reviews.by_verdict.get("pass"), Some(&20u32));
+        assert_eq!(s.reviews.by_verdict.get("needs_refinement"), Some(&12u32));
+        assert_eq!(s.coverage.functional_with_tech, 5);
+        assert_eq!(s.recent_activity.items_updated_24h, 2);
+        assert_eq!(s.recent_activity.reviews_24h, 3);
     }
 
     #[test]
@@ -794,47 +812,44 @@ mod tests {
     fn review_attributes_with_ai_fields_deserialize() {
         let json = r#"{
             "data": {
-                "id": 1,
                 "type": "review",
                 "attributes": {
-                    "spec_item_id": 5,
-                    "reviewer": "ai",
-                    "status": "approved",
-                    "comment": "Looks good",
                     "coverage_score": 87.5,
+                    "collective_coverage_score": null,
                     "verdict": "pass",
-                    "coverage_map": ["Authentication flow", "Error handling"],
+                    "tech_item_id": 10,
+                    "tech_item_title": "JWT service",
+                    "func_item_ids": [5],
+                    "functional_requirements_parsed": "Login, logout, reset",
+                    "coverage_map": {
+                        "Authentication flow": {"status": "covered", "covered_by": "JWT service", "notes": ""}
+                    },
                     "gaps": ["Missing edge case for expired tokens"],
                     "suggestions": ["Add retry logic"],
-                    "created_at": "2026-01-01T00:00:00Z",
-                    "updated_at": "2026-01-02T00:00:00Z"
+                    "risks": ["Token expiry race condition"],
+                    "reviewed_at": "2026-01-01T00:00:00Z"
                 }
             }
         }"#;
         let resp: ApiResponse<Review> = serde_json::from_str(json).unwrap();
         let attrs = &resp.data.attributes;
         assert_eq!(attrs.coverage_score, Some(87.5));
-        assert_eq!(attrs.coverage_map.len(), 2);
+        assert_eq!(attrs.coverage_map.len(), 1);
         assert_eq!(attrs.gaps.len(), 1);
         assert_eq!(attrs.suggestions.len(), 1);
+        assert_eq!(attrs.risks.len(), 1);
         assert_eq!(attrs.gaps[0], "Missing edge case for expired tokens");
+        assert_eq!(attrs.tech_item_title.as_deref(), Some("JWT service"));
     }
 
     #[test]
     fn review_attributes_missing_ai_fields_defaults_empty() {
         let json = r#"{
             "data": {
-                "id": 2,
                 "type": "review",
                 "attributes": {
-                    "spec_item_id": 3,
-                    "reviewer": "human",
-                    "status": "pending",
-                    "comment": null,
                     "coverage_score": null,
-                    "verdict": null,
-                    "created_at": "2026-01-01T00:00:00Z",
-                    "updated_at": "2026-01-01T00:00:00Z"
+                    "verdict": null
                 }
             }
         }"#;
@@ -843,6 +858,7 @@ mod tests {
         assert!(attrs.coverage_map.is_empty());
         assert!(attrs.gaps.is_empty());
         assert!(attrs.suggestions.is_empty());
+        assert!(attrs.risks.is_empty());
     }
 
     #[test]

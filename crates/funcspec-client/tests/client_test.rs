@@ -521,34 +521,31 @@ async fn forbidden_error_from_403() {
 fn make_project_stats_json() -> serde_json::Value {
     json!({
         "data": {
-            "total_items": 42,
-            "functional_count": 12,
-            "technical_count": 30,
-            "status_breakdown": {
-                "implemented": 28,
-                "in_progress": 8,
-                "not_started": 6
+            "type": "project_stats",
+            "spec_items": {
+                "total": 42,
+                "by_type": {"functional": 12, "technical": 30},
+                "by_state": {"inbox": 42},
+                "by_implementation": {"implemented": 28, "in_progress": 8, "not_started": 6}
             },
-            "review_coverage": {
-                "reviewed_count": 35,
-                "total_count": 42,
-                "avg_score": 87.2
+            "reviews": {
+                "tech_reviewed": 30,
+                "tech_unreviewed": 0,
+                "func_reviewed": 5,
+                "func_unreviewed": 7,
+                "avg_tech_score": 87.2,
+                "avg_func_score": null,
+                "by_verdict": {"pass": 20, "needs_refinement": 12, "major_gaps": 3}
             },
-            "verdict_distribution": {
-                "pass": 20,
-                "needs_refinement": 12,
-                "major_gaps": 3
+            "coverage": {
+                "functional_with_tech": 5,
+                "functional_without_tech": 7
             },
-            "tag_summary": {"auth": 5, "backend": 10},
-            "recent_activity": [
-                {
-                    "item_id": "F-5",
-                    "item_title": "AI Operations",
-                    "updated_at": "2026-03-20T10:00:00Z",
-                    "activity_type": "updated"
-                }
-            ],
-            "last_updated": "2026-03-20T10:00:00Z"
+            "recent_activity": {
+                "items_updated_24h": 2,
+                "reviews_24h": 3,
+                "agent_runs_24h": 0
+            }
         }
     })
 }
@@ -566,14 +563,14 @@ async fn get_project_stats_success() {
 
     let client = client_for(&server);
     let stats = client.get_project_stats(1).await.unwrap();
-    assert_eq!(stats.total_items, 42);
-    assert_eq!(stats.functional_count, 12);
-    assert_eq!(stats.technical_count, 30);
-    assert_eq!(stats.review_coverage.reviewed_count, 35);
-    assert!((stats.review_coverage.avg_score.unwrap() - 87.2).abs() < 1e-9);
-    assert_eq!(stats.verdict_distribution.pass, 20);
-    assert_eq!(stats.recent_activity.len(), 1);
-    assert_eq!(stats.recent_activity[0].item_id, "F-5");
+    assert_eq!(stats.spec_items.total, 42);
+    assert_eq!(stats.spec_items.by_type.get("functional"), Some(&12u32));
+    assert_eq!(stats.spec_items.by_type.get("technical"), Some(&30u32));
+    assert_eq!(stats.reviews.tech_reviewed, 30);
+    assert!((stats.reviews.avg_tech_score.unwrap() - 87.2).abs() < 1e-9);
+    assert_eq!(stats.reviews.by_verdict.get("pass"), Some(&20u32));
+    assert_eq!(stats.recent_activity.items_updated_24h, 2);
+    assert_eq!(stats.recent_activity.reviews_24h, 3);
 }
 
 #[tokio::test]

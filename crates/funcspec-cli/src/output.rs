@@ -458,31 +458,22 @@ pub fn format_stats_dashboard(
     println!("{}", sep.dimmed());
 
     // Items
+    let total = stats.spec_items.total;
+    let functional = stats.spec_items.by_type.get("functional").copied().unwrap_or(0);
+    let technical = stats.spec_items.by_type.get("technical").copied().unwrap_or(0);
     println!(
         "{:<12}{} total ({} functional, {} technical)",
         "Items:".cyan().bold(),
-        stats.total_items,
-        stats.functional_count.to_string().blue(),
-        stats.technical_count.to_string().magenta(),
+        total,
+        functional.to_string().blue(),
+        technical.to_string().magenta(),
     );
 
     // Status breakdown
-    let implemented = stats
-        .status_breakdown
-        .get("implemented")
-        .copied()
-        .unwrap_or(0);
-    let in_progress = stats
-        .status_breakdown
-        .get("in_progress")
-        .copied()
-        .unwrap_or(0);
-    let not_started = stats
-        .status_breakdown
-        .get("not_started")
-        .copied()
-        .unwrap_or(0);
-    let pct_impl = percent(implemented, stats.total_items);
+    let implemented = stats.spec_items.by_implementation.get("implemented").copied().unwrap_or(0);
+    let in_progress = stats.spec_items.by_implementation.get("in_progress").copied().unwrap_or(0);
+    let not_started = stats.spec_items.by_implementation.get("not_started").copied().unwrap_or(0);
+    let pct_impl = percent(implemented, total);
     let bar = progress_bar(pct_impl, 10);
     println!(
         "{:<12}{} {} implemented ({:.1}%) │ {} in progress │ {} not started",
@@ -495,41 +486,32 @@ pub fn format_stats_dashboard(
     );
 
     // Review coverage
-    let cov = &stats.review_coverage;
-    let pct_rev = percent(cov.reviewed_count, cov.total_count);
-    let avg = cov
-        .avg_score
-        .map(|s| format!(" │ avg score {s:.1}"))
+    let rev = &stats.reviews;
+    let reviewed = rev.tech_reviewed + rev.func_reviewed;
+    let pct_rev = percent(reviewed, total);
+    let avg = rev
+        .avg_tech_score
+        .map(|s| format!(" │ avg tech score {s:.1}"))
         .unwrap_or_default();
     println!(
         "{:<12}{} reviewed ({:.1}%){}",
         "Reviews:".cyan().bold(),
-        cov.reviewed_count,
+        reviewed,
         pct_rev,
         avg,
     );
 
     // Verdict distribution
-    let vd = &stats.verdict_distribution;
+    let pass = rev.by_verdict.get("pass").copied().unwrap_or(0);
+    let needs_ref = rev.by_verdict.get("needs_refinement").copied().unwrap_or(0);
+    let major_gaps = rev.by_verdict.get("major_gaps").copied().unwrap_or(0);
     println!(
         "{:<12}{} pass │ {} needs refinement │ {} major gaps",
         "Verdicts:".cyan().bold(),
-        vd.pass.to_string().green(),
-        vd.needs_refinement.to_string().yellow(),
-        vd.major_gaps.to_string().red(),
+        pass.to_string().green(),
+        needs_ref.to_string().yellow(),
+        major_gaps.to_string().red(),
     );
-
-    // Tag summary (top 5)
-    if !stats.tag_summary.is_empty() {
-        let mut tags: Vec<(&String, &u32)> = stats.tag_summary.iter().collect();
-        tags.sort_by(|a, b| b.1.cmp(a.1));
-        let top: Vec<String> = tags
-            .iter()
-            .take(5)
-            .map(|(k, v)| format!("{k} ({v})"))
-            .collect();
-        println!("{:<12}{}", "Tags:".cyan().bold(), top.join(", "));
-    }
 
     // Usage (inline, if caller fetched it)
     if let Some(u) = usage {
@@ -541,13 +523,15 @@ pub fn format_stats_dashboard(
         );
     }
 
-    // Most recent activity
-    if let Some(recent) = stats.recent_activity.first() {
+    // Recent activity summary
+    let act = &stats.recent_activity;
+    if act.items_updated_24h > 0 || act.reviews_24h > 0 || act.agent_runs_24h > 0 {
         println!(
-            "{:<12}{} ({})",
-            "Last updated:".cyan().bold(),
-            recent.item_title,
-            format_relative_time(&recent.updated_at).dimmed(),
+            "{:<12}{} items updated │ {} reviews │ {} agent runs (24h)",
+            "Activity:".cyan().bold(),
+            act.items_updated_24h,
+            act.reviews_24h,
+            act.agent_runs_24h,
         );
     }
 }
@@ -923,37 +907,46 @@ mod tests {
     #[test]
     fn format_stats_dashboard_does_not_panic() {
         use funcspec_client::models::*;
-        let mut status_breakdown = std::collections::HashMap::new();
-        status_breakdown.insert("implemented".to_string(), 28u32);
-        status_breakdown.insert("in_progress".to_string(), 8u32);
-        status_breakdown.insert("not_started".to_string(), 6u32);
 
-        let mut tag_summary = std::collections::HashMap::new();
-        tag_summary.insert("auth".to_string(), 5u32);
+        let mut by_type = std::collections::HashMap::new();
+        by_type.insert("functional".to_string(), 12u32);
+        by_type.insert("technical".to_string(), 30u32);
+
+        let mut by_implementation = std::collections::HashMap::new();
+        by_implementation.insert("implemented".to_string(), 28u32);
+        by_implementation.insert("in_progress".to_string(), 8u32);
+        by_implementation.insert("not_started".to_string(), 6u32);
+
+        let mut by_verdict = std::collections::HashMap::new();
+        by_verdict.insert("pass".to_string(), 20u32);
+        by_verdict.insert("needs_refinement".to_string(), 12u32);
 
         let stats = ProjectStats {
-            total_items: 42,
-            functional_count: 12,
-            technical_count: 30,
-            status_breakdown,
-            review_coverage: ReviewCoverage {
-                reviewed_count: 35,
-                total_count: 42,
-                avg_score: Some(87.2),
+            resource_type: Some("project_stats".to_string()),
+            spec_items: StatsSpecItems {
+                total: 42,
+                by_type,
+                by_state: Default::default(),
+                by_implementation,
             },
-            verdict_distribution: VerdictDistribution {
-                pass: 20,
-                needs_refinement: 12,
-                major_gaps: 3,
+            reviews: StatsReviews {
+                tech_reviewed: 30,
+                tech_unreviewed: 0,
+                func_reviewed: 5,
+                func_unreviewed: 7,
+                avg_tech_score: Some(87.2),
+                avg_func_score: None,
+                by_verdict,
             },
-            tag_summary,
-            recent_activity: vec![RecentActivity {
-                item_id: "F-5".to_string(),
-                item_title: "AI Operations".to_string(),
-                updated_at: chrono::Utc::now() - chrono::Duration::hours(2),
-                activity_type: "updated".to_string(),
-            }],
-            last_updated: chrono::Utc::now(),
+            coverage: StatsCoverage {
+                functional_with_tech: 5,
+                functional_without_tech: 7,
+            },
+            recent_activity: StatsRecentActivity {
+                items_updated_24h: 2,
+                reviews_24h: 3,
+                agent_runs_24h: 0,
+            },
         };
         format_stats_dashboard("my-project", &stats, None);
     }

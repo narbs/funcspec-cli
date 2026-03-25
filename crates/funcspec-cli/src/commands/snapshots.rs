@@ -149,9 +149,14 @@ async fn handle_list(json: bool, format: OutputFormat) -> Result<()> {
         OutputFormat::Json => {
             println!("{}", serde_json::to_string_pretty(&snapshots)?);
         }
-        OutputFormat::Minimal => {
+        OutputFormat::Minimal | OutputFormat::Bare => {
             for s in &snapshots {
-                println!("{}\t{}", s.id, s.attributes.name);
+                println!(
+                    "{}\t{}\t{}",
+                    s.id,
+                    s.attributes.name,
+                    s.attributes.created_at.format("%Y-%m-%d")
+                );
             }
         }
         _ => {
