@@ -83,9 +83,58 @@ jobs:
         run: |
           BINARY_PATH="target/${{ matrix.target }}/release/${{ env.BINARY_NAME }}"
           strip "$BINARY_PATH" || true
+          echo "BINARY_PATH=$BINARY_PATH" >> $GITHUB_ENV
           ARCHIVE="${{ env.BINARY_NAME }}-${{ steps.version.outputs.VERSION }}-${{ matrix.target }}.tar.gz"
+          echo "ARCHIVE=$ARCHIVE" >> $GITHUB_ENV
+
+      - name: Sign macOS binary
+        if: runner.os == 'macOS'
+        env:
+          APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          # Decode certificate and create keychain
+          echo "$APPLE_CERTIFICATE_BASE64" | base64 --decode > certificate.p12
+          KEYCHAIN_PATH=$RUNNER_TEMP/build.keychain-db
+          KEYCHAIN_PASSWORD=$(openssl rand -hex 16)
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import certificate.p12 -P "$APPLE_CERTIFICATE_PASSWORD" \
+            -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple: \
+            -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security list-keychains -d user -s "$KEYCHAIN_PATH" login.keychain-db
+
+          # Sign the binary (after strip)
+          codesign --force --options runtime \
+            --sign "Developer ID Application: Tambit Software LLC (89A85NT3Y4)" \
+            --timestamp \
+            "$BINARY_PATH"
+          codesign --verify --verbose "$BINARY_PATH"
+
+          # Cleanup
+          rm -f certificate.p12
+
+      - name: Create archive (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
           tar czf "$ARCHIVE" -C "target/${{ matrix.target }}/release" "${{ env.BINARY_NAME }}"
           echo "ASSET=$ARCHIVE" >> $GITHUB_ENV
+
+      - name: Notarize macOS archive
+        if: runner.os == 'macOS'
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          xcrun notarytool submit "$ARCHIVE" \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_ID_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait
 
       - name: Package (Windows)
         if: runner.os == 'Windows'
