@@ -11,6 +11,7 @@ permissions:
 env:
   CARGO_TERM_COLOR: always
   BINARY_NAME: funcspec
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   build:
