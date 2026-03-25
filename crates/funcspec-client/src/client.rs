@@ -106,16 +106,18 @@ impl FuncspecClient {
 
     /// Validate the API key and return user/org info.
     pub async fn validate_auth(&self) -> Result<UserInfo, Error> {
-        let url = self.api_url("/auth/validate");
-        debug!(%url, "validate_auth");
-        let resp = self
-            .request_with_retry(|| self.http.get(&url).send())
-            .await?;
-        if !resp.status().is_success() {
-            return Err(Error::from_response(resp).await);
-        }
-        let body: ApiResponse<UserInfo> = resp.json().await?;
-        Ok(body.data)
+        // The API has no dedicated auth/validate endpoint, so we verify
+        // credentials by listing projects. A successful response proves
+        // the key is valid.
+        let projects = self.list_projects().await?;
+        let project_count = projects.len();
+        Ok(UserInfo {
+            id: String::new(),
+            email: String::new(),
+            name: format!("{project_count} project(s) accessible"),
+            org_id: String::new(),
+            org_name: String::new(),
+        })
     }
 
     // -- Projects --

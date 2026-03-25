@@ -50,7 +50,7 @@ pub async fn run(cmd: AuthCmd) -> Result<()> {
             match client.validate_auth().await {
                 Ok(user) => {
                     eprintln!("{}", style("✓").green().bold());
-                    eprintln!("Logged in as {} ({})", style(&user.name).cyan(), user.email);
+                    eprintln!("Authenticated — {}", style(&user.name).cyan());
                 }
                 Err(e) => {
                     eprintln!("{}", style("✗").red().bold());
@@ -121,12 +121,9 @@ pub async fn run(cmd: AuthCmd) -> Result<()> {
                     eprint!("Status:   ");
                     let client = FuncspecClient::new(&profile.host, &profile.api_key)?;
                     match client.validate_auth().await {
-                        Ok(user) => eprintln!(
-                            "{} ({}, {})",
-                            style("authenticated").green(),
-                            user.name,
-                            user.org_name
-                        ),
+                        Ok(user) => {
+                            eprintln!("{} — {}", style("authenticated").green(), user.name,)
+                        }
                         Err(e) => eprintln!("{} {e}", style("error:").red()),
                     }
                 }
