@@ -101,6 +101,16 @@ pub fn format_projects(projects: &[Project], format: OutputFormat) -> Result<()>
                 println!();
             }
         }
+        OutputFormat::Bare => {
+            for p in projects {
+                println!(
+                    "{}\t{}\t{}",
+                    p.attributes.slug,
+                    p.attributes.name,
+                    p.attributes.updated_at.format("%Y-%m-%d"),
+                );
+            }
+        }
         _ => projects_table(projects),
     }
     Ok(())
@@ -138,6 +148,15 @@ pub fn format_project_detail(project: &Project, format: OutputFormat) -> Result<
             }
             println!("- **Created**: {}", a.created_at.format("%Y-%m-%d"));
             println!("- **Updated**: {}", a.updated_at.format("%Y-%m-%d"));
+        }
+        OutputFormat::Bare => {
+            let a = &project.attributes;
+            println!(
+                "{}\t{}\t{}",
+                a.slug,
+                a.name,
+                a.updated_at.format("%Y-%m-%d"),
+            );
         }
         _ => {
             let a = &project.attributes;
@@ -694,6 +713,12 @@ mod tests {
     #[test]
     fn format_projects_table_empty() {
         let result = format_projects(&[], OutputFormat::Table);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn format_projects_bare_empty() {
+        let result = format_projects(&[], OutputFormat::Bare);
         assert!(result.is_ok());
     }
 
