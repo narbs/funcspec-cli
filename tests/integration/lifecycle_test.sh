@@ -54,7 +54,7 @@ check_output() {
   fi
 }
 
-# API helper for features not yet in CLI
+# API helper for features not yet in CLI — exported so bash -c subshells can use them
 api_post() {
   local path="$1"
   local data="$2"
@@ -73,6 +73,9 @@ api_delete() {
   local path="$1"
   curl -sf -X DELETE "$API_BASE/$path" -H "X-Api-Key: $API_KEY"
 }
+
+export -f api_post api_get api_delete
+export API_BASE API_KEY
 
 # ============================================================================
 bold "=== FuncSpec CLI Lifecycle Integration Test ==="
@@ -153,7 +156,7 @@ check "items list shows all 5" \
   bash -c "[ \$($CLI items list -p '$PROJECT' --format json | jq length) -eq 5 ]"
 
 check "search by tag finds auth items" \
-  bash -c "$CLI search '' --tag auth -p '$PROJECT' --format bare | grep -q auth"
+  bash -c "[ \$($CLI search '' --tag auth -p '$PROJECT' --format json | jq length) -ge 1 ]"
 
 check "search by type finds tech items" \
   bash -c "[ \$($CLI search '' --type tech -p '$PROJECT' --count 2>&1 | grep -oP '\\d+') -ge 3 ]"

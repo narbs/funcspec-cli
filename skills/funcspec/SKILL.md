@@ -191,6 +191,39 @@ funcspec export -f pdf -o spec.pdf -p myproject
 funcspec export -f html --type func -o requirements.html -p myproject
 ```
 
+## API-Only Operations
+
+Some operations require direct API calls (not yet in CLI). Auth header: `X-Api-Key: <key>`.
+Base URL from config: `~/.config/funcspec/config.toml`.
+
+### Edge Management (link tech → func)
+
+```bash
+# Create "implements" edge (tech spec implements functional spec)
+curl -X POST "https://funcspec.net/api/v1/projects/<slug>/graph/edges" \
+  -H "X-Api-Key: $KEY" -H "Content-Type: application/json" \
+  -d '{"dependency_edge":{"source_id":<tech_id>,"target_id":<func_id>,"edge_type":"implements"}}'
+
+# List edges
+curl -s "https://funcspec.net/api/v1/projects/<slug>/graph/edges?edge_type=implements" \
+  -H "X-Api-Key: $KEY"
+
+# Delete edge
+curl -X DELETE "https://funcspec.net/api/v1/projects/<slug>/graph/edges/<edge_id>" \
+  -H "X-Api-Key: $KEY"
+```
+
+Edge types: `implements` (tech→func), `depends_on` (item→item).
+Source/target are **numeric IDs** (get from `--format json` output).
+
+### Work Package (composite view for agents)
+
+```bash
+# Get full context for an item (item + deps + siblings + review)
+curl -s "https://funcspec.net/api/v1/projects/<slug>/work_package/<item_id>" \
+  -H "X-Api-Key: $KEY"
+```
+
 ## Pagination
 
 Results are paginated (25 per page by default):
