@@ -1,4 +1,5 @@
 use funcspec_cli::commands;
+use funcspec_cli::context;
 use funcspec_cli::output::OutputFormat;
 
 use anyhow::Result;
@@ -29,6 +30,10 @@ struct Cli {
     /// Output format (default: table when TTY, json when piped)
     #[arg(long, global = true, value_enum, default_value = "auto")]
     format: OutputFormat,
+
+    /// Project ID, slug, or org/project slug (overrides default project)
+    #[arg(long, short = 'p', global = true)]
+    project: Option<String>,
 }
 
 #[derive(Subcommand)]
@@ -97,6 +102,8 @@ async fn main() {
         .with(fmt::layer().with_writer(std::io::stderr))
         .with(filter)
         .init();
+
+    context::set_project_override(cli.project.clone());
 
     if let Err(err) = run(cli).await {
         eprintln!("{} {err:#}", "error:".red().bold());
