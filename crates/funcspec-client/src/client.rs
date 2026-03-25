@@ -257,14 +257,56 @@ impl FuncspecClient {
         Ok((body.data, body.meta).into())
     }
 
+    /// Resolve an item identifier to a numeric ID.
+    ///
+    /// Accepts either a numeric ID (passed through) or a permalink like `F-123` / `T-456`.
+    /// Permalinks are resolved by paginating through items until found.
+    pub async fn resolve_item_id(
+        &self,
+        project_id: u64,
+        id_or_permalink: &str,
+    ) -> Result<u64, Error> {
+        // If it's already numeric, return directly
+        if let Ok(numeric) = id_or_permalink.parse::<u64>() {
+            return Ok(numeric);
+        }
+
+        // Must be a permalink (F-123 or T-456) — search through pages
+        let filter = ItemFilter::default();
+        let mut page = 1u32;
+        loop {
+            let paged = self.list_items_paged(project_id, &filter, page, 25).await?;
+            if paged.data.is_empty() {
+                break;
+            }
+            for item in &paged.data {
+                if item
+                    .attributes
+                    .permalink
+                    .eq_ignore_ascii_case(id_or_permalink)
+                {
+                    return Ok(item.id);
+                }
+            }
+            if paged.has_next_page() {
+                page += 1;
+            } else {
+                break;
+            }
+        }
+
+        Err(Error::NotFound(format!(
+            "Item with permalink \"{id_or_permalink}\" not found"
+        )))
+    }
+
     pub async fn get_item(
         &self,
         project_id: u64,
         id_or_permalink: &str,
     ) -> Result<SpecItem, Error> {
-        let url = self.api_url(&format!(
-            "/projects/{project_id}/spec/items/{id_or_permalink}"
-        ));
+        let resolved_id = self.resolve_item_id(project_id, id_or_permalink).await?;
+        let url = self.api_url(&format!("/projects/{project_id}/spec/items/{resolved_id}"));
         debug!(%url, "get_item");
         let resp = self
             .request_with_retry(|| self.http.get(&url).send())

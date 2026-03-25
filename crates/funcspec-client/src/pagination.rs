@@ -30,11 +30,19 @@ impl<T> From<(Vec<T>, Option<crate::models::PaginationMeta>)> for PagedResponse<
             total: data.len() as u32,
             total_pages: 1,
         });
+        // Compute total_pages from total/per if the API didn't provide it
+        let total_pages = if meta.total_pages > 0 {
+            meta.total_pages
+        } else if meta.per > 0 {
+            meta.total.div_ceil(meta.per)
+        } else {
+            1
+        };
         PagedResponse {
             data,
             page: meta.page,
             per_page: meta.per,
-            total_pages: meta.total_pages.max(1),
+            total_pages: total_pages.max(1),
             total_count: meta.total,
         }
     }

@@ -35,7 +35,7 @@ triggers:
 1. **Always use `--format json`** when processing output programmatically. Use `--format markdown` when presenting to a human.
 2. **Project scope required** for most commands — pass `-p <slug>` or set a default with `funcspec config set default_project <slug>`.
 3. **Auth first** — run `funcspec auth login` before anything else. Config lives at `~/.config/funcspec/config.toml`.
-4. **Item IDs use permalinks** — `F-123` (functional) or `T-456` (technical). Use numeric DB IDs for API calls via `--format json` output.
+4. **Item IDs use permalinks** — `F-123` (functional) or `T-456` (technical). Numeric IDs also accepted.
 5. **State machine for status** — must step through: `not_started → in_progress → implemented`. Cannot skip.
 6. **AI ops are async** — `ai review-all` and batch operations poll until complete. Single-item ops (`ai review`, `ai improve`) block and return results.
 7. **API auth header** is `X-Api-Key` (not Bearer). Description field is `description` (not `body`).
