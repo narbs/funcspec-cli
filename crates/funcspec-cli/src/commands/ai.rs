@@ -613,7 +613,7 @@ mod tests {
                 tech_item_id: Some(1),
                 tech_item_title: Some("JWT service".into()),
                 func_item_ids: vec![1],
-                functional_requirements_parsed: None,
+                functional_requirements_parsed: vec![],
                 coverage_map: {
                     let mut m = std::collections::HashMap::new();
                     m.insert(

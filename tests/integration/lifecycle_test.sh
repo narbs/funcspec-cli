@@ -266,7 +266,7 @@ check "export markdown works" \
   bash -c "$CLI export -p '$PROJECT' | grep -q 'Authentication'"
 
 check "export json works" \
-  bash -c "$CLI export -f json -p '$PROJECT' | jq '.items | length' | grep -q 5"
+  bash -c "$CLI export -F json -p '$PROJECT' | jq '.items | length' | grep -q 5"
 
 # ============================================================================
 bold "Phase 12: Snapshot"

@@ -61,9 +61,9 @@ impl ExportFormat {
                   Binary formats (pdf, docx) require -o or default to <slug>.<ext>."
 )]
 pub struct ExportArgs {
-    /// Output format
-    #[arg(long, short = 'f', value_enum, default_value = "md")]
-    pub format: ExportFormat,
+    /// Export format (md, json, csv, html, pdf, docx)
+    #[arg(long = "export-format", short = 'F', value_enum, default_value = "md")]
+    pub export_format: ExportFormat,
 
     /// Write output to this file instead of stdout
     #[arg(long, short = 'o', value_name = "PATH")]
@@ -83,7 +83,7 @@ pub struct ExportArgs {
 }
 
 pub async fn run(args: ExportArgs) -> Result<()> {
-    if args.open && args.format != ExportFormat::Html {
+    if args.open && args.export_format != ExportFormat::Html {
         bail!("--open is only valid with --format html");
     }
 
@@ -111,7 +111,7 @@ pub async fn run(args: ExportArgs) -> Result<()> {
     let data = client
         .export_project(
             project_id,
-            args.format.api_name(),
+            args.export_format.api_name(),
             item_type,
             args.tag.as_deref(),
         )
@@ -120,11 +120,11 @@ pub async fn run(args: ExportArgs) -> Result<()> {
     // Resolve output path: explicit > default for binary > none (stdout)
     let output_path: Option<PathBuf> = if let Some(p) = args.output {
         Some(p)
-    } else if args.format.is_binary() {
+    } else if args.export_format.is_binary() {
         Some(PathBuf::from(format!(
             "{}.{}",
             slug,
-            args.format.extension()
+            args.export_format.extension()
         )))
     } else {
         None

@@ -994,7 +994,7 @@ mod tests {
                         "tech_item_id": 5,
                         "tech_item_title": "Auth service",
                         "func_item_ids": [1],
-                        "functional_requirements_parsed": "Login, logout",
+                        "functional_requirements_parsed": ["Login", "logout"],
                         "coverage_map": {
                             "Auth flow": {"status": "covered", "covered_by": "Auth service", "notes": ""},
                             "Error cases": {"status": "covered", "covered_by": "Auth service", "notes": ""}

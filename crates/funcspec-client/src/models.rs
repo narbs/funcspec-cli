@@ -168,7 +168,7 @@ pub struct ReviewAttributes {
     #[serde(default)]
     pub func_item_ids: Vec<u64>,
     #[serde(default)]
-    pub functional_requirements_parsed: Option<String>,
+    pub functional_requirements_parsed: Vec<String>,
     /// Map of requirement → coverage entry (status, covered_by, notes).
     #[serde(default)]
     pub coverage_map: std::collections::HashMap<String, serde_json::Value>,
@@ -820,7 +820,7 @@ mod tests {
                     "tech_item_id": 10,
                     "tech_item_title": "JWT service",
                     "func_item_ids": [5],
-                    "functional_requirements_parsed": "Login, logout, reset",
+                    "functional_requirements_parsed": ["Login", "logout", "reset"],
                     "coverage_map": {
                         "Authentication flow": {"status": "covered", "covered_by": "JWT service", "notes": ""}
                     },
