@@ -92,6 +92,35 @@ impl BlockingFuncspecClient {
             .block_on(self.inner.delete_item(project_id, item_id))
     }
 
+    // -- Edges --
+
+    pub fn list_edges(
+        &self,
+        project_id: u64,
+        source_id: Option<u64>,
+        target_id: Option<u64>,
+        edge_type: Option<&str>,
+    ) -> Result<Vec<DependencyEdge>, Error> {
+        self.rt
+            .block_on(self.inner.list_edges(project_id, source_id, target_id, edge_type))
+    }
+
+    pub fn create_edge(
+        &self,
+        project_id: u64,
+        params: &CreateEdgeParams,
+    ) -> Result<DependencyEdge, Error> {
+        self.rt.block_on(self.inner.create_edge(project_id, params))
+    }
+
+    pub fn get_edge(&self, project_id: u64, edge_id: u64) -> Result<DependencyEdge, Error> {
+        self.rt.block_on(self.inner.get_edge(project_id, edge_id))
+    }
+
+    pub fn delete_edge(&self, project_id: u64, edge_id: u64) -> Result<(), Error> {
+        self.rt.block_on(self.inner.delete_edge(project_id, edge_id))
+    }
+
     /// Convert back to the async client.
     pub fn into_async(self) -> FuncspecClient {
         self.inner

@@ -1,6 +1,7 @@
 pub mod ai;
 pub mod auth;
 pub mod config;
+pub mod edges;
 pub mod export;
 pub mod items;
 pub mod projects;

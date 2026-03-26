@@ -834,6 +834,96 @@ impl FuncspecClient {
         let body: ApiResponse<SnapshotDiff> = resp.json().await?;
         Ok(body.data)
     }
+
+    // -- Edges --
+
+    /// List dependency edges for a project, with optional filters.
+    ///
+    /// Calls `GET /projects/:project_id/graph/edges`.
+    pub async fn list_edges(
+        &self,
+        project_id: u64,
+        source_id: Option<u64>,
+        target_id: Option<u64>,
+        edge_type: Option<&str>,
+    ) -> Result<Vec<DependencyEdge>, Error> {
+        let url = self.api_url(&format!("/projects/{project_id}/graph/edges"));
+        debug!(%url, "list_edges");
+        let mut params: Vec<(&str, String)> = vec![];
+        if let Some(sid) = source_id {
+            params.push(("source_id", sid.to_string()));
+        }
+        if let Some(tid) = target_id {
+            params.push(("target_id", tid.to_string()));
+        }
+        if let Some(et) = edge_type {
+            params.push(("edge_type", et.to_string()));
+        }
+        let resp = self
+            .request_with_retry(|| self.http.get(&url).query(&params).send())
+            .await?;
+        if !resp.status().is_success() {
+            return Err(Error::from_response(resp).await);
+        }
+        #[derive(serde::Deserialize)]
+        struct Resp {
+            data: Vec<DependencyEdge>,
+        }
+        let body: Resp = resp.json().await?;
+        Ok(body.data)
+    }
+
+    /// Create a dependency edge between two spec items.
+    ///
+    /// Calls `POST /projects/:project_id/graph/edges`.
+    pub async fn create_edge(
+        &self,
+        project_id: u64,
+        params: &CreateEdgeParams,
+    ) -> Result<DependencyEdge, Error> {
+        let url = self.api_url(&format!("/projects/{project_id}/graph/edges"));
+        debug!(%url, "create_edge");
+        let body = serde_json::json!({ "dependency_edge": params });
+        let resp = self
+            .request_with_retry(|| self.http.post(&url).json(&body).send())
+            .await?;
+        if !resp.status().is_success() {
+            return Err(Error::from_response(resp).await);
+        }
+        let resp_body: ApiResponse<DependencyEdge> = resp.json().await?;
+        Ok(resp_body.data)
+    }
+
+    /// Get a single dependency edge by ID.
+    ///
+    /// Calls `GET /projects/:project_id/graph/edges/:id`.
+    pub async fn get_edge(&self, project_id: u64, edge_id: u64) -> Result<DependencyEdge, Error> {
+        let url = self.api_url(&format!("/projects/{project_id}/graph/edges/{edge_id}"));
+        debug!(%url, "get_edge");
+        let resp = self
+            .request_with_retry(|| self.http.get(&url).send())
+            .await?;
+        if !resp.status().is_success() {
+            return Err(Error::from_response(resp).await);
+        }
+        let body: ApiResponse<DependencyEdge> = resp.json().await?;
+        Ok(body.data)
+    }
+
+    /// Delete a dependency edge by ID.
+    ///
+    /// Calls `DELETE /projects/:project_id/graph/edges/:id`.
+    pub async fn delete_edge(&self, project_id: u64, edge_id: u64) -> Result<(), Error> {
+        let url = self.api_url(&format!("/projects/{project_id}/graph/edges/{edge_id}"));
+        debug!(%url, "delete_edge");
+        let resp = self
+            .request_with_retry(|| self.http.delete(&url).send())
+            .await?;
+        if !resp.status().is_success() {
+            return Err(Error::from_response(resp).await);
+        }
+        Ok(())
+    }
 }
 
 // ---------------------------------------------------------------------------

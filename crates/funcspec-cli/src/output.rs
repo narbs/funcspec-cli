@@ -306,6 +306,153 @@ pub fn format_item_detail(item: &SpecItem, format: OutputFormat) -> Result<()> {
 }
 
 // ---------------------------------------------------------------------------
+// Edges
+// ---------------------------------------------------------------------------
+
+/// Format a list of dependency edges.
+///
+/// `item_map` maps item ID → (permalink, title) for display.
+pub fn format_edges(
+    edges: &[funcspec_client::models::DependencyEdge],
+    item_map: &std::collections::HashMap<u64, (String, String)>,
+    format: OutputFormat,
+) -> Result<()> {
+    match format.resolve() {
+        OutputFormat::Json => {
+            println!("{}", serde_json::to_string_pretty(edges)?);
+        }
+        OutputFormat::Csv => {
+            let mut wtr = csv::Writer::from_writer(io::stdout());
+            wtr.write_record([
+                "id",
+                "source_id",
+                "source",
+                "target_id",
+                "target",
+                "edge_type",
+                "created_at",
+            ])?;
+            for edge in edges {
+                let a = &edge.attributes;
+                let (src_perm, src_title) = item_map
+                    .get(&a.source_id)
+                    .map(|(p, t)| (p.as_str(), t.as_str()))
+                    .unwrap_or(("", ""));
+                let (tgt_perm, tgt_title) = item_map
+                    .get(&a.target_id)
+                    .map(|(p, t)| (p.as_str(), t.as_str()))
+                    .unwrap_or(("", ""));
+                wtr.write_record([
+                    &edge.id.to_string(),
+                    &a.source_id.to_string(),
+                    &format!("{src_perm} {src_title}"),
+                    &a.target_id.to_string(),
+                    &format!("{tgt_perm} {tgt_title}"),
+                    &a.edge_type,
+                    &a.created_at.format("%Y-%m-%dT%H:%M:%SZ").to_string(),
+                ])?;
+            }
+            wtr.flush()?;
+        }
+        OutputFormat::Minimal => {
+            for edge in edges {
+                let a = &edge.attributes;
+                let src = item_map
+                    .get(&a.source_id)
+                    .map(|(p, _)| p.as_str())
+                    .unwrap_or("?");
+                let tgt = item_map
+                    .get(&a.target_id)
+                    .map(|(p, _)| p.as_str())
+                    .unwrap_or("?");
+                println!("{}\t{}\t{}\t{}", edge.id, src, a.edge_type, tgt);
+            }
+        }
+        OutputFormat::Bare => {
+            for edge in edges {
+                let a = &edge.attributes;
+                let src = item_map
+                    .get(&a.source_id)
+                    .map(|(p, _)| p.as_str())
+                    .unwrap_or("?");
+                let tgt = item_map
+                    .get(&a.target_id)
+                    .map(|(p, _)| p.as_str())
+                    .unwrap_or("?");
+                println!(
+                    "{}\t{}\t{}\t{}\t{}",
+                    edge.id,
+                    src,
+                    a.edge_type,
+                    tgt,
+                    a.created_at.format("%Y-%m-%d"),
+                );
+            }
+        }
+        OutputFormat::Markdown => {
+            println!("# Dependency Edges\n");
+            for edge in edges {
+                let a = &edge.attributes;
+                let (src_perm, src_title) = item_map
+                    .get(&a.source_id)
+                    .map(|(p, t)| (p.as_str(), t.as_str()))
+                    .unwrap_or(("?", ""));
+                let (tgt_perm, tgt_title) = item_map
+                    .get(&a.target_id)
+                    .map(|(p, t)| (p.as_str(), t.as_str()))
+                    .unwrap_or(("?", ""));
+                println!(
+                    "- **{}** `{}` {} → `{}` {} ({})",
+                    edge.id,
+                    src_perm,
+                    src_title,
+                    tgt_perm,
+                    tgt_title,
+                    a.edge_type,
+                );
+            }
+        }
+        _ => edges_table(edges, item_map),
+    }
+    Ok(())
+}
+
+fn edges_table(
+    edges: &[funcspec_client::models::DependencyEdge],
+    item_map: &std::collections::HashMap<u64, (String, String)>,
+) {
+    let mut table = Table::new();
+    table.set_content_arrangement(ContentArrangement::Dynamic);
+    table.set_header(vec![
+        Cell::new("ID").add_attribute(Attribute::Bold),
+        Cell::new("Source").add_attribute(Attribute::Bold),
+        Cell::new("Type").add_attribute(Attribute::Bold),
+        Cell::new("Target").add_attribute(Attribute::Bold),
+        Cell::new("Created").add_attribute(Attribute::Bold),
+    ]);
+
+    for edge in edges {
+        let a = &edge.attributes;
+        let src = item_map
+            .get(&a.source_id)
+            .map(|(p, t)| format!("{} {}", p.cyan().to_string(), t))
+            .unwrap_or_else(|| a.source_id.to_string());
+        let tgt = item_map
+            .get(&a.target_id)
+            .map(|(p, t)| format!("{} {}", p.cyan().to_string(), t))
+            .unwrap_or_else(|| a.target_id.to_string());
+        table.add_row(vec![
+            edge.id.to_string(),
+            src,
+            a.edge_type.clone(),
+            tgt,
+            a.created_at.format("%Y-%m-%d").to_string(),
+        ]);
+    }
+    println!("{table}");
+}
+
+// ---------------------------------------------------------------------------
 // Diff
 // ---------------------------------------------------------------------------
 

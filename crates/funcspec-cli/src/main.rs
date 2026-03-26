@@ -58,6 +58,10 @@ enum Commands {
     #[command(subcommand)]
     Items(commands::items::ItemsCmd),
 
+    /// Manage dependency edges between spec items
+    #[command(subcommand)]
+    Edges(commands::edges::EdgesCmd),
+
     /// Search spec items by full-text query
     Search(commands::search::SearchArgs),
 
@@ -118,6 +122,7 @@ async fn run(cli: Cli) -> Result<()> {
         Commands::Config(cmd) => commands::config::run(cmd).await,
         Commands::Projects(cmd) => commands::projects::run(cmd, cli.format).await,
         Commands::Items(cmd) => commands::items::run(cmd, cli.format).await,
+        Commands::Edges(cmd) => commands::edges::run(cmd, cli.format).await,
         Commands::Search(args) => commands::search::run(args, cli.format).await,
         Commands::Stats(args) => commands::stats::run(args, cli.format).await,
         Commands::Export(args) => commands::export::run(args).await,

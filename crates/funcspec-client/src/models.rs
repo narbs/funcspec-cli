@@ -989,6 +989,33 @@ mod tests {
 }
 
 // ---------------------------------------------------------------------------
+// Dependency Edge (Graph)
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DependencyEdge {
+    pub id: u64,
+    #[serde(rename = "type")]
+    pub resource_type: String,
+    pub attributes: DependencyEdgeAttributes,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DependencyEdgeAttributes {
+    pub source_id: u64,
+    pub target_id: u64,
+    pub edge_type: String,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CreateEdgeParams {
+    pub source_id: u64,
+    pub target_id: u64,
+    pub edge_type: String,
+}
+
+// ---------------------------------------------------------------------------
 // Export
 // ---------------------------------------------------------------------------
 
