@@ -176,34 +176,35 @@ check "search by type finds tech items" \
   bash -c "[ \$($CLI search '' --type tech -p '$PROJECT' --count 2>&1 | grep -oP '\\d+') -ge 3 ]"
 
 # ============================================================================
-bold "Phase 6: Link Tech → Func (edges via API)"
+bold "Phase 6: Link Tech → Func (edges via CLI)"
 # ============================================================================
 
-# Resolve numeric IDs
+# Resolve numeric IDs (still needed for work_package API calls in Phase 9)
 F1_ID=$($CLI items show "$F1_LINK" -p "$PROJECT" --format json | jq '.id')
 F2_ID=$($CLI items show "$F2_LINK" -p "$PROJECT" --format json | jq '.id')
-T1_ID=$($CLI items show "$T1_LINK" -p "$PROJECT" --format json | jq '.id')
-T2_ID=$($CLI items show "$T2_LINK" -p "$PROJECT" --format json | jq '.id')
-T3_ID=$($CLI items show "$T3_LINK" -p "$PROJECT" --format json | jq '.id')
 
 check "show by permalink works" test -n "$F1_ID"
 
-# Create implements edges (tech → func)
-check "link T1→F1 (JWT implements Auth)" \
-  api_post "projects/$PROJECT/graph/edges" \
-  "{\"dependency_edge\":{\"source_id\":$T1_ID,\"target_id\":$F1_ID,\"edge_type\":\"implements\"}}"
+# Create implements edges using CLI
+check_output "link T1→F1 (JWT implements Auth)" "Created\|implements" \
+  $CLI edges link --source "$T1_LINK" --target "$F1_LINK" --type implements -p "$PROJECT"
 
-check "link T2→F1 (OAuth implements Auth)" \
-  api_post "projects/$PROJECT/graph/edges" \
-  "{\"dependency_edge\":{\"source_id\":$T2_ID,\"target_id\":$F1_ID,\"edge_type\":\"implements\"}}"
+check_output "link T2→F1 (OAuth implements Auth)" "Created\|implements" \
+  $CLI edges link --source "$T2_LINK" --target "$F1_LINK" --type implements -p "$PROJECT"
 
-check "link T3→F2 (Rate limiter implements Rate Limiting)" \
-  api_post "projects/$PROJECT/graph/edges" \
-  "{\"dependency_edge\":{\"source_id\":$T3_ID,\"target_id\":$F2_ID,\"edge_type\":\"implements\"}}"
+check_output "link T3→F2 (Rate limiter implements Rate Limiting)" "Created\|implements" \
+  $CLI edges link --source "$T3_LINK" --target "$F2_LINK" --type implements -p "$PROJECT"
 
-# Verify edges
-EDGE_COUNT=$(api_get "projects/$PROJECT/graph/edges?edge_type=implements" | jq '.data | length')
+# Verify edges via CLI
+EDGE_COUNT=$($CLI edges list -p "$PROJECT" --type implements --format json 2>&1 | jq 'length')
 check "3 implements edges created" test "$EDGE_COUNT" -eq 3
+
+# Test filtered edge listing
+check "list edges by source" \
+  bash -c "[ \$($CLI edges list -p '$PROJECT' --source '$T1_LINK' --format json | jq 'length') -eq 1 ]"
+
+check "list edges by target" \
+  bash -c "[ \$($CLI edges list -p '$PROJECT' --target '$F1_LINK' --format json | jq 'length') -eq 2 ]"
 
 # ============================================================================
 bold "Phase 7: AI Review"
