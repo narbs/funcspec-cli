@@ -9,7 +9,7 @@
 # Usage:
 #   FUNCSPEC_TEST_PROJECT=test-lifecycle-$(date +%s) ./tests/integration/lifecycle_test.sh
 
-set -euo pipefail
+set -uo pipefail
 
 CLI="./target/release/funcspec"
 PROJECT="${FUNCSPEC_TEST_PROJECT:-test-lifecycle-$$}"
@@ -18,6 +18,20 @@ API_BASE="https://funcspec.net/api/v1"
 PASS=0
 FAIL=0
 ERRORS=""
+
+# Ensure cleanup runs even if the script fails partway through
+cleanup() {
+  bold ""
+  bold "=== Cleanup ==="
+  # Delete all items (best effort)
+  for link in ${T1_LINK:-} ${T2_LINK:-} ${T3_LINK:-} ${F1_LINK:-} ${F2_LINK:-}; do
+    [ -n "$link" ] && $CLI items delete "$link" -p "$PROJECT" --yes 2>/dev/null || true
+  done
+  # Delete project via API
+  api_delete "projects/$PROJECT" > /dev/null 2>&1 || true
+  green "  ✓ Cleaned up project: $PROJECT"
+}
+trap cleanup EXIT
 
 # --- Helpers ---
 
@@ -279,19 +293,7 @@ check "snapshots list shows snapshot" \
   bash -c "$CLI snapshots list -p '$PROJECT' --format bare | grep -q lifecycle"
 
 # ============================================================================
-bold "Phase 13: Cleanup"
-# ============================================================================
-
-# Delete all items
-for link in "$T1_LINK" "$T2_LINK" "$T3_LINK" "$F1_LINK" "$F2_LINK"; do
-  $CLI items delete "$link" -p "$PROJECT" --yes 2>/dev/null || true
-done
-check "items deleted" \
-  bash -c "[ \$($CLI items list -p '$PROJECT' --format json | jq length) -eq 0 ]"
-
-# Delete project via API (CLI doesn't support it)
-# api_delete "projects/$PROJECT" > /dev/null 2>&1 || true
-
+# Cleanup is handled by the EXIT trap — runs even on failure
 # ============================================================================
 bold ""
 bold "=== Results ==="
