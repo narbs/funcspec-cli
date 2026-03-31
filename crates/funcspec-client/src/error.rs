@@ -142,6 +142,10 @@ impl From<reqwest::Error> for Error {
     fn from(e: reqwest::Error) -> Self {
         if e.is_timeout() {
             Error::Timeout { secs: 30 }
+        } else if e.is_decode() {
+            // Surface serde deserialization errors clearly instead of hiding
+            // them behind "Network error"
+            Error::Other(format!("Failed to parse server response: {e}"))
         } else {
             Error::Network(e.to_string())
         }

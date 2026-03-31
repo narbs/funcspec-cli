@@ -81,7 +81,7 @@ pub struct SpecItemAttributes {
     pub permalink: String,
     pub url: String,
     pub version: u32,
-    pub priority: Option<String>,
+    pub priority: Option<i32>,
     pub position: Option<i32>,
     #[serde(default)]
     pub tags: Vec<String>,
@@ -685,7 +685,7 @@ mod tests {
                 "permalink": "T-5",
                 "url": "https://funcspec.net/items/5",
                 "version": 2,
-                "priority": "high",
+                "priority": 1,
                 "position": 1,
                 "tags": ["auth", "backend"],
                 "parent_id": null,
