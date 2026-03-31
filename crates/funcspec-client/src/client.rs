@@ -271,33 +271,20 @@ impl FuncspecClient {
             return Ok(numeric);
         }
 
-        // Must be a permalink (F-123 or T-456) — search through pages
-        let filter = ItemFilter::default();
-        let mut page = 1u32;
-        loop {
-            let paged = self.list_items_paged(project_id, &filter, page, 25).await?;
-            if paged.data.is_empty() {
-                break;
-            }
-            for item in &paged.data {
-                if item
-                    .attributes
-                    .permalink
-                    .eq_ignore_ascii_case(id_or_permalink)
-                {
-                    return Ok(item.id);
-                }
-            }
-            if paged.has_next_page() {
-                page += 1;
-            } else {
-                break;
-            }
+        // API now supports permalink lookup directly — no need to page through items.
+        // Just fetch the item by permalink and return its ID.
+        let url = self.api_url(&format!("/projects/{project_id}/spec/items/{id_or_permalink}"));
+        debug!(%url, "resolve_item_id via permalink");
+        let resp = self
+            .request_with_retry(|| self.http.get(&url).send())
+            .await?;
+        if !resp.status().is_success() {
+            return Err(Error::NotFound(format!(
+                "Item with permalink \"{id_or_permalink}\" not found"
+            )));
         }
-
-        Err(Error::NotFound(format!(
-            "Item with permalink \"{id_or_permalink}\" not found"
-        )))
+        let body: ApiResponse<SpecItem> = resp.json().await?;
+        Ok(body.data.id)
     }
 
     pub async fn get_item(
@@ -305,8 +292,8 @@ impl FuncspecClient {
         project_id: u64,
         id_or_permalink: &str,
     ) -> Result<SpecItem, Error> {
-        let resolved_id = self.resolve_item_id(project_id, id_or_permalink).await?;
-        let url = self.api_url(&format!("/projects/{project_id}/spec/items/{resolved_id}"));
+        // API supports both numeric IDs and permalinks (e.g. F-320) directly
+        let url = self.api_url(&format!("/projects/{project_id}/spec/items/{id_or_permalink}"));
         debug!(%url, "get_item");
         let resp = self
             .request_with_retry(|| self.http.get(&url).send())
