@@ -403,12 +403,7 @@ pub fn format_edges(
                     .unwrap_or(("?", ""));
                 println!(
                     "- **{}** `{}` {} → `{}` {} ({})",
-                    edge.id,
-                    src_perm,
-                    src_title,
-                    tgt_perm,
-                    tgt_title,
-                    a.edge_type,
+                    edge.id, src_perm, src_title, tgt_perm, tgt_title, a.edge_type,
                 );
             }
         }
@@ -606,8 +601,18 @@ pub fn format_stats_dashboard(
 
     // Items
     let total = stats.spec_items.total;
-    let functional = stats.spec_items.by_type.get("functional").copied().unwrap_or(0);
-    let technical = stats.spec_items.by_type.get("technical").copied().unwrap_or(0);
+    let functional = stats
+        .spec_items
+        .by_type
+        .get("functional")
+        .copied()
+        .unwrap_or(0);
+    let technical = stats
+        .spec_items
+        .by_type
+        .get("technical")
+        .copied()
+        .unwrap_or(0);
     println!(
         "{:<12}{} total ({} functional, {} technical)",
         "Items:".cyan().bold(),
@@ -617,9 +622,24 @@ pub fn format_stats_dashboard(
     );
 
     // Status breakdown
-    let implemented = stats.spec_items.by_implementation.get("implemented").copied().unwrap_or(0);
-    let in_progress = stats.spec_items.by_implementation.get("in_progress").copied().unwrap_or(0);
-    let not_started = stats.spec_items.by_implementation.get("not_started").copied().unwrap_or(0);
+    let implemented = stats
+        .spec_items
+        .by_implementation
+        .get("implemented")
+        .copied()
+        .unwrap_or(0);
+    let in_progress = stats
+        .spec_items
+        .by_implementation
+        .get("in_progress")
+        .copied()
+        .unwrap_or(0);
+    let not_started = stats
+        .spec_items
+        .by_implementation
+        .get("not_started")
+        .copied()
+        .unwrap_or(0);
     let pct_impl = percent(implemented, total);
     let bar = progress_bar(pct_impl, 10);
     println!(

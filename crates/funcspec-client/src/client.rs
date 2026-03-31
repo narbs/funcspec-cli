@@ -273,7 +273,9 @@ impl FuncspecClient {
 
         // API now supports permalink lookup directly — no need to page through items.
         // Just fetch the item by permalink and return its ID.
-        let url = self.api_url(&format!("/projects/{project_id}/spec/items/{id_or_permalink}"));
+        let url = self.api_url(&format!(
+            "/projects/{project_id}/spec/items/{id_or_permalink}"
+        ));
         debug!(%url, "resolve_item_id via permalink");
         let resp = self
             .request_with_retry(|| self.http.get(&url).send())
@@ -293,7 +295,9 @@ impl FuncspecClient {
         id_or_permalink: &str,
     ) -> Result<SpecItem, Error> {
         // API supports both numeric IDs and permalinks (e.g. F-320) directly
-        let url = self.api_url(&format!("/projects/{project_id}/spec/items/{id_or_permalink}"));
+        let url = self.api_url(&format!(
+            "/projects/{project_id}/spec/items/{id_or_permalink}"
+        ));
         debug!(%url, "get_item");
         let resp = self
             .request_with_retry(|| self.http.get(&url).send())

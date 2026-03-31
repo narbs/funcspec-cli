@@ -201,9 +201,9 @@ pub async fn run(cmd: EdgesCmd, format: OutputFormat) -> Result<()> {
                 match edges.len() {
                     0 => bail!("No matching edge found"),
                     1 => edges[0].id,
-                    n => bail!(
-                        "{n} edges match — narrow the filter or specify an edge ID directly"
-                    ),
+                    n => {
+                        bail!("{n} edges match — narrow the filter or specify an edge ID directly")
+                    }
                 }
             };
 
@@ -316,7 +316,12 @@ mod tests {
             json: false,
         };
         match cmd {
-            EdgesCmd::List { source, target, r#type, .. } => {
+            EdgesCmd::List {
+                source,
+                target,
+                r#type,
+                ..
+            } => {
                 assert_eq!(source.as_deref(), Some("F-1"));
                 assert_eq!(target.as_deref(), Some("T-5"));
                 assert_eq!(r#type.as_deref(), Some("implements"));

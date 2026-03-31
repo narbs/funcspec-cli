@@ -775,7 +775,10 @@ mod tests {
         assert_eq!(s.spec_items.total, 42);
         assert_eq!(s.spec_items.by_type.get("functional"), Some(&12u32));
         assert_eq!(s.spec_items.by_type.get("technical"), Some(&30u32));
-        assert_eq!(s.spec_items.by_implementation.get("implemented"), Some(&28u32));
+        assert_eq!(
+            s.spec_items.by_implementation.get("implemented"),
+            Some(&28u32)
+        );
         assert_eq!(s.reviews.tech_reviewed, 30);
         assert_eq!(s.reviews.avg_tech_score, Some(87.2));
         assert_eq!(s.reviews.avg_func_score, None);

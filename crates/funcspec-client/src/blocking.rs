@@ -101,8 +101,10 @@ impl BlockingFuncspecClient {
         target_id: Option<u64>,
         edge_type: Option<&str>,
     ) -> Result<Vec<DependencyEdge>, Error> {
-        self.rt
-            .block_on(self.inner.list_edges(project_id, source_id, target_id, edge_type))
+        self.rt.block_on(
+            self.inner
+                .list_edges(project_id, source_id, target_id, edge_type),
+        )
     }
 
     pub fn create_edge(
@@ -118,7 +120,8 @@ impl BlockingFuncspecClient {
     }
 
     pub fn delete_edge(&self, project_id: u64, edge_id: u64) -> Result<(), Error> {
-        self.rt.block_on(self.inner.delete_edge(project_id, edge_id))
+        self.rt
+            .block_on(self.inner.delete_edge(project_id, edge_id))
     }
 
     /// Convert back to the async client.

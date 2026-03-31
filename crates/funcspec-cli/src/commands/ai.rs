@@ -392,7 +392,14 @@ fn display_review(item: &SpecItem, review: &Review) {
         println!("\n{}", "Coverage:".bold());
         for (req, entry) in &attrs.coverage_map {
             let status = entry.get("status").and_then(|v| v.as_str()).unwrap_or("?");
-            println!("  {} {req}", if status == "covered" { "✓".green() } else { "✗".red() });
+            println!(
+                "  {} {req}",
+                if status == "covered" {
+                    "✓".green()
+                } else {
+                    "✗".red()
+                }
+            );
         }
     }
 
