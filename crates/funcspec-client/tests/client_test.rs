@@ -225,21 +225,10 @@ async fn list_items_filter_sent_as_query_params() {
 async fn get_item_by_permalink() {
     let server = setup_server().await;
 
-    // Resolver calls list_items_paged to find the numeric ID for "F-7"
-    let list_body = json!({
-        "data": [make_item_json(7, "F-7", "Auth flow")],
-        "meta": { "page": 1, "per": 25, "total": 1 }
-    });
-    Mock::given(method("GET"))
-        .and(path("/api/v1/projects/1/spec/items"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(list_body))
-        .mount(&server)
-        .await;
-
-    // Then get_item fetches by resolved numeric ID
+    // get_item now sends the permalink directly: GET /projects/1/spec/items/F-7
     let show_body = json!({ "data": make_item_json(7, "F-7", "Auth flow") });
     Mock::given(method("GET"))
-        .and(path("/api/v1/projects/1/spec/items/7"))
+        .and(path("/api/v1/projects/1/spec/items/F-7"))
         .respond_with(ResponseTemplate::new(200).set_body_json(show_body))
         .mount(&server)
         .await;

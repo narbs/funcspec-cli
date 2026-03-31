@@ -430,11 +430,11 @@ fn edges_table(
         let a = &edge.attributes;
         let src = item_map
             .get(&a.source_id)
-            .map(|(p, t)| format!("{} {}", p.cyan().to_string(), t))
+            .map(|(p, t)| format!("{} {}", p.cyan(), t))
             .unwrap_or_else(|| a.source_id.to_string());
         let tgt = item_map
             .get(&a.target_id)
-            .map(|(p, t)| format!("{} {}", p.cyan().to_string(), t))
+            .map(|(p, t)| format!("{} {}", p.cyan(), t))
             .unwrap_or_else(|| a.target_id.to_string());
         table.add_row(vec![
             edge.id.to_string(),
