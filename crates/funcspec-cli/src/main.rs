@@ -10,7 +10,7 @@ use tracing_subscriber::{EnvFilter, fmt, prelude::*};
 #[derive(Parser)]
 #[command(
     name = "funcspec",
-    about = "Command-line interface for FuncSpec — AI-driven spec management",
+    about = concat!("Command-line interface for FuncSpec — AI-driven spec management\nv", env!("CARGO_PKG_VERSION")),
     version,
     propagate_version = true,
     arg_required_else_help = true
