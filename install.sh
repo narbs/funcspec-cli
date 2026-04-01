@@ -92,7 +92,7 @@ case "$OS" in
       arm64)           TARGET="aarch64-apple-darwin" ;;
       *)               error "Unsupported macOS architecture: $ARCH" ;;
     esac
-    EXT="tar.gz"
+    EXT="zip"
     ;;
   *)
     error "Unsupported OS: $OS. For Windows, download the binary from https://github.com/${REPO}/releases"
@@ -146,7 +146,10 @@ info "Checksum OK."
 
 # ── Extract & install ─────────────────────────────────────────────────────────
 
-tar xzf "${ARCHIVE}"
+case "$EXT" in
+  zip)    unzip -o "${ARCHIVE}" ;;
+  tar.gz) tar xzf "${ARCHIVE}" ;;
+esac
 
 INSTALL_DIR="$(choose_install_dir)"
 mkdir -p "$INSTALL_DIR"
