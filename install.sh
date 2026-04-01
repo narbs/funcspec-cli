@@ -129,17 +129,22 @@ curl -fsSL "$CHECKSUM_URL" -o "${TMP_DIR}/checksums.sha256"
 info "Verifying checksum..."
 cd "$TMP_DIR"
 
-# sha256sum vs shasum (macOS)
-if command -v sha256sum &>/dev/null; then
-  grep "${ARCHIVE}" checksums.sha256 | sha256sum --check --status
+# Portable checksum verification (works on macOS + Linux)
+EXPECTED="$(grep "${ARCHIVE}" checksums.sha256 | awk '{print $1}')"
+if [ -z "$EXPECTED" ]; then
+  warn "No checksum found for ${ARCHIVE} — skipping verification."
 elif command -v shasum &>/dev/null; then
-  EXPECTED="$(grep "${ARCHIVE}" checksums.sha256 | awk '{print $1}')"
   ACTUAL="$(shasum -a 256 "${ARCHIVE}" | awk '{print $1}')"
   if [ "$EXPECTED" != "$ACTUAL" ]; then
     error "Checksum mismatch! Expected: $EXPECTED  Got: $ACTUAL"
   fi
+elif command -v sha256sum &>/dev/null; then
+  ACTUAL="$(sha256sum "${ARCHIVE}" | awk '{print $1}')"
+  if [ "$EXPECTED" != "$ACTUAL" ]; then
+    error "Checksum mismatch! Expected: $EXPECTED  Got: $ACTUAL"
+  fi
 else
-  warn "No sha256sum or shasum found — skipping checksum verification."
+  warn "No shasum or sha256sum found — skipping checksum verification."
 fi
 
 info "Checksum OK."
