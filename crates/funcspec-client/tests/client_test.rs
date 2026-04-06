@@ -487,6 +487,214 @@ async fn list_projects_paged_returns_metadata() {
     assert_eq!(paged.data.len(), 2);
 }
 
+// -- resolve_item_id ---------------------------------------------------------
+
+#[tokio::test]
+async fn resolve_item_id_numeric_string_returns_without_http() {
+    // A numeric string should be returned directly without any HTTP call
+    let server = setup_server().await;
+    // No mock mounted — any HTTP call would panic
+    let client = client_for(&server);
+    let id = client.resolve_item_id(1, "42").await.unwrap();
+    assert_eq!(id, 42);
+    assert!(server.received_requests().await.unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn resolve_item_id_permalink_fetches_item_and_returns_numeric_id() {
+    // T-101 / T-103 root cause: a permalink like "F-396" must be resolved to its
+    // numeric ID via GET /projects/:id/spec/items/:permalink, not silently dropped.
+    let server = setup_server().await;
+    let body = json!({ "data": make_item_json(396, "F-396", "Some feature") });
+
+    Mock::given(method("GET"))
+        .and(path("/api/v1/projects/1/spec/items/F-396"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(body))
+        .mount(&server)
+        .await;
+
+    let client = client_for(&server);
+    let id = client.resolve_item_id(1, "F-396").await.unwrap();
+    assert_eq!(id, 396);
+}
+
+#[tokio::test]
+async fn resolve_item_id_not_found_returns_error() {
+    let server = setup_server().await;
+    let body = json!({ "error": "not found" });
+
+    Mock::given(method("GET"))
+        .and(path("/api/v1/projects/1/spec/items/F-999"))
+        .respond_with(ResponseTemplate::new(404).set_body_json(body))
+        .mount(&server)
+        .await;
+
+    let client = client_for(&server);
+    let err = client.resolve_item_id(1, "F-999").await.unwrap_err();
+    assert!(matches!(err, Error::NotFound(_)));
+}
+
+// -- T-103: list_items parent_id filter -------------------------------------
+
+#[tokio::test]
+async fn list_items_parent_id_sent_as_query_param() {
+    // T-103: when parent_id is set in ItemFilter it must reach the API as a
+    // query parameter. Previously a permalink-derived parent_id was silently
+    // dropped before reaching the client; this test exercises the client side.
+    let server = setup_server().await;
+    let body = json!({
+        "data": [make_item_json(10, "T-10", "Child item")],
+        "meta": null
+    });
+
+    Mock::given(method("GET"))
+        .and(path("/api/v1/projects/1/spec/items"))
+        .and(query_param("parent_id", "396"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(body))
+        .mount(&server)
+        .await;
+
+    let client = client_for(&server);
+    let filter = ItemFilter {
+        parent_id: Some(396),
+        ..Default::default()
+    };
+    let (items, _) = client.list_items(1, &filter).await.unwrap();
+    assert_eq!(items.len(), 1);
+    assert_eq!(items[0].attributes.permalink, "T-10");
+}
+
+// -- T-101: create_item parent_id in POST body ------------------------------
+
+#[tokio::test]
+async fn create_item_with_parent_id_sends_parent_id_in_body() {
+    // T-101: parent_id must be included in the POST payload, not omitted.
+    let server = setup_server().await;
+    let mut item = make_item_json(55, "T-55", "Child spec");
+    item["attributes"]["parent_id"] = json!(12);
+    let body = json!({ "data": item });
+
+    Mock::given(method("POST"))
+        .and(path("/api/v1/projects/1/spec/items"))
+        .respond_with(ResponseTemplate::new(201).set_body_json(body))
+        .mount(&server)
+        .await;
+
+    let client = client_for(&server);
+    let params = CreateItemParams {
+        title: "Child spec".into(),
+        type_of: "technical".into(),
+        parent_id: Some(12),
+        ..Default::default()
+    };
+    client.create_item(1, &params).await.unwrap();
+
+    let requests = server.received_requests().await.unwrap();
+    assert_eq!(requests.len(), 1);
+    let sent: serde_json::Value = serde_json::from_slice(&requests[0].body).unwrap();
+    assert_eq!(sent["parent_id"], json!(12));
+}
+
+#[tokio::test]
+async fn create_item_without_parent_omits_parent_id_from_body() {
+    // parent_id must be absent (not null) when not provided
+    let server = setup_server().await;
+    let body = json!({ "data": make_item_json(56, "F-56", "Top-level item") });
+
+    Mock::given(method("POST"))
+        .and(path("/api/v1/projects/1/spec/items"))
+        .respond_with(ResponseTemplate::new(201).set_body_json(body))
+        .mount(&server)
+        .await;
+
+    let client = client_for(&server);
+    let params = CreateItemParams {
+        title: "Top-level item".into(),
+        type_of: "functional".into(),
+        ..Default::default()
+    };
+    client.create_item(1, &params).await.unwrap();
+
+    let requests = server.received_requests().await.unwrap();
+    let sent: serde_json::Value = serde_json::from_slice(&requests[0].body).unwrap();
+    assert!(!sent.as_object().unwrap().contains_key("parent_id"));
+}
+
+// -- T-102: update_item parent_id in PATCH body -----------------------------
+
+#[tokio::test]
+async fn update_item_with_parent_sends_numeric_parent_id() {
+    // T-102: --parent flag must serialize as a JSON number in the PATCH body.
+    let server = setup_server().await;
+    let body = json!({ "data": make_item_json(5, "F-5", "Item") });
+
+    Mock::given(method("PATCH"))
+        .and(path("/api/v1/projects/1/spec/items/5"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(body))
+        .mount(&server)
+        .await;
+
+    let client = client_for(&server);
+    let params = UpdateItemParams {
+        parent_id: Some(serde_json::json!(42u64)),
+        ..Default::default()
+    };
+    client.update_item(1, 5, &params).await.unwrap();
+
+    let requests = server.received_requests().await.unwrap();
+    let sent: serde_json::Value = serde_json::from_slice(&requests[0].body).unwrap();
+    assert_eq!(sent["parent_id"], json!(42));
+}
+
+#[tokio::test]
+async fn update_item_with_no_parent_sends_null_parent_id() {
+    // T-102: --no-parent flag must serialize parent_id as JSON null.
+    let server = setup_server().await;
+    let body = json!({ "data": make_item_json(5, "F-5", "Item") });
+
+    Mock::given(method("PATCH"))
+        .and(path("/api/v1/projects/1/spec/items/5"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(body))
+        .mount(&server)
+        .await;
+
+    let client = client_for(&server);
+    let params = UpdateItemParams {
+        parent_id: Some(serde_json::Value::Null),
+        ..Default::default()
+    };
+    client.update_item(1, 5, &params).await.unwrap();
+
+    let requests = server.received_requests().await.unwrap();
+    let sent: serde_json::Value = serde_json::from_slice(&requests[0].body).unwrap();
+    assert!(sent.as_object().unwrap().contains_key("parent_id"));
+    assert!(sent["parent_id"].is_null());
+}
+
+#[tokio::test]
+async fn update_item_without_parent_flag_omits_parent_id() {
+    // When neither --parent nor --no-parent is given, parent_id must be absent.
+    let server = setup_server().await;
+    let body = json!({ "data": make_item_json(5, "F-5", "Item") });
+
+    Mock::given(method("PATCH"))
+        .and(path("/api/v1/projects/1/spec/items/5"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(body))
+        .mount(&server)
+        .await;
+
+    let client = client_for(&server);
+    let params = UpdateItemParams {
+        title: Some("New title".into()),
+        ..Default::default()
+    };
+    client.update_item(1, 5, &params).await.unwrap();
+
+    let requests = server.received_requests().await.unwrap();
+    let sent: serde_json::Value = serde_json::from_slice(&requests[0].body).unwrap();
+    assert!(!sent.as_object().unwrap().contains_key("parent_id"));
+}
+
 // -- error helpers -----------------------------------------------------------
 
 #[tokio::test]

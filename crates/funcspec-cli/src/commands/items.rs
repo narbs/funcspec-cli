@@ -121,6 +121,14 @@ pub enum ItemsCmd {
         /// Tags (comma-separated, replaces existing)
         #[arg(long)]
         tag: Option<String>,
+
+        /// Set parent item (permalink or ID)
+        #[arg(long, conflicts_with = "no_parent")]
+        parent: Option<String>,
+
+        /// Remove parent (make item top-level)
+        #[arg(long)]
+        no_parent: bool,
     },
 
     /// Edit item description in $EDITOR
@@ -172,8 +180,11 @@ pub async fn run(cmd: ItemsCmd, format: OutputFormat) -> Result<()> {
                 _ => ImplementationStatus::NotStarted,
             });
 
-            // TODO: resolve parent permalink to ID if needed
-            let parent_id = parent.and_then(|p| p.parse::<u64>().ok());
+            let parent_id = if let Some(p) = parent {
+                Some(client.resolve_item_id(project_id, &p).await?)
+            } else {
+                None
+            };
 
             let filter = ItemFilter {
                 type_of,
@@ -258,7 +269,11 @@ pub async fn run(cmd: ItemsCmd, format: OutputFormat) -> Result<()> {
                 _ => "functional",
             };
 
-            let parent_id = parent.and_then(|p| p.parse::<u64>().ok());
+            let parent_id = if let Some(p) = parent {
+                Some(client.resolve_item_id(project_id, &p).await?)
+            } else {
+                None
+            };
 
             let params = CreateItemParams {
                 title: title.clone(),
@@ -283,6 +298,8 @@ pub async fn run(cmd: ItemsCmd, format: OutputFormat) -> Result<()> {
             description,
             status,
             tag,
+            parent,
+            no_parent,
         } => {
             let (client, project_id) = client_and_project().await?;
 
@@ -295,6 +312,15 @@ pub async fn run(cmd: ItemsCmd, format: OutputFormat) -> Result<()> {
                 other => other.map(String::from),
             };
 
+            let parent_id = if no_parent {
+                Some(serde_json::Value::Null)
+            } else if let Some(p) = parent {
+                let id = client.resolve_item_id(project_id, &p).await?;
+                Some(serde_json::Value::Number(id.into()))
+            } else {
+                None
+            };
+
             // Resolve permalink to numeric ID
             let spec_item = client.get_item(project_id, &item).await?;
 
@@ -303,6 +329,7 @@ pub async fn run(cmd: ItemsCmd, format: OutputFormat) -> Result<()> {
                 description: desc,
                 implementation_status: status,
                 tags: tag,
+                parent_id,
             };
 
             let updated = client
@@ -356,6 +383,7 @@ pub async fn run(cmd: ItemsCmd, format: OutputFormat) -> Result<()> {
                 description: Some(new_description),
                 implementation_status: None,
                 tags: None,
+                parent_id: None,
             };
 
             let updated = client

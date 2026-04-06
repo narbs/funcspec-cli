@@ -375,6 +375,9 @@ pub struct UpdateItemParams {
     pub implementation_status: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tags: Option<String>,
+    /// Some(Some(id)) = set parent, Some(None) = clear parent, None = no change
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub parent_id: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Default, Serialize)]
