@@ -62,6 +62,15 @@ enum Commands {
     #[command(subcommand)]
     Edges(commands::edges::EdgesCmd),
 
+    /// Fetch live agent instructions for the current project
+    Instructions(commands::instructions::InstructionsArgs),
+
+    /// Interactive setup wizard — authenticate, configure, and scaffold agent files
+    Onboard(commands::onboard::OnboardArgs),
+
+    /// Check the local environment and show a health report
+    Doctor(commands::doctor::DoctorArgs),
+
     /// Search spec items by full-text query
     Search(commands::search::SearchArgs),
 
@@ -123,6 +132,9 @@ async fn run(cli: Cli) -> Result<()> {
         Commands::Projects(cmd) => commands::projects::run(cmd, cli.format).await,
         Commands::Items(cmd) => commands::items::run(cmd, cli.format).await,
         Commands::Edges(cmd) => commands::edges::run(cmd, cli.format).await,
+        Commands::Instructions(args) => commands::instructions::run(args, cli.format).await,
+        Commands::Onboard(args) => commands::onboard::run(args).await,
+        Commands::Doctor(args) => commands::doctor::run(args).await,
         Commands::Search(args) => commands::search::run(args, cli.format).await,
         Commands::Stats(args) => commands::stats::run(args, cli.format).await,
         Commands::Export(args) => commands::export::run(args).await,

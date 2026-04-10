@@ -1,9 +1,12 @@
 pub mod ai;
 pub mod auth;
 pub mod config;
+pub mod doctor;
 pub mod edges;
 pub mod export;
+pub mod instructions;
 pub mod items;
+pub mod onboard;
 pub mod projects;
 pub mod search;
 pub mod snapshots;

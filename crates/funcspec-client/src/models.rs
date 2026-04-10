@@ -1022,6 +1022,15 @@ pub struct CreateEdgeParams {
 }
 
 // ---------------------------------------------------------------------------
+// Agent Instructions
+// ---------------------------------------------------------------------------
+
+/// Content returned by the agent_instructions endpoint.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentInstructions {
+    pub content: String,
+}
+
 // Export
 // ---------------------------------------------------------------------------
 

@@ -915,6 +915,28 @@ impl FuncspecClient {
         }
         Ok(())
     }
+    // -- Agent Instructions --
+
+    /// Fetch live agent instructions for a project.
+    ///
+    /// Calls `GET /projects/:project_slug/agent_instructions` and returns the
+    /// raw JSON response. Callers extract `content` for display or use the full
+    /// value for `--raw` output.
+    pub async fn get_agent_instructions(
+        &self,
+        project_slug: &str,
+    ) -> Result<serde_json::Value, Error> {
+        let url = self.api_url(&format!("/projects/{project_slug}/agent_instructions"));
+        debug!(%url, "get_agent_instructions");
+        let resp = self
+            .request_with_retry(|| self.http.get(&url).send())
+            .await?;
+        if !resp.status().is_success() {
+            return Err(Error::from_response(resp).await);
+        }
+        let body: serde_json::Value = resp.json().await?;
+        Ok(body)
+    }
 }
 
 // ---------------------------------------------------------------------------

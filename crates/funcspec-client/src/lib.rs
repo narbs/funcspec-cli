@@ -9,9 +9,9 @@ pub mod blocking;
 pub use client::FuncspecClient;
 pub use error::Error;
 pub use models::{
-    AuditResult, CreateItemParams, CreateProjectParams, CreateReviewParams, CreateSnapshotParams,
-    ExportData, ImplementationStatus, ItemFilter, ItemType, Job, JobStatus, PaginationMeta,
-    Project, ProjectAttributes, ProjectStats, Proposal, ProposalAttributes, Review,
+    AgentInstructions, AuditResult, CreateItemParams, CreateProjectParams, CreateReviewParams,
+    CreateSnapshotParams, ExportData, ImplementationStatus, ItemFilter, ItemType, Job, JobStatus,
+    PaginationMeta, Project, ProjectAttributes, ProjectStats, Proposal, ProposalAttributes, Review,
     ReviewAttributes, ReviewSummary, Snapshot, SnapshotAttributes, SnapshotDiff, SnapshotDiffItem,
     SpecItem, SpecItemAttributes, StatsCoverage, StatsRecentActivity, StatsReviews, StatsSpecItems,
     TechProposal, TechProposals, TokenUsage, UpdateItemParams, UpdateProjectParams, UsageFilter,

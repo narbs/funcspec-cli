@@ -15,6 +15,12 @@ fn project_override() -> Option<&'static str> {
     PROJECT_OVERRIDE.get().and_then(|o| o.as_deref())
 }
 
+/// Return the --project override slug if one was set, without resolving to a project ID.
+/// Useful for commands that need the slug directly (e.g. `funcspec instructions`).
+pub fn project_slug_override() -> Option<&'static str> {
+    project_override()
+}
+
 /// Build a client from the active profile. Returns (client, config).
 pub fn client_and_config() -> Result<(FuncspecClient, Config)> {
     let config = Config::load()?;

@@ -499,6 +499,7 @@ dependencies = [
  "indicatif",
  "open",
  "predicates",
+ "reqwest",
  "rpassword",
  "serde",
  "serde_json",
