@@ -1,5 +1,5 @@
 use anyhow::{Context, Result, bail};
-use clap::Args;
+use rust_i18n::t;
 
 use crate::context::client_and_config;
 use crate::output::OutputFormat;
@@ -18,13 +18,26 @@ pub(crate) fn extract_content(raw: &serde_json::Value) -> Option<&str> {
 }
 
 /// Arguments for `funcspec instructions`.
-#[derive(Debug, Args)]
-#[command(about = "Fetch live agent instructions for the current project")]
 pub struct InstructionsArgs {
     /// Print the full JSON response instead of just the content field.
-    /// Takes precedence over --format.
-    #[arg(long)]
     pub raw: bool,
+}
+
+pub fn build_command() -> clap::Command {
+    clap::Command::new("instructions")
+        .about(t!("cmd.instructions.about").to_string())
+        .arg(
+            clap::Arg::new("raw")
+                .long("raw")
+                .action(clap::ArgAction::SetTrue)
+                .help(t!("cmd.instructions.raw").to_string()),
+        )
+}
+
+pub fn from_arg_matches(matches: &clap::ArgMatches) -> InstructionsArgs {
+    InstructionsArgs {
+        raw: matches.get_flag("raw"),
+    }
 }
 
 pub async fn run(args: InstructionsArgs, format: OutputFormat) -> Result<()> {
@@ -118,5 +131,21 @@ mod tests {
     #[test]
     fn extract_content_empty_object_returns_none() {
         assert_eq!(extract_content(&json!({})), None);
+    }
+
+    #[test]
+    fn build_command_has_raw_flag() {
+        let cmd = build_command();
+        let m = cmd
+            .try_get_matches_from(["instructions", "--raw"])
+            .unwrap();
+        assert!(m.get_flag("raw"));
+    }
+
+    #[test]
+    fn build_command_raw_defaults_false() {
+        let cmd = build_command();
+        let m = cmd.try_get_matches_from(["instructions"]).unwrap();
+        assert!(!m.get_flag("raw"));
     }
 }

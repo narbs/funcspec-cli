@@ -1,0 +1,240 @@
+cli:
+  about: "FuncSpec のコマンドラインインターフェース — AI駆動の仕様管理"
+  verbose: "詳細出力を有効にする（HTTPリクエスト/レスポンス）"
+  debug: "デバッグ出力を有効にする（完全なヘッダー、ボディ、タイミング）"
+  format: "出力形式（デフォルト：TTY時はテーブル、パイプ時はjson）"
+  project: "プロジェクトID、スラッグ、またはorg/プロジェクトスラッグ（デフォルトプロジェクトを上書き）"
+  help: "ヘルプを表示"
+  version_flag: "バージョンを表示"
+
+cmd:
+  ai:
+    about: "AI駆動のレビュー、改善、生成、監査操作"
+    review:
+      about: "単一の仕様アイテムのAIレビューをトリガー；スコア、判定、カバレッジマップ、ギャップを表示"
+      permalink: "アイテムのパーマリンク（例：F-5）"
+    review_all:
+      about: "プロジェクト内のすべてのアイテムのバッチAIレビューをトリガー（非同期、完了まで轮询）"
+    improve:
+      about: "仕様アイテムのAI生成改善を提案；差分を表示し承認/拒否を促す"
+      permalink: "アイテムのパーマリンク（例：F-5）"
+      auto_accept: "インタラクティブなプロンプトなしに提案を自動承認"
+    generate:
+      about: "機能アイテムからの技術仕様提案を生成"
+      permalink: "アイテムのパーマリンク（例：F-5）"
+    audit:
+      about: "仕様アイテムのコード監査を実行してカバレッジと結果を表示"
+      permalink: "アイテムのパーマリンク（例：F-5）"
+
+  auth:
+    about: "認証と認証情報を管理"
+    login:
+      about: "FuncSpecインスタンスにログイン"
+      host: "ホストURL（デフォルト：https://funcspec.net）"
+      key: "APIキー（または環境変数FUNCSPEC_API_KEYを設定）"
+      profile: "認証情報を保存するプロファイル名"
+    logout:
+      about: "ログアウトして保存された認証情報を削除"
+      profile: "削除するプロファイル"
+    status:
+      about: "現在の認証状態を表示"
+
+  config:
+    about: "設定値を管理"
+    set:
+      about: "設定値を設定"
+      key: "設定するキー（例：project、host、api_key）"
+      value: "設定する値"
+      local: "グローバル設定の代わりに現在のディレクトリの.funcspecに書き込む"
+    get:
+      about: "設定値を取得"
+      key: "取得するキー"
+    list:
+      about: "すべての設定値を一覧表示"
+    set_profile:
+      about: "アクティブなプロファイルを切り替え"
+      name: "アクティブにするプロファイル名"
+
+  projects:
+    about: "プロジェクトを一覧表示して管理"
+    list:
+      about: "すべてのプロジェクトを一覧表示"
+      json: "JSONとして出力（--formatを上書き）"
+    show:
+      about: "プロジェクトの詳細を表示"
+      slug: "プロジェクトのスラッグまたはID"
+      json: "JSONとして出力（--formatを上書き）"
+    set_default:
+      about: "コマンドのデフォルトプロジェクトを設定"
+      slug: "プロジェクトのスラッグ（例：\"funcspec-cli\"または\"tambit/funcspec-cli\"）"
+
+  items:
+    about: "仕様アイテムを管理（機能的および技術的）"
+    list:
+      about: "仕様アイテムを一覧表示"
+      type: "タイプでフィルター：funcまたはtech"
+      status: "実装ステータスでフィルター"
+      tag: "タグでフィルター"
+      q: "検索クエリ"
+      has_review: "フィルター：レビューがあるアイテムのみ"
+      review_verdict: "レビュー判定でフィルター"
+      parent: "親アイテムでフィルター（パーマリンクまたはID）"
+      page: "ページ番号"
+      per: "1ページあたりのアイテム数"
+      sort: "ソートフィールド：score、title、created_at、updated_at、permalink"
+      json: "JSONとして出力（--formatを上書き）"
+      quiet: "静粛モード：パーマリンクのみ出力（--formatを上書き）"
+      bare: "ボーダーやヘッダーなしのベアTSV出力（--formatを上書き）"
+      count: "一致するアイテムの数のみを出力"
+    show:
+      about: "アイテムの詳細を表示"
+      item: "アイテムのパーマリンク（例：F-1）またはID"
+      json: "JSONとして出力（--formatを上書き）"
+    create:
+      about: "新しい仕様アイテムを作成"
+      title: "アイテムのタイトル"
+      type: "タイプ：funcまたはtech"
+      description: "説明（\"-\"の場合はstdinから読み込む）"
+      parent: "親アイテムのパーマリンクまたはID"
+      tag: "タグ（カンマ区切り）"
+    update:
+      about: "仕様アイテムを更新"
+      item: "アイテムのパーマリンク（例：F-377）またはID"
+      title: "新しいタイトル"
+      description: "新しい説明（\"-\"の場合はstdinから読み込む）"
+      status: "新しい実装ステータス"
+      tag: "タグ（カンマ区切り、既存のものを置換）"
+      parent: "親アイテムを設定（パーマリンクまたはID）"
+      no_parent: "親を削除（アイテムをトップレベルにする）"
+    edit:
+      about: "$EDITORでアイテムの説明を編集"
+      item: "アイテムのパーマリンク（例：F-1）またはID"
+    delete:
+      about: "仕様アイテムを削除"
+      item: "アイテムのパーマリンクまたはID"
+      yes: "確認をスキップ"
+    link:
+      about: "コミットを仕様アイテムにリンク"
+      item: "アイテムのパーマリンク（例：F-1）またはID"
+      sha: "コミットSHA"
+      message: "コミットメッセージ"
+    record_run:
+      about: "仕様アイテムのエージェント実行を記録"
+      item: "アイテムのパーマリンク（例：F-1）またはID"
+      model: "モデル名（例：claude-opus-4-6）"
+      tokens: "トークン数"
+      cost: "USD単位のコスト"
+      status: "実行ステータス（success、failure）"
+    transition:
+      about: "仕様アイテムを新しい実装ステータスに移行"
+      item: "アイテムのパーマリンク（例：F-1）またはID"
+      status: "新しいステータス（not_started、in_progress、implemented、verified、released）"
+
+  edges:
+    about: "仕様アイテム間の依存関係エッジを管理"
+    list:
+      about: "依存関係エッジを一覧表示（ソース、ターゲット、またはタイプでオプションでフィルター）"
+      source: "ソースアイテムのパーマリンクまたはIDでフィルター（例：F-1）"
+      target: "ターゲットアイテムのパーマリンクまたはIDでフィルター（例：T-5）"
+      type: "エッジタイプでフィルター（depends_on、implements、tests、blocks、relates_to）"
+      json: "JSONとして出力（--formatを上書き）"
+    link:
+      about: "2つの仕様アイテム間に依存関係エッジを作成"
+      source: "ソースアイテムのパーマリンクまたはID（例：F-1）"
+      target: "ターゲットアイテムのパーマリンクまたはID（例：T-5）"
+      type: "エッジタイプ：depends_on、implements、tests、blocks、relates_to"
+    unlink:
+      about: "IDで依存関係エッジを削除（または--source/--target/--typeで）"
+      edge_id: "削除するエッジID"
+      source: "ソースアイテムのパーマリンクまたはID（エッジを見つけるために使用）"
+      target: "ターゲットアイテムのパーマリンクまたはID（エッジを見つけるために使用）"
+      type: "エッジタイプフィルター（エッジを見つけるために使用）"
+      yes: "確認プロンプトをスキップ"
+
+  instructions:
+    about: "現在のプロジェクトのライブエージェント指示を取得"
+    raw: "コンテンツフィールドのみではなく、完全なJSONレスポンスを出力します。--formatより優先されます。"
+
+  onboard:
+    about: "インタラクティブセットアップウィザード — 認証、設定、エージェントファイルの作成"
+    non_interactive: "非インタラクティブモードで実行（CIのため）。FUNCSPEC_API_KEYまたは--api-keyが必要。"
+    api_key: "APIキー（環境変数FUNCSPEC_API_KEYを上書き）"
+    set_project: "デフォルトのプロジェクトスラッグを事前選択（インタラクティブ選択をスキップ）"
+    skip_llm: "LLMエージェント設定ファイルの統合ステップをスキップ"
+    llm_configs: "更新する特定のLLM設定ファイルへのパス（繰り返し可能）"
+    dry_run: "何も書き込まずに何が起こるかを表示"
+    dir: "FUNCSPEC.mdとLLM設定スキャンのターゲットディレクトリ"
+
+  doctor:
+    about: "ローカル環境を確認してヘルスレポートを表示"
+    json: "結果をJSONとして出力"
+    fix: "可能な場合は問題を自動的に修正"
+    yes: "プロンプトなしで修正を自動確認（--fixと一緒に使用）"
+    quiet: "失敗と警告のみを表示"
+    no_color: "ANSIカラー出力を無効にする（環境変数NO_COLORでも有効）"
+    verbose: "各チェックの追加詳細を表示"
+    timeout: "ネットワーク依存の各チェックのタイムアウト（秒）"
+    dir: "FUNCSPEC.mdとLLM設定スキャンのターゲットディレクトリ"
+
+  search:
+    about: "全文検索クエリで仕様アイテムを検索"
+    query: "検索クエリ文字列"
+    type: "タイプでフィルター：funcまたはtech"
+    tag: "タグでフィルター"
+    json: "JSONとして出力（--formatを上書き）"
+    quiet: "静粛モード：パーマリンクのみ出力、1行に1つ（--formatを上書き）"
+    count: "一致するアイテムの数のみを出力"
+
+  stats:
+    about: "プロジェクト統計とダッシュボードを表示"
+    json: "JSONとして出力（機械可読）"
+    usage: "LLM使用統計に集中"
+    month: "YYYY-MM形式の使用統計の月（例：2026-03）"
+
+  export:
+    about: "様々な形式でプロジェクト仕様をエクスポート"
+    long_about: "現在のプロジェクト仕様をmarkdown、JSON、CSV、HTML、PDF、またはDOCXとしてエクスポートします。\nテキスト形式（md、json、csv）は-oが指定されない限りstdoutにストリームされます。\nバイナリ形式（pdf、docx）は-oが必要か、デフォルトで<slug>.<ext>を使用します。"
+    export_format: "エクスポート形式（md、json、csv、html、pdf、docx）"
+    output: "stdoutの代わりにこのファイルに出力を書き込む"
+    type: "タイプでフィルター：funcまたはtech"
+    tag: "タグでフィルター"
+    open: "書き込み後にブラウザで開く（HTMLのみ）"
+
+  snapshots:
+    about: "プロジェクトスナップショットを管理（保存/復元ポイント）"
+    list:
+      about: "現在のプロジェクトのすべてのスナップショットを一覧表示"
+      json: "JSONとして出力（--formatを上書き）"
+    create:
+      about: "新しいスナップショットを作成"
+      name: "スナップショット名（例：\"pre-v2-refactor\"）"
+      description: "オプションの説明"
+    show:
+      about: "スナップショットの詳細とアイテムの概要を表示"
+      identifier: "スナップショットIDまたは名前"
+      json: "JSONとして出力（--formatを上書き）"
+    restore:
+      about: "プロジェクトをスナップショットに復元（破壊的！）"
+      identifier: "スナップショットIDまたは名前"
+      yes: "確認プロンプトをスキップ"
+    diff:
+      about: "スナップショット作成以降の変更を表示"
+      identifier: "スナップショットIDまたは名前"
+      json: "JSONとして出力（--formatを上書き）"
+    delete:
+      about: "スナップショットを削除"
+      identifier: "スナップショットIDまたは名前"
+      yes: "確認プロンプトをスキップ"
+
+  view:
+    about: "プロジェクト仕様（または特定のアイテム）をブラウザで開く"
+    long_about: "デフォルトのブラウザで現在のプロジェクトの仕様ページを開きます。\nアイテムID（例：F-377）を渡すと、そのアイテムに直接ジャンプします。\n--urlを使用すると、ブラウザを開かずにURLを出力します。"
+    item_id: "開くアイテムID（例：F-377）；プロジェクト仕様全体を表示するには省略"
+    url: "ブラウザを開く代わりにURLを出力"
+
+  version:
+    about: "バージョン情報を表示"
+
+  completion:
+    about: "シェル補完スクリプトを生成"
+    shell: "補完を生成するシェル"

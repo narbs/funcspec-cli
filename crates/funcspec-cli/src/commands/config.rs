@@ -1,36 +1,60 @@
 use anyhow::{Result, bail};
-use clap::Subcommand;
 use console::style;
+use rust_i18n::t;
 
 use crate::config::{Config, LocalConfig};
 
-#[derive(Debug, Subcommand)]
 pub enum ConfigCmd {
-    /// Set a configuration value
-    Set {
-        /// Key to set (e.g. project, host, api_key)
-        key: String,
-        /// Value to set
-        value: String,
-        /// Write to .funcspec in the current directory instead of global config
-        #[arg(long)]
-        local: bool,
-    },
-
-    /// Get a configuration value
-    Get {
-        /// Key to get
-        key: String,
-    },
-
-    /// List all configuration values
+    Set { key: String, value: String, local: bool },
+    Get { key: String },
     List,
+    SetProfile { name: String },
+}
 
-    /// Switch the active profile
-    SetProfile {
-        /// Profile name to activate
-        name: String,
-    },
+pub fn build_command() -> clap::Command {
+    clap::Command::new("config")
+        .about(t!("cmd.config.about").to_string())
+        .arg_required_else_help(true)
+        .subcommand(
+            clap::Command::new("set")
+                .about(t!("cmd.config.set.about").to_string())
+                .arg(clap::Arg::new("key").required(true).help(t!("cmd.config.set.key").to_string()))
+                .arg(clap::Arg::new("value").required(true).help(t!("cmd.config.set.value").to_string()))
+                .arg(clap::Arg::new("local").long("local").action(clap::ArgAction::SetTrue).help(t!("cmd.config.set.local").to_string())),
+        )
+        .subcommand(
+            clap::Command::new("get")
+                .about(t!("cmd.config.get.about").to_string())
+                .arg(clap::Arg::new("key").required(true).help(t!("cmd.config.get.key").to_string())),
+        )
+        .subcommand(clap::Command::new("list").about(t!("cmd.config.list.about").to_string()))
+        .subcommand(
+            clap::Command::new("set-profile")
+                .about(t!("cmd.config.set_profile.about").to_string())
+                .arg(clap::Arg::new("name").required(true).help(t!("cmd.config.set_profile.name").to_string())),
+        )
+}
+
+pub async fn dispatch(matches: &clap::ArgMatches) -> Result<()> {
+    let cmd = match matches.subcommand() {
+        Some(("set", m)) => ConfigCmd::Set {
+            key: m.get_one::<String>("key").unwrap().clone(),
+            value: m.get_one::<String>("value").unwrap().clone(),
+            local: m.get_flag("local"),
+        },
+        Some(("get", m)) => ConfigCmd::Get {
+            key: m.get_one::<String>("key").unwrap().clone(),
+        },
+        Some(("list", _)) => ConfigCmd::List,
+        Some(("set-profile", m)) => ConfigCmd::SetProfile {
+            name: m.get_one::<String>("name").unwrap().clone(),
+        },
+        _ => {
+            build_command().print_help().ok();
+            return Ok(());
+        }
+    };
+    run(cmd).await
 }
 
 pub async fn run(cmd: ConfigCmd) -> Result<()> {
@@ -209,6 +233,47 @@ pub async fn run(cmd: ConfigCmd) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    // Config command logic is primarily tested through config.rs unit tests
-    // and integration tests in tests/cli_test.rs
+    use super::*;
+
+    #[test]
+    fn build_command_set_parses_key_value() {
+        let cmd = build_command();
+        let m = cmd
+            .try_get_matches_from(["config", "set", "project", "my-proj"])
+            .unwrap();
+        let sub = m.subcommand_matches("set").unwrap();
+        assert_eq!(sub.get_one::<String>("key").unwrap(), "project");
+        assert_eq!(sub.get_one::<String>("value").unwrap(), "my-proj");
+        assert!(!sub.get_flag("local"));
+    }
+
+    #[test]
+    fn build_command_set_local_flag() {
+        let cmd = build_command();
+        let m = cmd
+            .try_get_matches_from(["config", "set", "project", "my-proj", "--local"])
+            .unwrap();
+        let sub = m.subcommand_matches("set").unwrap();
+        assert!(sub.get_flag("local"));
+    }
+
+    #[test]
+    fn build_command_get_parses_key() {
+        let cmd = build_command();
+        let m = cmd
+            .try_get_matches_from(["config", "get", "project"])
+            .unwrap();
+        let sub = m.subcommand_matches("get").unwrap();
+        assert_eq!(sub.get_one::<String>("key").unwrap(), "project");
+    }
+
+    #[test]
+    fn build_command_set_profile_parses_name() {
+        let cmd = build_command();
+        let m = cmd
+            .try_get_matches_from(["config", "set-profile", "work"])
+            .unwrap();
+        let sub = m.subcommand_matches("set-profile").unwrap();
+        assert_eq!(sub.get_one::<String>("name").unwrap(), "work");
+    }
 }

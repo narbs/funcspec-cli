@@ -1,13 +1,14 @@
 use std::path::PathBuf;
 
 use anyhow::{Context, Result, bail};
-use clap::{Args, ValueEnum};
+use clap::ValueEnum;
 use funcspec_client::ExportData;
+use rust_i18n::t;
 
 use crate::context::client_and_config;
 
 /// Export format options.
-#[derive(Debug, Clone, PartialEq, ValueEnum)]
+#[derive(Debug, Clone, Copy, PartialEq, ValueEnum)]
 pub enum ExportFormat {
     /// Markdown (default)
     #[value(name = "md")]
@@ -53,33 +54,64 @@ impl ExportFormat {
 }
 
 /// Arguments for `funcspec export`.
-#[derive(Debug, Args)]
-#[command(
-    about = "Export project spec in various formats",
-    long_about = "Export the current project spec as markdown, JSON, CSV, HTML, PDF, or DOCX.\n\
-                  Text formats (md, json, csv) stream to stdout unless -o is given.\n\
-                  Binary formats (pdf, docx) require -o or default to <slug>.<ext>."
-)]
 pub struct ExportArgs {
-    /// Export format (md, json, csv, html, pdf, docx)
-    #[arg(long = "export-format", short = 'F', value_enum, default_value = "md")]
     pub export_format: ExportFormat,
-
-    /// Write output to this file instead of stdout
-    #[arg(long, short = 'o', value_name = "PATH")]
     pub output: Option<PathBuf>,
-
-    /// Filter by item type
-    #[arg(long, value_name = "TYPE", help = "Filter by type: func or tech")]
     pub r#type: Option<String>,
-
-    /// Filter by tag
-    #[arg(long)]
     pub tag: Option<String>,
-
-    /// Open in browser after writing (HTML only)
-    #[arg(long)]
     pub open: bool,
+}
+
+pub fn build_command() -> clap::Command {
+    clap::Command::new("export")
+        .about(t!("cmd.export.about").to_string())
+        .long_about(t!("cmd.export.long_about").to_string())
+        .arg(
+            clap::Arg::new("export_format")
+                .long("export-format")
+                .short('F')
+                .value_parser(clap::builder::EnumValueParser::<ExportFormat>::new())
+                .default_value("md")
+                .help(t!("cmd.export.export_format").to_string()),
+        )
+        .arg(
+            clap::Arg::new("output")
+                .long("output")
+                .short('o')
+                .value_name("PATH")
+                .value_parser(clap::value_parser!(PathBuf))
+                .help(t!("cmd.export.output").to_string()),
+        )
+        .arg(
+            clap::Arg::new("type")
+                .long("type")
+                .value_name("TYPE")
+                .help(t!("cmd.export.type").to_string()),
+        )
+        .arg(
+            clap::Arg::new("tag")
+                .long("tag")
+                .help(t!("cmd.export.tag").to_string()),
+        )
+        .arg(
+            clap::Arg::new("open")
+                .long("open")
+                .action(clap::ArgAction::SetTrue)
+                .help(t!("cmd.export.open").to_string()),
+        )
+}
+
+pub fn from_arg_matches(matches: &clap::ArgMatches) -> ExportArgs {
+    ExportArgs {
+        export_format: matches
+            .get_one::<ExportFormat>("export_format")
+            .copied()
+            .unwrap_or(ExportFormat::Md),
+        output: matches.get_one::<PathBuf>("output").cloned(),
+        r#type: matches.get_one::<String>("type").cloned(),
+        tag: matches.get_one::<String>("tag").cloned(),
+        open: matches.get_flag("open"),
+    }
 }
 
 pub async fn run(args: ExportArgs) -> Result<()> {
@@ -261,5 +293,27 @@ mod tests {
         std::fs::write(&path, &bytes).unwrap();
         let read_back = std::fs::read(&path).unwrap();
         assert_eq!(read_back, bytes);
+    }
+
+    #[test]
+    fn build_command_default_format() {
+        let cmd = build_command();
+        let m = cmd.try_get_matches_from(["export"]).unwrap();
+        assert_eq!(
+            m.get_one::<ExportFormat>("export_format").copied().unwrap(),
+            ExportFormat::Md
+        );
+    }
+
+    #[test]
+    fn build_command_parses_format() {
+        let cmd = build_command();
+        let m = cmd
+            .try_get_matches_from(["export", "--export-format", "json"])
+            .unwrap();
+        assert_eq!(
+            m.get_one::<ExportFormat>("export_format").copied().unwrap(),
+            ExportFormat::Json
+        );
     }
 }

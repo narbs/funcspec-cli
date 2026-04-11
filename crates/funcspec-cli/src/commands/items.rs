@@ -1,151 +1,170 @@
 use anyhow::Result;
-use clap::Subcommand;
 use console::style;
 use funcspec_client::models::*;
+use rust_i18n::t;
 use std::io::Write as IoWrite;
 
 use crate::context::client_and_project;
 use crate::output::{self, OutputFormat};
 
-#[derive(Debug, Subcommand)]
 pub enum ItemsCmd {
-    /// List spec items
     List {
-        /// Filter by type: func or tech
-        #[arg(long, short = 't')]
         r#type: Option<String>,
-
-        /// Filter by implementation status
-        #[arg(long, short = 's')]
         status: Option<String>,
-
-        /// Filter by tag
-        #[arg(long)]
         tag: Option<String>,
-
-        /// Search query
-        #[arg(long, short)]
         q: Option<String>,
-
-        /// Filter: only items with reviews
-        #[arg(long)]
         has_review: bool,
-
-        /// Filter by review verdict
-        #[arg(long)]
         review_verdict: Option<String>,
-
-        /// Filter by parent item (permalink or ID)
-        #[arg(long)]
         parent: Option<String>,
-
-        /// Page number
-        #[arg(long, default_value = "1")]
         page: u32,
-
-        /// Items per page
-        #[arg(long, default_value = "25")]
         per: u32,
-
-        /// Sort field: score, title, created_at, updated_at, permalink
-        #[arg(long)]
         sort: Option<String>,
-
-        /// Output as JSON (overrides --format)
-        #[arg(long)]
         json: bool,
-
-        /// Quiet mode: only output permalinks (overrides --format)
-        #[arg(long)]
         quiet: bool,
-
-        /// Bare TSV output without borders or headers (overrides --format)
-        #[arg(long)]
         bare: bool,
-
-        /// Output only the count of matching items
-        #[arg(long)]
         count: bool,
     },
-
-    /// Show item details
     Show {
-        /// Item permalink (e.g., F-1) or ID
         item: String,
-
-        /// Output as JSON (overrides --format)
-        #[arg(long)]
         json: bool,
     },
-
-    /// Create a new spec item
     Create {
-        /// Item title
-        #[arg(long)]
         title: String,
-
-        /// Type: func or tech
-        #[arg(long, short = 't', default_value = "func")]
         r#type: String,
-
-        /// Description (reads from stdin if "-")
-        #[arg(long, short)]
         description: Option<String>,
-
-        /// Parent item permalink or ID
-        #[arg(long)]
         parent: Option<String>,
-
-        /// Tags (comma-separated)
-        #[arg(long)]
         tag: Option<String>,
     },
-
-    /// Update a spec item
     Update {
-        /// Item permalink (e.g., F-377) or ID
         item: String,
-
-        /// New title
-        #[arg(long)]
         title: Option<String>,
-
-        /// New description (reads from stdin if "-")
-        #[arg(long, short)]
         description: Option<String>,
-
-        /// New implementation status
-        #[arg(long, short = 's')]
         status: Option<String>,
-
-        /// Tags (comma-separated, replaces existing)
-        #[arg(long)]
         tag: Option<String>,
-
-        /// Set parent item (permalink or ID)
-        #[arg(long, conflicts_with = "no_parent")]
         parent: Option<String>,
-
-        /// Remove parent (make item top-level)
-        #[arg(long)]
         no_parent: bool,
     },
-
-    /// Edit item description in $EDITOR
     Edit {
-        /// Item permalink (e.g., F-1) or ID
         item: String,
     },
-
-    /// Delete a spec item
     Delete {
-        /// Item permalink or ID
         item: String,
-
-        /// Skip confirmation
-        #[arg(long, short)]
         yes: bool,
     },
+}
+
+pub fn build_command() -> clap::Command {
+    clap::Command::new("items")
+        .about(t!("cmd.items.about").to_string())
+        .arg_required_else_help(true)
+        .subcommand(
+            clap::Command::new("list")
+                .about(t!("cmd.items.list.about").to_string())
+                .arg(clap::Arg::new("type").long("type").short('t').help(t!("cmd.items.list.type").to_string()))
+                .arg(clap::Arg::new("status").long("status").short('s').help(t!("cmd.items.list.status").to_string()))
+                .arg(clap::Arg::new("tag").long("tag").help(t!("cmd.items.list.tag").to_string()))
+                .arg(clap::Arg::new("q").long("q").short('q').help(t!("cmd.items.list.q").to_string()))
+                .arg(clap::Arg::new("has_review").long("has-review").action(clap::ArgAction::SetTrue).help(t!("cmd.items.list.has_review").to_string()))
+                .arg(clap::Arg::new("review_verdict").long("review-verdict").help(t!("cmd.items.list.review_verdict").to_string()))
+                .arg(clap::Arg::new("parent").long("parent").help(t!("cmd.items.list.parent").to_string()))
+                .arg(clap::Arg::new("page").long("page").value_parser(clap::value_parser!(u32)).default_value("1").help(t!("cmd.items.list.page").to_string()))
+                .arg(clap::Arg::new("per").long("per").value_parser(clap::value_parser!(u32)).default_value("25").help(t!("cmd.items.list.per").to_string()))
+                .arg(clap::Arg::new("sort").long("sort").help(t!("cmd.items.list.sort").to_string()))
+                .arg(clap::Arg::new("json").long("json").action(clap::ArgAction::SetTrue).help(t!("cmd.items.list.json").to_string()))
+                .arg(clap::Arg::new("quiet").long("quiet").action(clap::ArgAction::SetTrue).help(t!("cmd.items.list.quiet").to_string()))
+                .arg(clap::Arg::new("bare").long("bare").action(clap::ArgAction::SetTrue).help(t!("cmd.items.list.bare").to_string()))
+                .arg(clap::Arg::new("count").long("count").action(clap::ArgAction::SetTrue).help(t!("cmd.items.list.count").to_string())),
+        )
+        .subcommand(
+            clap::Command::new("show")
+                .about(t!("cmd.items.show.about").to_string())
+                .arg(clap::Arg::new("item").required(true).help(t!("cmd.items.show.item").to_string()))
+                .arg(clap::Arg::new("json").long("json").action(clap::ArgAction::SetTrue).help(t!("cmd.items.show.json").to_string())),
+        )
+        .subcommand(
+            clap::Command::new("create")
+                .about(t!("cmd.items.create.about").to_string())
+                .arg(clap::Arg::new("title").long("title").required(true).help(t!("cmd.items.create.title").to_string()))
+                .arg(clap::Arg::new("type").long("type").short('t').default_value("func").help(t!("cmd.items.create.type").to_string()))
+                .arg(clap::Arg::new("description").long("description").short('d').help(t!("cmd.items.create.description").to_string()))
+                .arg(clap::Arg::new("parent").long("parent").help(t!("cmd.items.create.parent").to_string()))
+                .arg(clap::Arg::new("tag").long("tag").help(t!("cmd.items.create.tag").to_string())),
+        )
+        .subcommand(
+            clap::Command::new("update")
+                .about(t!("cmd.items.update.about").to_string())
+                .arg(clap::Arg::new("item").required(true).help(t!("cmd.items.update.item").to_string()))
+                .arg(clap::Arg::new("title").long("title").help(t!("cmd.items.update.title").to_string()))
+                .arg(clap::Arg::new("description").long("description").short('d').help(t!("cmd.items.update.description").to_string()))
+                .arg(clap::Arg::new("status").long("status").short('s').help(t!("cmd.items.update.status").to_string()))
+                .arg(clap::Arg::new("tag").long("tag").help(t!("cmd.items.update.tag").to_string()))
+                .arg(clap::Arg::new("parent").long("parent").conflicts_with("no_parent").help(t!("cmd.items.update.parent").to_string()))
+                .arg(clap::Arg::new("no_parent").long("no-parent").action(clap::ArgAction::SetTrue).help(t!("cmd.items.update.no_parent").to_string())),
+        )
+        .subcommand(
+            clap::Command::new("edit")
+                .about(t!("cmd.items.edit.about").to_string())
+                .arg(clap::Arg::new("item").required(true).help(t!("cmd.items.edit.item").to_string())),
+        )
+        .subcommand(
+            clap::Command::new("delete")
+                .about(t!("cmd.items.delete.about").to_string())
+                .arg(clap::Arg::new("item").required(true).help(t!("cmd.items.delete.item").to_string()))
+                .arg(clap::Arg::new("yes").long("yes").short('y').action(clap::ArgAction::SetTrue).help(t!("cmd.items.delete.yes").to_string())),
+        )
+}
+
+pub async fn dispatch(matches: &clap::ArgMatches, format: OutputFormat) -> Result<()> {
+    let cmd = match matches.subcommand() {
+        Some(("list", m)) => ItemsCmd::List {
+            r#type: m.get_one::<String>("type").cloned(),
+            status: m.get_one::<String>("status").cloned(),
+            tag: m.get_one::<String>("tag").cloned(),
+            q: m.get_one::<String>("q").cloned(),
+            has_review: m.get_flag("has_review"),
+            review_verdict: m.get_one::<String>("review_verdict").cloned(),
+            parent: m.get_one::<String>("parent").cloned(),
+            page: m.get_one::<u32>("page").copied().unwrap_or(1),
+            per: m.get_one::<u32>("per").copied().unwrap_or(25),
+            sort: m.get_one::<String>("sort").cloned(),
+            json: m.get_flag("json"),
+            quiet: m.get_flag("quiet"),
+            bare: m.get_flag("bare"),
+            count: m.get_flag("count"),
+        },
+        Some(("show", m)) => ItemsCmd::Show {
+            item: m.get_one::<String>("item").unwrap().clone(),
+            json: m.get_flag("json"),
+        },
+        Some(("create", m)) => ItemsCmd::Create {
+            title: m.get_one::<String>("title").unwrap().clone(),
+            r#type: m.get_one::<String>("type").unwrap().clone(),
+            description: m.get_one::<String>("description").cloned(),
+            parent: m.get_one::<String>("parent").cloned(),
+            tag: m.get_one::<String>("tag").cloned(),
+        },
+        Some(("update", m)) => ItemsCmd::Update {
+            item: m.get_one::<String>("item").unwrap().clone(),
+            title: m.get_one::<String>("title").cloned(),
+            description: m.get_one::<String>("description").cloned(),
+            status: m.get_one::<String>("status").cloned(),
+            tag: m.get_one::<String>("tag").cloned(),
+            parent: m.get_one::<String>("parent").cloned(),
+            no_parent: m.get_flag("no_parent"),
+        },
+        Some(("edit", m)) => ItemsCmd::Edit {
+            item: m.get_one::<String>("item").unwrap().clone(),
+        },
+        Some(("delete", m)) => ItemsCmd::Delete {
+            item: m.get_one::<String>("item").unwrap().clone(),
+            yes: m.get_flag("yes"),
+        },
+        _ => {
+            build_command().print_help().ok();
+            return Ok(());
+        }
+    };
+    run(cmd, format).await
 }
 
 pub async fn run(cmd: ItemsCmd, format: OutputFormat) -> Result<()> {
@@ -450,7 +469,6 @@ mod tests {
 
     #[test]
     fn list_format_override_json_flag() {
-        // json=true overrides any global format to Json
         let fmt = if true {
             OutputFormat::Json
         } else {
@@ -461,7 +479,6 @@ mod tests {
 
     #[test]
     fn list_format_override_quiet_flag() {
-        // quiet=true maps to Minimal
         let fmt = if false {
             OutputFormat::Json
         } else if true {
@@ -474,7 +491,6 @@ mod tests {
 
     #[test]
     fn list_format_falls_through_to_global() {
-        // neither json nor quiet nor bare: use global format
         let global = OutputFormat::Csv;
         let json_flag = false;
         let quiet_flag = false;
@@ -506,5 +522,73 @@ mod tests {
             OutputFormat::Table
         };
         assert_eq!(fmt, OutputFormat::Bare);
+    }
+
+    #[test]
+    fn build_command_list_parses_defaults() {
+        let cmd = build_command();
+        let m = cmd.try_get_matches_from(["items", "list"]).unwrap();
+        let sub = m.subcommand_matches("list").unwrap();
+        assert_eq!(sub.get_one::<u32>("page").copied(), Some(1));
+        assert_eq!(sub.get_one::<u32>("per").copied(), Some(25));
+        assert!(!sub.get_flag("json"));
+        assert!(!sub.get_flag("count"));
+    }
+
+    #[test]
+    fn build_command_list_parses_filters() {
+        let cmd = build_command();
+        let m = cmd
+            .try_get_matches_from(["items", "list", "--status", "in_progress", "--type", "func"])
+            .unwrap();
+        let sub = m.subcommand_matches("list").unwrap();
+        assert_eq!(sub.get_one::<String>("status").unwrap(), "in_progress");
+        assert_eq!(sub.get_one::<String>("type").unwrap(), "func");
+    }
+
+    #[test]
+    fn build_command_create_requires_title() {
+        let cmd = build_command();
+        assert!(cmd.try_get_matches_from(["items", "create"]).is_err());
+    }
+
+    #[test]
+    fn build_command_create_parses_title() {
+        let cmd = build_command();
+        let m = cmd
+            .try_get_matches_from(["items", "create", "--title", "My feature"])
+            .unwrap();
+        let sub = m.subcommand_matches("create").unwrap();
+        assert_eq!(sub.get_one::<String>("title").unwrap(), "My feature");
+        assert_eq!(sub.get_one::<String>("type").unwrap(), "func");
+    }
+
+    #[test]
+    fn build_command_delete_yes_flag() {
+        let cmd = build_command();
+        let m = cmd
+            .try_get_matches_from(["items", "delete", "F-1", "--yes"])
+            .unwrap();
+        let sub = m.subcommand_matches("delete").unwrap();
+        assert_eq!(sub.get_one::<String>("item").unwrap(), "F-1");
+        assert!(sub.get_flag("yes"));
+    }
+
+    #[test]
+    fn build_command_update_no_parent_flag() {
+        let cmd = build_command();
+        let m = cmd
+            .try_get_matches_from(["items", "update", "F-5", "--no-parent"])
+            .unwrap();
+        let sub = m.subcommand_matches("update").unwrap();
+        assert!(sub.get_flag("no_parent"));
+    }
+
+    #[test]
+    fn build_command_update_parent_conflicts_no_parent() {
+        let cmd = build_command();
+        assert!(cmd
+            .try_get_matches_from(["items", "update", "F-5", "--parent", "F-1", "--no-parent"])
+            .is_err());
     }
 }

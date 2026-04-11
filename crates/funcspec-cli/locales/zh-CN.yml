@@ -1,0 +1,240 @@
+cli:
+  about: "FuncSpec 命令行界面 — AI 驱动的规范管理"
+  verbose: "启用详细输出（HTTP 请求/响应）"
+  debug: "启用调试输出（完整标头、正文、计时）"
+  format: "输出格式（默认：TTY 时为表格，管道时为 json）"
+  project: "项目 ID、slug 或 org/项目 slug（覆盖默认项目）"
+  help: "显示帮助"
+  version_flag: "显示版本"
+
+cmd:
+  ai:
+    about: "AI 驱动的审查、改进、生成和审计操作"
+    review:
+      about: "触发单个规范项目的 AI 审查；显示分数、判定、覆盖图和差距"
+      permalink: "项目永久链接（例如 F-5）"
+    review_all:
+      about: "触发项目中所有项目的批量 AI 审查（异步，轮询直到完成）"
+    improve:
+      about: "为规范项目提议 AI 生成的改进；显示差异并提示接受/拒绝"
+      permalink: "项目永久链接（例如 F-5）"
+      auto_accept: "无需交互提示自动接受提案"
+    generate:
+      about: "从功能项目生成技术规范提案"
+      permalink: "项目永久链接（例如 F-5）"
+    audit:
+      about: "对规范项目运行代码审计并显示覆盖率和结果"
+      permalink: "项目永久链接（例如 F-5）"
+
+  auth:
+    about: "管理身份验证和凭据"
+    login:
+      about: "登录 FuncSpec 实例"
+      host: "主机 URL（默认：https://funcspec.net）"
+      key: "API 密钥（或设置环境变量 FUNCSPEC_API_KEY）"
+      profile: "保存凭据的配置文件名称"
+    logout:
+      about: "注销并删除存储的凭据"
+      profile: "要删除的配置文件"
+    status:
+      about: "显示当前身份验证状态"
+
+  config:
+    about: "管理配置值"
+    set:
+      about: "设置配置值"
+      key: "要设置的键（例如 project、host、api_key）"
+      value: "要设置的值"
+      local: "写入当前目录的 .funcspec 而不是全局配置"
+    get:
+      about: "获取配置值"
+      key: "要获取的键"
+    list:
+      about: "列出所有配置值"
+    set_profile:
+      about: "切换活动配置文件"
+      name: "要激活的配置文件名称"
+
+  projects:
+    about: "列出和管理项目"
+    list:
+      about: "列出所有项目"
+      json: "以 JSON 输出（覆盖 --format）"
+    show:
+      about: "显示项目详情"
+      slug: "项目 slug 或 ID"
+      json: "以 JSON 输出（覆盖 --format）"
+    set_default:
+      about: "为命令设置默认项目"
+      slug: "项目 slug（例如 \"funcspec-cli\" 或 \"tambit/funcspec-cli\"）"
+
+  items:
+    about: "管理规范项目（功能性和技术性）"
+    list:
+      about: "列出规范项目"
+      type: "按类型筛选：func 或 tech"
+      status: "按实现状态筛选"
+      tag: "按标签筛选"
+      q: "搜索查询"
+      has_review: "筛选：仅有审查的项目"
+      review_verdict: "按审查判定筛选"
+      parent: "按父项目筛选（永久链接或 ID）"
+      page: "页码"
+      per: "每页项目数"
+      sort: "排序字段：score、title、created_at、updated_at、permalink"
+      json: "以 JSON 输出（覆盖 --format）"
+      quiet: "静默模式：仅输出永久链接（覆盖 --format）"
+      bare: "无边框或标题的裸 TSV 输出（覆盖 --format）"
+      count: "仅输出匹配项目的数量"
+    show:
+      about: "显示项目详情"
+      item: "项目永久链接（例如 F-1）或 ID"
+      json: "以 JSON 输出（覆盖 --format）"
+    create:
+      about: "创建新的规范项目"
+      title: "项目标题"
+      type: "类型：func 或 tech"
+      description: "描述（如果为 \"-\" 则从 stdin 读取）"
+      parent: "父项目的永久链接或 ID"
+      tag: "标签（逗号分隔）"
+    update:
+      about: "更新规范项目"
+      item: "项目永久链接（例如 F-377）或 ID"
+      title: "新标题"
+      description: "新描述（如果为 \"-\" 则从 stdin 读取）"
+      status: "新的实现状态"
+      tag: "标签（逗号分隔，替换现有标签）"
+      parent: "设置父项目（永久链接或 ID）"
+      no_parent: "删除父项目（使项目成为顶级）"
+    edit:
+      about: "在 $EDITOR 中编辑项目描述"
+      item: "项目永久链接（例如 F-1）或 ID"
+    delete:
+      about: "删除规范项目"
+      item: "项目的永久链接或 ID"
+      yes: "跳过确认"
+    link:
+      about: "将提交链接到规范项目"
+      item: "项目永久链接（例如 F-1）或 ID"
+      sha: "提交 SHA"
+      message: "提交消息"
+    record_run:
+      about: "为规范项目记录代理运行"
+      item: "项目永久链接（例如 F-1）或 ID"
+      model: "模型名称（例如 claude-opus-4-6）"
+      tokens: "令牌计数"
+      cost: "以美元计算的成本"
+      status: "运行状态（success、failure）"
+    transition:
+      about: "将规范项目转换到新的实现状态"
+      item: "项目永久链接（例如 F-1）或 ID"
+      status: "新状态（not_started、in_progress、implemented、verified、released）"
+
+  edges:
+    about: "管理规范项目之间的依赖关系边"
+    list:
+      about: "列出依赖关系边（可选按源、目标或类型筛选）"
+      source: "按源项目的永久链接或 ID 筛选（例如 F-1）"
+      target: "按目标项目的永久链接或 ID 筛选（例如 T-5）"
+      type: "按边类型筛选（depends_on、implements、tests、blocks、relates_to）"
+      json: "以 JSON 输出（覆盖 --format）"
+    link:
+      about: "在两个规范项目之间创建依赖关系边"
+      source: "源项目的永久链接或 ID（例如 F-1）"
+      target: "目标项目的永久链接或 ID（例如 T-5）"
+      type: "边类型：depends_on、implements、tests、blocks、relates_to"
+    unlink:
+      about: "按 ID 删除依赖关系边（或按 --source/--target/--type）"
+      edge_id: "要删除的边 ID"
+      source: "源项目的永久链接或 ID（用于查找边）"
+      target: "目标项目的永久链接或 ID（用于查找边）"
+      type: "边类型筛选器（用于查找边）"
+      yes: "跳过确认提示"
+
+  instructions:
+    about: "获取当前项目的实时代理指令"
+    raw: "打印完整的 JSON 响应而不仅仅是内容字段。优先于 --format。"
+
+  onboard:
+    about: "交互式设置向导 — 身份验证、配置和创建代理文件"
+    non_interactive: "以非交互方式运行（用于 CI）。需要 FUNCSPEC_API_KEY 或 --api-key。"
+    api_key: "API 密钥（覆盖环境变量 FUNCSPEC_API_KEY）"
+    set_project: "预选默认项目 slug（跳过交互式选择）"
+    skip_llm: "跳过 LLM 代理配置文件集成步骤"
+    llm_configs: "要更新的特定 LLM 配置文件的路径（可重复）"
+    dry_run: "显示会发生什么而不写入任何内容"
+    dir: "FUNCSPEC.md 和 LLM 配置扫描的目标目录"
+
+  doctor:
+    about: "检查本地环境并显示健康报告"
+    json: "以 JSON 输出结果"
+    fix: "在可能的情况下自动修复问题"
+    yes: "无需提示自动确认修复（与 --fix 一起使用）"
+    quiet: "仅显示失败和警告"
+    no_color: "禁用 ANSI 颜色输出（也可通过环境变量 NO_COLOR 启用）"
+    verbose: "显示每次检查的额外详细信息"
+    timeout: "每次网络相关检查的超时时间（秒）"
+    dir: "FUNCSPEC.md 和 LLM 配置扫描的目标目录"
+
+  search:
+    about: "通过全文查询搜索规范项目"
+    query: "搜索查询字符串"
+    type: "按类型筛选：func 或 tech"
+    tag: "按标签筛选"
+    json: "以 JSON 输出（覆盖 --format）"
+    quiet: "静默模式：仅输出永久链接，每行一个（覆盖 --format）"
+    count: "仅输出匹配项目的数量"
+
+  stats:
+    about: "显示项目统计和仪表板"
+    json: "以 JSON 输出（机器可读）"
+    usage: "专注于 LLM 使用统计"
+    month: "YYYY-MM 格式的使用统计月份（例如 2026-03）"
+
+  export:
+    about: "以各种格式导出项目规范"
+    long_about: "将当前项目规范导出为 markdown、JSON、CSV、HTML、PDF 或 DOCX。\n文本格式（md、json、csv）流式传输到 stdout，除非指定了 -o。\n二进制格式（pdf、docx）需要 -o 或默认使用 <slug>.<ext>。"
+    export_format: "导出格式（md、json、csv、html、pdf、docx）"
+    output: "将输出写入此文件而不是 stdout"
+    type: "按类型筛选：func 或 tech"
+    tag: "按标签筛选"
+    open: "写入后在浏览器中打开（仅限 HTML）"
+
+  snapshots:
+    about: "管理项目快照（保存/恢复点）"
+    list:
+      about: "列出当前项目的所有快照"
+      json: "以 JSON 输出（覆盖 --format）"
+    create:
+      about: "创建新快照"
+      name: "快照名称（例如 \"pre-v2-refactor\"）"
+      description: "可选描述"
+    show:
+      about: "显示快照详情和项目摘要"
+      identifier: "快照 ID 或名称"
+      json: "以 JSON 输出（覆盖 --format）"
+    restore:
+      about: "将项目恢复到快照（破坏性！）"
+      identifier: "快照 ID 或名称"
+      yes: "跳过确认提示"
+    diff:
+      about: "显示自拍摄快照以来的变化"
+      identifier: "快照 ID 或名称"
+      json: "以 JSON 输出（覆盖 --format）"
+    delete:
+      about: "删除快照"
+      identifier: "快照 ID 或名称"
+      yes: "跳过确认提示"
+
+  view:
+    about: "在浏览器中打开项目规范（或特定项目）"
+    long_about: "在默认浏览器中打开当前项目的规范页面。\n传入项目 ID（例如 F-377）直接跳转到该项目。\n使用 --url 打印 URL 而不打开浏览器。"
+    item_id: "要打开的项目 ID（例如 F-377）；省略以查看完整项目规范"
+    url: "打印 URL 而不是打开浏览器"
+
+  version:
+    about: "显示版本信息"
+
+  completion:
+    about: "生成 shell 补全脚本"
+    shell: "要生成补全的 shell"

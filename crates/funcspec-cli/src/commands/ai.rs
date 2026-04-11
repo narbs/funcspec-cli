@@ -3,11 +3,11 @@
 use std::time::Duration;
 
 use anyhow::{Context, Result};
-use clap::Subcommand;
 use colored::Colorize;
 use comfy_table::{Attribute, Cell, ContentArrangement, Table};
 use funcspec_client::{FuncspecClient, JobStatus, models::*};
 use indicatif::{ProgressBar, ProgressStyle};
+use rust_i18n::t;
 
 use crate::context::client_and_project;
 use crate::output::format_diff;
@@ -16,43 +16,72 @@ use crate::output::format_diff;
 // Command definition
 // ---------------------------------------------------------------------------
 
-#[derive(Subcommand)]
 pub enum AiCmd {
-    /// Trigger AI review of a single spec item; shows score, verdict, coverage map, and gaps
-    Review {
-        /// Item permalink (e.g. F-5)
-        permalink: String,
-    },
-
-    /// Trigger batch AI review of all items in the project (async, polls until complete)
+    Review { permalink: String },
     ReviewAll,
+    Improve { permalink: String, auto_accept: bool },
+    Generate { permalink: String },
+    Audit { permalink: String },
+}
 
-    /// Propose an AI-generated improvement for a spec item; shows diff and prompts accept/reject
-    Improve {
-        /// Item permalink (e.g. F-5)
-        permalink: String,
-
-        /// Auto-accept the proposal without interactive prompting
-        #[arg(long)]
-        auto_accept: bool,
-    },
-
-    /// Generate technical spec proposals from a functional item
-    Generate {
-        /// Item permalink (e.g. F-5)
-        permalink: String,
-    },
-
-    /// Run a code audit on a spec item and show coverage and results
-    Audit {
-        /// Item permalink (e.g. F-5)
-        permalink: String,
-    },
+pub fn build_command() -> clap::Command {
+    clap::Command::new("ai")
+        .about(t!("cmd.ai.about").to_string())
+        .arg_required_else_help(true)
+        .subcommand(
+            clap::Command::new("review")
+                .about(t!("cmd.ai.review.about").to_string())
+                .arg(clap::Arg::new("permalink").required(true).help(t!("cmd.ai.review.permalink").to_string())),
+        )
+        .subcommand(
+            clap::Command::new("review-all")
+                .about(t!("cmd.ai.review_all.about").to_string()),
+        )
+        .subcommand(
+            clap::Command::new("improve")
+                .about(t!("cmd.ai.improve.about").to_string())
+                .arg(clap::Arg::new("permalink").required(true).help(t!("cmd.ai.improve.permalink").to_string()))
+                .arg(clap::Arg::new("auto_accept").long("auto-accept").action(clap::ArgAction::SetTrue).help(t!("cmd.ai.improve.auto_accept").to_string())),
+        )
+        .subcommand(
+            clap::Command::new("generate")
+                .about(t!("cmd.ai.generate.about").to_string())
+                .arg(clap::Arg::new("permalink").required(true).help(t!("cmd.ai.generate.permalink").to_string())),
+        )
+        .subcommand(
+            clap::Command::new("audit")
+                .about(t!("cmd.ai.audit.about").to_string())
+                .arg(clap::Arg::new("permalink").required(true).help(t!("cmd.ai.audit.permalink").to_string())),
+        )
 }
 
 // ---------------------------------------------------------------------------
 // Entry point
 // ---------------------------------------------------------------------------
+
+pub async fn dispatch(matches: &clap::ArgMatches) -> Result<()> {
+    let cmd = match matches.subcommand() {
+        Some(("review", m)) => AiCmd::Review {
+            permalink: m.get_one::<String>("permalink").unwrap().clone(),
+        },
+        Some(("review-all", _)) => AiCmd::ReviewAll,
+        Some(("improve", m)) => AiCmd::Improve {
+            permalink: m.get_one::<String>("permalink").unwrap().clone(),
+            auto_accept: m.get_flag("auto_accept"),
+        },
+        Some(("generate", m)) => AiCmd::Generate {
+            permalink: m.get_one::<String>("permalink").unwrap().clone(),
+        },
+        Some(("audit", m)) => AiCmd::Audit {
+            permalink: m.get_one::<String>("permalink").unwrap().clone(),
+        },
+        _ => {
+            build_command().print_help().ok();
+            return Ok(());
+        }
+    };
+    run(cmd).await
+}
 
 pub async fn run(cmd: AiCmd) -> Result<()> {
     match cmd {
@@ -462,123 +491,64 @@ fn display_audit(item: &SpecItem, audit: &AuditResult) {
 mod tests {
     use super::*;
 
-    // Verify AiCmd subcommands parse correctly via clap
     #[test]
     fn ai_cmd_review_parses() {
-        use clap::Parser;
-
-        #[derive(Parser)]
-        struct TestCli {
-            #[command(subcommand)]
-            cmd: AiCmd,
-        }
-
-        let cli = TestCli::try_parse_from(["test", "review", "F-5"]).unwrap();
-        match cli.cmd {
-            AiCmd::Review { permalink } => assert_eq!(permalink, "F-5"),
-            _ => panic!("expected Review"),
-        }
+        let cmd = build_command();
+        let m = cmd.try_get_matches_from(["ai", "review", "F-5"]).unwrap();
+        let sub = m.subcommand_matches("review").unwrap();
+        assert_eq!(sub.get_one::<String>("permalink").unwrap(), "F-5");
     }
 
     #[test]
     fn ai_cmd_review_requires_permalink() {
-        use clap::Parser;
-
-        #[derive(Parser)]
-        struct TestCli {
-            #[command(subcommand)]
-            cmd: AiCmd,
-        }
-
-        assert!(TestCli::try_parse_from(["test", "review"]).is_err());
+        let cmd = build_command();
+        assert!(cmd.try_get_matches_from(["ai", "review"]).is_err());
     }
 
     #[test]
     fn ai_cmd_review_all_parses() {
-        use clap::Parser;
-
-        #[derive(Parser)]
-        struct TestCli {
-            #[command(subcommand)]
-            cmd: AiCmd,
-        }
-
-        let cli = TestCli::try_parse_from(["test", "review-all"]).unwrap();
-        assert!(matches!(cli.cmd, AiCmd::ReviewAll));
+        let cmd = build_command();
+        let m = cmd.try_get_matches_from(["ai", "review-all"]).unwrap();
+        assert!(m.subcommand_matches("review-all").is_some());
     }
 
     #[test]
     fn ai_cmd_improve_parses_with_auto_accept() {
-        use clap::Parser;
-
-        #[derive(Parser)]
-        struct TestCli {
-            #[command(subcommand)]
-            cmd: AiCmd,
-        }
-
-        let cli = TestCli::try_parse_from(["test", "improve", "--auto-accept", "F-10"]).unwrap();
-        match cli.cmd {
-            AiCmd::Improve {
-                permalink,
-                auto_accept,
-            } => {
-                assert_eq!(permalink, "F-10");
-                assert!(auto_accept);
-            }
-            _ => panic!("expected Improve"),
-        }
+        let cmd = build_command();
+        let m = cmd
+            .try_get_matches_from(["ai", "improve", "--auto-accept", "F-10"])
+            .unwrap();
+        let sub = m.subcommand_matches("improve").unwrap();
+        assert_eq!(sub.get_one::<String>("permalink").unwrap(), "F-10");
+        assert!(sub.get_flag("auto_accept"));
     }
 
     #[test]
     fn ai_cmd_improve_auto_accept_defaults_false() {
-        use clap::Parser;
-
-        #[derive(Parser)]
-        struct TestCli {
-            #[command(subcommand)]
-            cmd: AiCmd,
-        }
-
-        let cli = TestCli::try_parse_from(["test", "improve", "F-10"]).unwrap();
-        match cli.cmd {
-            AiCmd::Improve { auto_accept, .. } => assert!(!auto_accept),
-            _ => panic!("expected Improve"),
-        }
+        let cmd = build_command();
+        let m = cmd
+            .try_get_matches_from(["ai", "improve", "F-10"])
+            .unwrap();
+        let sub = m.subcommand_matches("improve").unwrap();
+        assert!(!sub.get_flag("auto_accept"));
     }
 
     #[test]
     fn ai_cmd_generate_parses() {
-        use clap::Parser;
-
-        #[derive(Parser)]
-        struct TestCli {
-            #[command(subcommand)]
-            cmd: AiCmd,
-        }
-
-        let cli = TestCli::try_parse_from(["test", "generate", "F-100"]).unwrap();
-        match cli.cmd {
-            AiCmd::Generate { permalink } => assert_eq!(permalink, "F-100"),
-            _ => panic!("expected Generate"),
-        }
+        let cmd = build_command();
+        let m = cmd
+            .try_get_matches_from(["ai", "generate", "F-100"])
+            .unwrap();
+        let sub = m.subcommand_matches("generate").unwrap();
+        assert_eq!(sub.get_one::<String>("permalink").unwrap(), "F-100");
     }
 
     #[test]
     fn ai_cmd_audit_parses() {
-        use clap::Parser;
-
-        #[derive(Parser)]
-        struct TestCli {
-            #[command(subcommand)]
-            cmd: AiCmd,
-        }
-
-        let cli = TestCli::try_parse_from(["test", "audit", "F-50"]).unwrap();
-        match cli.cmd {
-            AiCmd::Audit { permalink } => assert_eq!(permalink, "F-50"),
-            _ => panic!("expected Audit"),
-        }
+        let cmd = build_command();
+        let m = cmd.try_get_matches_from(["ai", "audit", "F-50"]).unwrap();
+        let sub = m.subcommand_matches("audit").unwrap();
+        assert_eq!(sub.get_one::<String>("permalink").unwrap(), "F-50");
     }
 
     // display helpers run without panicking

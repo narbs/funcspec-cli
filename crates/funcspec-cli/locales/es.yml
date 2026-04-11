@@ -1,0 +1,240 @@
+cli:
+  about: "Interfaz de línea de comandos para FuncSpec — gestión de especificaciones con IA"
+  verbose: "Activar salida detallada (solicitudes/respuestas HTTP)"
+  debug: "Activar salida de depuración (cabeceras completas, cuerpos, tiempos)"
+  format: "Formato de salida (predeterminado: tabla en TTY, json en tubería)"
+  project: "ID de proyecto, slug, o slug org/proyecto (anula el proyecto predeterminado)"
+  help: "Mostrar ayuda"
+  version_flag: "Mostrar versión"
+
+cmd:
+  ai:
+    about: "Operaciones de revisión, mejora, generación y auditoría con IA"
+    review:
+      about: "Activar revisión IA de un elemento de especificación; muestra puntuación, veredicto, mapa de cobertura y lagunas"
+      permalink: "Enlace permanente del elemento (p.ej. F-5)"
+    review_all:
+      about: "Activar revisión IA en lote de todos los elementos del proyecto (asíncrono, sondea hasta completar)"
+    improve:
+      about: "Proponer una mejora generada por IA para un elemento de especificación; muestra diferencias y solicita aceptar/rechazar"
+      permalink: "Enlace permanente del elemento (p.ej. F-5)"
+      auto_accept: "Aceptar automáticamente la propuesta sin solicitud interactiva"
+    generate:
+      about: "Generar propuestas de especificación técnica a partir de un elemento funcional"
+      permalink: "Enlace permanente del elemento (p.ej. F-5)"
+    audit:
+      about: "Ejecutar auditoría de código en un elemento de especificación y mostrar cobertura y resultados"
+      permalink: "Enlace permanente del elemento (p.ej. F-5)"
+
+  auth:
+    about: "Gestionar autenticación y credenciales"
+    login:
+      about: "Iniciar sesión en una instancia de FuncSpec"
+      host: "URL del host (predeterminado: https://funcspec.net)"
+      key: "Clave API (o establecer la variable de entorno FUNCSPEC_API_KEY)"
+      profile: "Nombre de perfil bajo el que guardar las credenciales"
+    logout:
+      about: "Cerrar sesión y eliminar credenciales almacenadas"
+      profile: "Perfil a eliminar"
+    status:
+      about: "Mostrar el estado de autenticación actual"
+
+  config:
+    about: "Gestionar valores de configuración"
+    set:
+      about: "Establecer un valor de configuración"
+      key: "Clave a establecer (p.ej. project, host, api_key)"
+      value: "Valor a establecer"
+      local: "Escribir en .funcspec en el directorio actual en lugar de la configuración global"
+    get:
+      about: "Obtener un valor de configuración"
+      key: "Clave a obtener"
+    list:
+      about: "Listar todos los valores de configuración"
+    set_profile:
+      about: "Cambiar el perfil activo"
+      name: "Nombre del perfil a activar"
+
+  projects:
+    about: "Listar y gestionar proyectos"
+    list:
+      about: "Listar todos los proyectos"
+      json: "Salida en JSON (anula --format)"
+    show:
+      about: "Mostrar detalles del proyecto"
+      slug: "Slug o ID del proyecto"
+      json: "Salida en JSON (anula --format)"
+    set_default:
+      about: "Establecer proyecto predeterminado para los comandos"
+      slug: "Slug del proyecto (p.ej., \"funcspec-cli\" o \"tambit/funcspec-cli\")"
+
+  items:
+    about: "Gestionar elementos de especificación (funcionales y técnicos)"
+    list:
+      about: "Listar elementos de especificación"
+      type: "Filtrar por tipo: func o tech"
+      status: "Filtrar por estado de implementación"
+      tag: "Filtrar por etiqueta"
+      q: "Consulta de búsqueda"
+      has_review: "Filtro: solo elementos con revisiones"
+      review_verdict: "Filtrar por veredicto de revisión"
+      parent: "Filtrar por elemento padre (enlace permanente o ID)"
+      page: "Número de página"
+      per: "Elementos por página"
+      sort: "Campo de ordenación: score, title, created_at, updated_at, permalink"
+      json: "Salida en JSON (anula --format)"
+      quiet: "Modo silencioso: solo salida de enlaces permanentes (anula --format)"
+      bare: "Salida TSV sin bordes ni cabeceras (anula --format)"
+      count: "Salida solo del número de elementos coincidentes"
+    show:
+      about: "Mostrar detalles del elemento"
+      item: "Enlace permanente del elemento (p.ej., F-1) o ID"
+      json: "Salida en JSON (anula --format)"
+    create:
+      about: "Crear un nuevo elemento de especificación"
+      title: "Título del elemento"
+      type: "Tipo: func o tech"
+      description: "Descripción (lee desde stdin si \"-\")"
+      parent: "Enlace permanente o ID del elemento padre"
+      tag: "Etiquetas (separadas por comas)"
+    update:
+      about: "Actualizar un elemento de especificación"
+      item: "Enlace permanente del elemento (p.ej., F-377) o ID"
+      title: "Nuevo título"
+      description: "Nueva descripción (lee desde stdin si \"-\")"
+      status: "Nuevo estado de implementación"
+      tag: "Etiquetas (separadas por comas, reemplaza las existentes)"
+      parent: "Establecer elemento padre (enlace permanente o ID)"
+      no_parent: "Eliminar padre (hacer el elemento de nivel superior)"
+    edit:
+      about: "Editar descripción del elemento en $EDITOR"
+      item: "Enlace permanente del elemento (p.ej., F-1) o ID"
+    delete:
+      about: "Eliminar un elemento de especificación"
+      item: "Enlace permanente o ID del elemento"
+      yes: "Omitir confirmación"
+    link:
+      about: "Vincular un commit a un elemento de especificación"
+      item: "Enlace permanente del elemento (p.ej., F-1) o ID"
+      sha: "SHA del commit"
+      message: "Mensaje del commit"
+    record_run:
+      about: "Registrar una ejecución de agente para un elemento de especificación"
+      item: "Enlace permanente del elemento (p.ej., F-1) o ID"
+      model: "Nombre del modelo (p.ej. claude-opus-4-6)"
+      tokens: "Número de tokens"
+      cost: "Costo en USD"
+      status: "Estado de la ejecución (success, failure)"
+    transition:
+      about: "Transicionar un elemento de especificación a un nuevo estado de implementación"
+      item: "Enlace permanente del elemento (p.ej., F-1) o ID"
+      status: "Nuevo estado (not_started, in_progress, implemented, verified, released)"
+
+  edges:
+    about: "Gestionar aristas de dependencia entre elementos de especificación"
+    list:
+      about: "Listar aristas de dependencia (opcionalmente filtradas por origen, destino o tipo)"
+      source: "Filtrar por enlace permanente o ID del elemento origen (p.ej. F-1)"
+      target: "Filtrar por enlace permanente o ID del elemento destino (p.ej. T-5)"
+      type: "Filtrar por tipo de arista (depends_on, implements, tests, blocks, relates_to)"
+      json: "Salida en JSON (anula --format)"
+    link:
+      about: "Crear una arista de dependencia entre dos elementos de especificación"
+      source: "Enlace permanente o ID del elemento origen (p.ej. F-1)"
+      target: "Enlace permanente o ID del elemento destino (p.ej. T-5)"
+      type: "Tipo de arista: depends_on, implements, tests, blocks, relates_to"
+    unlink:
+      about: "Eliminar una arista de dependencia por ID (o por --source/--target/--type)"
+      edge_id: "ID de arista a eliminar"
+      source: "Enlace permanente o ID del elemento origen (para encontrar la arista)"
+      target: "Enlace permanente o ID del elemento destino (para encontrar la arista)"
+      type: "Filtro de tipo de arista (para encontrar la arista)"
+      yes: "Omitir solicitud de confirmación"
+
+  instructions:
+    about: "Obtener instrucciones de agente en vivo para el proyecto actual"
+    raw: "Imprimir la respuesta JSON completa en lugar de solo el campo de contenido. Tiene precedencia sobre --format."
+
+  onboard:
+    about: "Asistente de configuración interactivo — autenticar, configurar y crear archivos de agente"
+    non_interactive: "Ejecutar de forma no interactiva (para CI). Requiere FUNCSPEC_API_KEY o --api-key."
+    api_key: "Clave API (anula la variable de entorno FUNCSPEC_API_KEY)"
+    set_project: "Preseleccionar slug de proyecto predeterminado (omitir selección interactiva)"
+    skip_llm: "Omitir paso de integración del archivo de configuración del agente LLM"
+    llm_configs: "Ruta a un archivo de configuración LLM específico a actualizar (repetible)"
+    dry_run: "Mostrar lo que sucedería sin escribir nada"
+    dir: "Directorio de destino para FUNCSPEC.md y análisis de configuración LLM"
+
+  doctor:
+    about: "Verificar el entorno local y mostrar un informe de salud"
+    json: "Salida de resultados en JSON"
+    fix: "Corregir automáticamente los problemas donde sea posible"
+    yes: "Confirmar automáticamente las correcciones sin preguntar (usar con --fix)"
+    quiet: "Mostrar solo fallos y advertencias"
+    no_color: "Desactivar la salida de color ANSI (también se activa mediante la variable de entorno NO_COLOR)"
+    verbose: "Mostrar detalles adicionales para cada verificación"
+    timeout: "Tiempo de espera en segundos para cada verificación dependiente de la red"
+    dir: "Directorio de destino para FUNCSPEC.md y análisis de configuración LLM"
+
+  search:
+    about: "Buscar elementos de especificación por consulta de texto completo"
+    query: "Cadena de consulta de búsqueda"
+    type: "Filtrar por tipo: func o tech"
+    tag: "Filtrar por etiqueta"
+    json: "Salida en JSON (anula --format)"
+    quiet: "Modo silencioso: salida solo de enlaces permanentes, uno por línea (anula --format)"
+    count: "Salida solo del número de elementos coincidentes"
+
+  stats:
+    about: "Mostrar estadísticas del proyecto y panel de control"
+    json: "Salida en JSON (legible por máquina)"
+    usage: "Enfocarse en estadísticas de uso de LLM"
+    month: "Mes para estadísticas de uso en formato YYYY-MM (p.ej. 2026-03)"
+
+  export:
+    about: "Exportar especificación del proyecto en varios formatos"
+    long_about: "Exportar la especificación del proyecto actual como markdown, JSON, CSV, HTML, PDF o DOCX.\nLos formatos de texto (md, json, csv) se transmiten a stdout a menos que se especifique -o.\nLos formatos binarios (pdf, docx) requieren -o o usan <slug>.<ext> por defecto."
+    export_format: "Formato de exportación (md, json, csv, html, pdf, docx)"
+    output: "Escribir salida en este archivo en lugar de stdout"
+    type: "Filtrar por tipo: func o tech"
+    tag: "Filtrar por etiqueta"
+    open: "Abrir en el navegador después de escribir (solo HTML)"
+
+  snapshots:
+    about: "Gestionar instantáneas del proyecto (puntos de guardado/restauración)"
+    list:
+      about: "Listar todas las instantáneas del proyecto actual"
+      json: "Salida en JSON (anula --format)"
+    create:
+      about: "Crear una nueva instantánea"
+      name: "Nombre de la instantánea (p.ej. \"pre-v2-refactor\")"
+      description: "Descripción opcional"
+    show:
+      about: "Mostrar detalles de la instantánea y resumen de elementos"
+      identifier: "ID o nombre de la instantánea"
+      json: "Salida en JSON (anula --format)"
+    restore:
+      about: "Restaurar el proyecto a una instantánea (¡destructivo!)"
+      identifier: "ID o nombre de la instantánea"
+      yes: "Omitir solicitud de confirmación"
+    diff:
+      about: "Mostrar qué cambió desde que se tomó una instantánea"
+      identifier: "ID o nombre de la instantánea"
+      json: "Salida en JSON (anula --format)"
+    delete:
+      about: "Eliminar una instantánea"
+      identifier: "ID o nombre de la instantánea"
+      yes: "Omitir solicitud de confirmación"
+
+  view:
+    about: "Abrir la especificación del proyecto (o un elemento específico) en el navegador"
+    long_about: "Abrir la página de especificación del proyecto actual en el navegador predeterminado.\nPasa un ID de elemento (p.ej. F-377) para ir directamente a ese elemento.\nUsa --url para imprimir la URL sin abrir el navegador."
+    item_id: "ID del elemento a abrir (p.ej. F-377); omitir para ver la especificación completa del proyecto"
+    url: "Imprimir la URL en lugar de abrir el navegador"
+
+  version:
+    about: "Mostrar información de versión"
+
+  completion:
+    about: "Generar scripts de completado de shell"
+    shell: "Shell para el que generar completados"

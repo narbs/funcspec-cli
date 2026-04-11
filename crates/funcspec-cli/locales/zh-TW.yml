@@ -1,0 +1,240 @@
+cli:
+  about: "FuncSpec 命令列介面 — AI 驅動的規格管理"
+  verbose: "啟用詳細輸出（HTTP 請求/回應）"
+  debug: "啟用除錯輸出（完整標頭、主體、計時）"
+  format: "輸出格式（預設：TTY 時為表格，管道時為 json）"
+  project: "專案 ID、slug 或 org/專案 slug（覆蓋預設專案）"
+  help: "顯示說明"
+  version_flag: "顯示版本"
+
+cmd:
+  ai:
+    about: "AI 驅動的審查、改進、生成和稽核操作"
+    review:
+      about: "觸發單一規格項目的 AI 審查；顯示分數、判定、覆蓋圖和差距"
+      permalink: "項目永久連結（例如 F-5）"
+    review_all:
+      about: "觸發專案中所有項目的批次 AI 審查（非同步，輪詢直到完成）"
+    improve:
+      about: "為規格項目提議 AI 生成的改進；顯示差異並提示接受/拒絕"
+      permalink: "項目永久連結（例如 F-5）"
+      auto_accept: "無需互動提示自動接受提案"
+    generate:
+      about: "從功能項目生成技術規格提案"
+      permalink: "項目永久連結（例如 F-5）"
+    audit:
+      about: "對規格項目執行程式碼稽核並顯示覆蓋率和結果"
+      permalink: "項目永久連結（例如 F-5）"
+
+  auth:
+    about: "管理身份驗證和憑證"
+    login:
+      about: "登入 FuncSpec 實例"
+      host: "主機 URL（預設：https://funcspec.net）"
+      key: "API 金鑰（或設定環境變數 FUNCSPEC_API_KEY）"
+      profile: "儲存憑證的設定檔名稱"
+    logout:
+      about: "登出並刪除儲存的憑證"
+      profile: "要刪除的設定檔"
+    status:
+      about: "顯示目前的身份驗證狀態"
+
+  config:
+    about: "管理組態值"
+    set:
+      about: "設定組態值"
+      key: "要設定的鍵（例如 project、host、api_key）"
+      value: "要設定的值"
+      local: "寫入目前目錄的 .funcspec 而不是全域組態"
+    get:
+      about: "取得組態值"
+      key: "要取得的鍵"
+    list:
+      about: "列出所有組態值"
+    set_profile:
+      about: "切換作用中的設定檔"
+      name: "要啟用的設定檔名稱"
+
+  projects:
+    about: "列出和管理專案"
+    list:
+      about: "列出所有專案"
+      json: "以 JSON 輸出（覆蓋 --format）"
+    show:
+      about: "顯示專案詳情"
+      slug: "專案 slug 或 ID"
+      json: "以 JSON 輸出（覆蓋 --format）"
+    set_default:
+      about: "為命令設定預設專案"
+      slug: "專案 slug（例如 \"funcspec-cli\" 或 \"tambit/funcspec-cli\"）"
+
+  items:
+    about: "管理規格項目（功能性和技術性）"
+    list:
+      about: "列出規格項目"
+      type: "按類型篩選：func 或 tech"
+      status: "按實作狀態篩選"
+      tag: "按標籤篩選"
+      q: "搜尋查詢"
+      has_review: "篩選：僅有審查的項目"
+      review_verdict: "按審查判定篩選"
+      parent: "按父項目篩選（永久連結或 ID）"
+      page: "頁碼"
+      per: "每頁項目數"
+      sort: "排序欄位：score、title、created_at、updated_at、permalink"
+      json: "以 JSON 輸出（覆蓋 --format）"
+      quiet: "靜默模式：僅輸出永久連結（覆蓋 --format）"
+      bare: "無邊框或標題的裸 TSV 輸出（覆蓋 --format）"
+      count: "僅輸出符合項目的數量"
+    show:
+      about: "顯示項目詳情"
+      item: "項目永久連結（例如 F-1）或 ID"
+      json: "以 JSON 輸出（覆蓋 --format）"
+    create:
+      about: "建立新的規格項目"
+      title: "項目標題"
+      type: "類型：func 或 tech"
+      description: "描述（如果為 \"-\" 則從 stdin 讀取）"
+      parent: "父項目的永久連結或 ID"
+      tag: "標籤（逗號分隔）"
+    update:
+      about: "更新規格項目"
+      item: "項目永久連結（例如 F-377）或 ID"
+      title: "新標題"
+      description: "新描述（如果為 \"-\" 則從 stdin 讀取）"
+      status: "新的實作狀態"
+      tag: "標籤（逗號分隔，取代現有標籤）"
+      parent: "設定父項目（永久連結或 ID）"
+      no_parent: "移除父項目（使項目成為頂層）"
+    edit:
+      about: "在 $EDITOR 中編輯項目描述"
+      item: "項目永久連結（例如 F-1）或 ID"
+    delete:
+      about: "刪除規格項目"
+      item: "項目的永久連結或 ID"
+      yes: "跳過確認"
+    link:
+      about: "將提交連結到規格項目"
+      item: "項目永久連結（例如 F-1）或 ID"
+      sha: "提交 SHA"
+      message: "提交訊息"
+    record_run:
+      about: "為規格項目記錄代理執行"
+      item: "項目永久連結（例如 F-1）或 ID"
+      model: "模型名稱（例如 claude-opus-4-6）"
+      tokens: "令牌數量"
+      cost: "以美元計算的成本"
+      status: "執行狀態（success、failure）"
+    transition:
+      about: "將規格項目轉換到新的實作狀態"
+      item: "項目永久連結（例如 F-1）或 ID"
+      status: "新狀態（not_started、in_progress、implemented、verified、released）"
+
+  edges:
+    about: "管理規格項目之間的相依關係邊"
+    list:
+      about: "列出相依關係邊（可選按來源、目標或類型篩選）"
+      source: "按來源項目的永久連結或 ID 篩選（例如 F-1）"
+      target: "按目標項目的永久連結或 ID 篩選（例如 T-5）"
+      type: "按邊類型篩選（depends_on、implements、tests、blocks、relates_to）"
+      json: "以 JSON 輸出（覆蓋 --format）"
+    link:
+      about: "在兩個規格項目之間建立相依關係邊"
+      source: "來源項目的永久連結或 ID（例如 F-1）"
+      target: "目標項目的永久連結或 ID（例如 T-5）"
+      type: "邊類型：depends_on、implements、tests、blocks、relates_to"
+    unlink:
+      about: "按 ID 刪除相依關係邊（或按 --source/--target/--type）"
+      edge_id: "要刪除的邊 ID"
+      source: "來源項目的永久連結或 ID（用於尋找邊）"
+      target: "目標項目的永久連結或 ID（用於尋找邊）"
+      type: "邊類型篩選器（用於尋找邊）"
+      yes: "跳過確認提示"
+
+  instructions:
+    about: "取得目前專案的即時代理指令"
+    raw: "列印完整的 JSON 回應而不僅僅是內容欄位。優先於 --format。"
+
+  onboard:
+    about: "互動式設定精靈 — 身份驗證、組態和建立代理檔案"
+    non_interactive: "以非互動方式執行（用於 CI）。需要 FUNCSPEC_API_KEY 或 --api-key。"
+    api_key: "API 金鑰（覆蓋環境變數 FUNCSPEC_API_KEY）"
+    set_project: "預選預設專案 slug（跳過互動式選擇）"
+    skip_llm: "跳過 LLM 代理組態檔整合步驟"
+    llm_configs: "要更新的特定 LLM 組態檔的路徑（可重複）"
+    dry_run: "顯示會發生什麼而不寫入任何內容"
+    dir: "FUNCSPEC.md 和 LLM 組態掃描的目標目錄"
+
+  doctor:
+    about: "檢查本地環境並顯示健康報告"
+    json: "以 JSON 輸出結果"
+    fix: "在可能的情況下自動修復問題"
+    yes: "無需提示自動確認修復（與 --fix 一起使用）"
+    quiet: "僅顯示失敗和警告"
+    no_color: "停用 ANSI 色彩輸出（也可通過環境變數 NO_COLOR 啟用）"
+    verbose: "顯示每次檢查的額外詳細資訊"
+    timeout: "每次網路相關檢查的逾時時間（秒）"
+    dir: "FUNCSPEC.md 和 LLM 組態掃描的目標目錄"
+
+  search:
+    about: "通過全文查詢搜尋規格項目"
+    query: "搜尋查詢字串"
+    type: "按類型篩選：func 或 tech"
+    tag: "按標籤篩選"
+    json: "以 JSON 輸出（覆蓋 --format）"
+    quiet: "靜默模式：僅輸出永久連結，每行一個（覆蓋 --format）"
+    count: "僅輸出符合項目的數量"
+
+  stats:
+    about: "顯示專案統計和儀表板"
+    json: "以 JSON 輸出（機器可讀）"
+    usage: "專注於 LLM 使用統計"
+    month: "YYYY-MM 格式的使用統計月份（例如 2026-03）"
+
+  export:
+    about: "以各種格式匯出專案規格"
+    long_about: "將目前專案規格匯出為 markdown、JSON、CSV、HTML、PDF 或 DOCX。\n文字格式（md、json、csv）串流傳輸到 stdout，除非指定了 -o。\n二進位格式（pdf、docx）需要 -o 或預設使用 <slug>.<ext>。"
+    export_format: "匯出格式（md、json、csv、html、pdf、docx）"
+    output: "將輸出寫入此檔案而不是 stdout"
+    type: "按類型篩選：func 或 tech"
+    tag: "按標籤篩選"
+    open: "寫入後在瀏覽器中開啟（僅限 HTML）"
+
+  snapshots:
+    about: "管理專案快照（儲存/還原點）"
+    list:
+      about: "列出目前專案的所有快照"
+      json: "以 JSON 輸出（覆蓋 --format）"
+    create:
+      about: "建立新快照"
+      name: "快照名稱（例如 \"pre-v2-refactor\"）"
+      description: "選用描述"
+    show:
+      about: "顯示快照詳情和項目摘要"
+      identifier: "快照 ID 或名稱"
+      json: "以 JSON 輸出（覆蓋 --format）"
+    restore:
+      about: "將專案還原到快照（破壞性！）"
+      identifier: "快照 ID 或名稱"
+      yes: "跳過確認提示"
+    diff:
+      about: "顯示自拍攝快照以來的變化"
+      identifier: "快照 ID 或名稱"
+      json: "以 JSON 輸出（覆蓋 --format）"
+    delete:
+      about: "刪除快照"
+      identifier: "快照 ID 或名稱"
+      yes: "跳過確認提示"
+
+  view:
+    about: "在瀏覽器中開啟專案規格（或特定項目）"
+    long_about: "在預設瀏覽器中開啟目前專案的規格頁面。\n傳入項目 ID（例如 F-377）直接跳轉到該項目。\n使用 --url 列印 URL 而不開啟瀏覽器。"
+    item_id: "要開啟的項目 ID（例如 F-377）；省略以查看完整專案規格"
+    url: "列印 URL 而不是開啟瀏覽器"
+
+  version:
+    about: "顯示版本資訊"
+
+  completion:
+    about: "生成 shell 補全腳本"
+    shell: "要生成補全的 shell"

@@ -1,8 +1,8 @@
 use anyhow::{Context, Result};
-use clap::Subcommand;
 use colored::Colorize;
 use comfy_table::{Attribute, Cell, ContentArrangement, Table};
 use funcspec_client::CreateSnapshotParams;
+use rust_i18n::t;
 
 use crate::context::client_and_project;
 use crate::output::OutputFormat;
@@ -11,65 +11,85 @@ use crate::output::OutputFormat;
 // Command definitions
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Subcommand)]
 pub enum SnapshotsCmd {
-    /// List all snapshots for the current project
-    List {
-        /// Output as JSON (overrides --format)
-        #[arg(long)]
-        json: bool,
-    },
+    List { json: bool },
+    Create { name: String, description: Option<String> },
+    Show { identifier: String, json: bool },
+    Restore { identifier: String, yes: bool },
+    Diff { identifier: String, json: bool },
+    Delete { identifier: String, yes: bool },
+}
 
-    /// Create a new snapshot
-    Create {
-        /// Snapshot name (e.g. "pre-v2-refactor")
-        #[arg(long, short)]
-        name: String,
+pub fn build_command() -> clap::Command {
+    clap::Command::new("snapshots")
+        .about(t!("cmd.snapshots.about").to_string())
+        .arg_required_else_help(true)
+        .subcommand(
+            clap::Command::new("list")
+                .about(t!("cmd.snapshots.list.about").to_string())
+                .arg(clap::Arg::new("json").long("json").action(clap::ArgAction::SetTrue).help(t!("cmd.snapshots.list.json").to_string())),
+        )
+        .subcommand(
+            clap::Command::new("create")
+                .about(t!("cmd.snapshots.create.about").to_string())
+                .arg(clap::Arg::new("name").long("name").short('n').required(true).help(t!("cmd.snapshots.create.name").to_string()))
+                .arg(clap::Arg::new("description").long("description").short('d').help(t!("cmd.snapshots.create.description").to_string())),
+        )
+        .subcommand(
+            clap::Command::new("show")
+                .about(t!("cmd.snapshots.show.about").to_string())
+                .arg(clap::Arg::new("identifier").required(true).help(t!("cmd.snapshots.show.identifier").to_string()))
+                .arg(clap::Arg::new("json").long("json").action(clap::ArgAction::SetTrue).help(t!("cmd.snapshots.show.json").to_string())),
+        )
+        .subcommand(
+            clap::Command::new("restore")
+                .about(t!("cmd.snapshots.restore.about").to_string())
+                .arg(clap::Arg::new("identifier").required(true).help(t!("cmd.snapshots.restore.identifier").to_string()))
+                .arg(clap::Arg::new("yes").long("yes").short('y').action(clap::ArgAction::SetTrue).help(t!("cmd.snapshots.restore.yes").to_string())),
+        )
+        .subcommand(
+            clap::Command::new("diff")
+                .about(t!("cmd.snapshots.diff.about").to_string())
+                .arg(clap::Arg::new("identifier").required(true).help(t!("cmd.snapshots.diff.identifier").to_string()))
+                .arg(clap::Arg::new("json").long("json").action(clap::ArgAction::SetTrue).help(t!("cmd.snapshots.diff.json").to_string())),
+        )
+        .subcommand(
+            clap::Command::new("delete")
+                .about(t!("cmd.snapshots.delete.about").to_string())
+                .arg(clap::Arg::new("identifier").required(true).help(t!("cmd.snapshots.delete.identifier").to_string()))
+                .arg(clap::Arg::new("yes").long("yes").short('y').action(clap::ArgAction::SetTrue).help(t!("cmd.snapshots.delete.yes").to_string())),
+        )
+}
 
-        /// Optional description
-        #[arg(long, short)]
-        description: Option<String>,
-    },
-
-    /// Show snapshot details and item summary
-    Show {
-        /// Snapshot ID or name
-        identifier: String,
-
-        /// Output as JSON (overrides --format)
-        #[arg(long)]
-        json: bool,
-    },
-
-    /// Restore project to a snapshot (destructive!)
-    Restore {
-        /// Snapshot ID or name
-        identifier: String,
-
-        /// Skip confirmation prompt
-        #[arg(long, short)]
-        yes: bool,
-    },
-
-    /// Show what changed since a snapshot was taken
-    Diff {
-        /// Snapshot ID or name
-        identifier: String,
-
-        /// Output as JSON (overrides --format)
-        #[arg(long)]
-        json: bool,
-    },
-
-    /// Delete a snapshot
-    Delete {
-        /// Snapshot ID or name
-        identifier: String,
-
-        /// Skip confirmation prompt
-        #[arg(long, short)]
-        yes: bool,
-    },
+pub async fn dispatch(matches: &clap::ArgMatches, format: OutputFormat) -> Result<()> {
+    let cmd = match matches.subcommand() {
+        Some(("list", m)) => SnapshotsCmd::List { json: m.get_flag("json") },
+        Some(("create", m)) => SnapshotsCmd::Create {
+            name: m.get_one::<String>("name").unwrap().clone(),
+            description: m.get_one::<String>("description").cloned(),
+        },
+        Some(("show", m)) => SnapshotsCmd::Show {
+            identifier: m.get_one::<String>("identifier").unwrap().clone(),
+            json: m.get_flag("json"),
+        },
+        Some(("restore", m)) => SnapshotsCmd::Restore {
+            identifier: m.get_one::<String>("identifier").unwrap().clone(),
+            yes: m.get_flag("yes"),
+        },
+        Some(("diff", m)) => SnapshotsCmd::Diff {
+            identifier: m.get_one::<String>("identifier").unwrap().clone(),
+            json: m.get_flag("json"),
+        },
+        Some(("delete", m)) => SnapshotsCmd::Delete {
+            identifier: m.get_one::<String>("identifier").unwrap().clone(),
+            yes: m.get_flag("yes"),
+        },
+        _ => {
+            build_command().print_help().ok();
+            return Ok(());
+        }
+    };
+    run(cmd, format).await
 }
 
 // ---------------------------------------------------------------------------

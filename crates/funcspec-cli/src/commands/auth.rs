@@ -1,36 +1,80 @@
 use anyhow::{Context, Result};
-use clap::Subcommand;
 use console::style;
 use funcspec_client::FuncspecClient;
+use rust_i18n::t;
 
 use crate::config::{Config, Profile};
 
-#[derive(Debug, Subcommand)]
 pub enum AuthCmd {
-    /// Log in to a FuncSpec instance
     Login {
-        /// Host URL (default: https://funcspec.net)
-        #[arg(long, default_value = "https://funcspec.net")]
         host: String,
-
-        /// API key (or set FUNCSPEC_API_KEY env var)
-        #[arg(long, env = "FUNCSPEC_API_KEY")]
         key: Option<String>,
-
-        /// Profile name to save credentials under
-        #[arg(long, default_value = "default")]
         profile: String,
     },
-
-    /// Log out and remove stored credentials
     Logout {
-        /// Profile to remove
-        #[arg(long, default_value = "default")]
         profile: String,
     },
-
-    /// Show current authentication status
     Status,
+}
+
+pub fn build_command() -> clap::Command {
+    clap::Command::new("auth")
+        .about(t!("cmd.auth.about").to_string())
+        .arg_required_else_help(true)
+        .subcommand(
+            clap::Command::new("login")
+                .about(t!("cmd.auth.login.about").to_string())
+                .arg(
+                    clap::Arg::new("host")
+                        .long("host")
+                        .default_value("https://funcspec.net")
+                        .help(t!("cmd.auth.login.host").to_string()),
+                )
+                .arg(
+                    clap::Arg::new("key")
+                        .long("key")
+                        .env("FUNCSPEC_API_KEY")
+                        .help(t!("cmd.auth.login.key").to_string()),
+                )
+                .arg(
+                    clap::Arg::new("profile")
+                        .long("profile")
+                        .default_value("default")
+                        .help(t!("cmd.auth.login.profile").to_string()),
+                ),
+        )
+        .subcommand(
+            clap::Command::new("logout")
+                .about(t!("cmd.auth.logout.about").to_string())
+                .arg(
+                    clap::Arg::new("profile")
+                        .long("profile")
+                        .default_value("default")
+                        .help(t!("cmd.auth.logout.profile").to_string()),
+                ),
+        )
+        .subcommand(
+            clap::Command::new("status").about(t!("cmd.auth.status.about").to_string()),
+        )
+}
+
+pub async fn dispatch(matches: &clap::ArgMatches) -> Result<()> {
+    let cmd = match matches.subcommand() {
+        Some(("login", m)) => AuthCmd::Login {
+            host: m.get_one::<String>("host").unwrap().clone(),
+            key: m.get_one::<String>("key").cloned(),
+            profile: m.get_one::<String>("profile").unwrap().clone(),
+        },
+        Some(("logout", m)) => AuthCmd::Logout {
+            profile: m.get_one::<String>("profile").unwrap().clone(),
+        },
+        Some(("status", _)) => AuthCmd::Status,
+        _ => {
+            build_command().print_help().ok();
+            return Ok(());
+        }
+    };
+    run(cmd).await
 }
 
 pub async fn run(cmd: AuthCmd) -> Result<()> {
@@ -163,5 +207,36 @@ mod tests {
         assert!(masked.starts_with("abcd"));
         assert!(masked.ends_with("mnop"));
         assert!(masked.contains('…'));
+    }
+
+    #[test]
+    fn build_command_login_parses_defaults() {
+        let cmd = build_command();
+        let m = cmd
+            .try_get_matches_from(["auth", "login"])
+            .unwrap();
+        let sub = m.subcommand_matches("login").unwrap();
+        assert_eq!(sub.get_one::<String>("host").unwrap(), "https://funcspec.net");
+        assert_eq!(sub.get_one::<String>("profile").unwrap(), "default");
+        assert!(sub.get_one::<String>("key").is_none());
+    }
+
+    #[test]
+    fn build_command_login_parses_custom() {
+        let cmd = build_command();
+        let m = cmd
+            .try_get_matches_from(["auth", "login", "--host", "https://self.host", "--profile", "work"])
+            .unwrap();
+        let sub = m.subcommand_matches("login").unwrap();
+        assert_eq!(sub.get_one::<String>("host").unwrap(), "https://self.host");
+        assert_eq!(sub.get_one::<String>("profile").unwrap(), "work");
+    }
+
+    #[test]
+    fn build_command_logout_default_profile() {
+        let cmd = build_command();
+        let m = cmd.try_get_matches_from(["auth", "logout"]).unwrap();
+        let sub = m.subcommand_matches("logout").unwrap();
+        assert_eq!(sub.get_one::<String>("profile").unwrap(), "default");
     }
 }

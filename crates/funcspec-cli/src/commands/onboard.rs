@@ -2,8 +2,8 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use anyhow::{Context, Result, bail};
-use clap::Args;
 use console::style;
+use rust_i18n::t;
 use dialoguer::{Confirm, Input, Select};
 use funcspec_client::FuncspecClient;
 
@@ -24,36 +24,44 @@ const LLM_BLURB: &str = "\n\n## FuncSpec Integration\n\nThis project uses [FuncS
 const FUNCSPEC_MD_TEMPLATE: &str = include_str!("../templates/funcspec_md.tmpl");
 
 /// Arguments for `funcspec onboard`.
-#[derive(Debug, Args)]
-#[command(about = "Interactive setup wizard — authenticate, configure, and scaffold agent files")]
 pub struct OnboardArgs {
-    /// Run non-interactively (for CI). Requires FUNCSPEC_API_KEY or --api-key.
-    #[arg(long)]
     pub non_interactive: bool,
-
-    /// API key (overrides FUNCSPEC_API_KEY env var)
-    #[arg(long, env = "FUNCSPEC_API_KEY")]
     pub api_key: Option<String>,
-
-    /// Pre-select default project slug (skip interactive selection)
-    #[arg(long)]
     pub set_project: Option<String>,
-
-    /// Skip LLM agent config file integration step
-    #[arg(long)]
     pub skip_llm: bool,
-
-    /// Path to a specific LLM config file to update (repeatable)
-    #[arg(long = "llm-config")]
     pub llm_configs: Vec<PathBuf>,
-
-    /// Show what would happen without writing anything
-    #[arg(long)]
     pub dry_run: bool,
-
-    /// Target directory for FUNCSPEC.md and LLM config scanning
-    #[arg(long, default_value = ".")]
     pub dir: PathBuf,
+}
+
+pub fn build_command() -> clap::Command {
+    clap::Command::new("onboard")
+        .about(t!("cmd.onboard.about").to_string())
+        .arg(clap::Arg::new("non_interactive").long("non-interactive").action(clap::ArgAction::SetTrue).help(t!("cmd.onboard.non_interactive").to_string()))
+        .arg(clap::Arg::new("api_key").long("api-key").env("FUNCSPEC_API_KEY").help(t!("cmd.onboard.api_key").to_string()))
+        .arg(clap::Arg::new("set_project").long("set-project").help(t!("cmd.onboard.set_project").to_string()))
+        .arg(clap::Arg::new("skip_llm").long("skip-llm").action(clap::ArgAction::SetTrue).help(t!("cmd.onboard.skip_llm").to_string()))
+        .arg(clap::Arg::new("llm_configs").long("llm-config").value_parser(clap::value_parser!(PathBuf)).action(clap::ArgAction::Append).help(t!("cmd.onboard.llm_configs").to_string()))
+        .arg(clap::Arg::new("dry_run").long("dry-run").action(clap::ArgAction::SetTrue).help(t!("cmd.onboard.dry_run").to_string()))
+        .arg(clap::Arg::new("dir").long("dir").value_parser(clap::value_parser!(PathBuf)).default_value(".").help(t!("cmd.onboard.dir").to_string()))
+}
+
+pub fn from_arg_matches(matches: &clap::ArgMatches) -> OnboardArgs {
+    OnboardArgs {
+        non_interactive: matches.get_flag("non_interactive"),
+        api_key: matches.get_one::<String>("api_key").cloned(),
+        set_project: matches.get_one::<String>("set_project").cloned(),
+        skip_llm: matches.get_flag("skip_llm"),
+        llm_configs: matches
+            .get_many::<PathBuf>("llm_configs")
+            .map(|v| v.cloned().collect())
+            .unwrap_or_default(),
+        dry_run: matches.get_flag("dry_run"),
+        dir: matches
+            .get_one::<PathBuf>("dir")
+            .cloned()
+            .unwrap_or_else(|| PathBuf::from(".")),
+    }
 }
 
 pub async fn run(args: OnboardArgs) -> Result<()> {

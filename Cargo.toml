@@ -3,7 +3,7 @@ members = ["crates/funcspec-client", "crates/funcspec-cli"]
 resolver = "2"
 
 [workspace.package]
-version = "0.2.5"
+version = "0.2.6"
 edition = "2024"
 authors = ["Christian Clare <narbs@narbs.net>"]
 license = "MIT"
@@ -46,6 +46,9 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 chrono = { version = "0.4", features = ["serde"] }
 url = "2"
 open = "5"
+
+# i18n
+rust-i18n = "3"
 
 [profile.release]
 opt-level = "z"

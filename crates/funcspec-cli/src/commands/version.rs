@@ -1,6 +1,11 @@
 use anyhow::Result;
+use rust_i18n::t;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
+
+pub fn build_command() -> clap::Command {
+    clap::Command::new("version").about(t!("cmd.version.about").to_string())
+}
 const PKG_NAME: &str = env!("CARGO_PKG_NAME");
 
 pub fn run() -> Result<()> {

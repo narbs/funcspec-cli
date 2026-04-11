@@ -13,20 +13,13 @@ use funcspec_client::models::*;
 /// Output format for CLI commands.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum, Default)]
 pub enum OutputFormat {
-    /// Auto-detect: table when stdout is a TTY, JSON when piped
     #[default]
     Auto,
-    /// Human-readable table with colored headers
     Table,
-    /// JSON (pretty-printed)
     Json,
-    /// CSV with headers
     Csv,
-    /// Minimal one-line per item (permalink/slug + title)
     Minimal,
-    /// Markdown (headers, bold, lists)
     Markdown,
-    /// Tab-separated values without borders or headers (pipe-friendly: grep, awk, cut)
     Bare,
 }
 

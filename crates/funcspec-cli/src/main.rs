@@ -1,111 +1,31 @@
+use funcspec_cli::cli::build_cli;
 use funcspec_cli::commands;
 use funcspec_cli::context;
 use funcspec_cli::output::OutputFormat;
 
 use anyhow::Result;
-use clap::{CommandFactory, Parser, Subcommand};
 use colored::Colorize;
 use tracing_subscriber::{EnvFilter, fmt, prelude::*};
 
-#[derive(Parser)]
-#[command(
-    name = "funcspec",
-    about = concat!("Command-line interface for FuncSpec — AI-driven spec management\nv", env!("CARGO_PKG_VERSION")),
-    version,
-    propagate_version = true,
-    arg_required_else_help = true
-)]
-struct Cli {
-    #[command(subcommand)]
-    command: Commands,
-
-    /// Enable verbose output (HTTP requests/responses)
-    #[arg(long, short = 'v', global = true)]
-    verbose: bool,
-
-    /// Enable debug output (full headers, bodies, timing)
-    #[arg(long, global = true)]
-    debug: bool,
-
-    /// Output format (default: table when TTY, json when piped)
-    #[arg(long, global = true, value_enum, default_value = "auto")]
-    format: OutputFormat,
-
-    /// Project ID, slug, or org/project slug (overrides default project)
-    #[arg(long, short = 'p', global = true)]
-    project: Option<String>,
-}
-
-#[derive(Subcommand)]
-enum Commands {
-    /// AI-powered review, improvement, generation, and audit operations
-    #[command(subcommand)]
-    Ai(commands::ai::AiCmd),
-
-    /// Manage authentication and credentials
-    #[command(subcommand)]
-    Auth(commands::auth::AuthCmd),
-
-    /// Manage configuration values
-    #[command(subcommand)]
-    Config(commands::config::ConfigCmd),
-
-    /// List and manage projects
-    #[command(subcommand)]
-    Projects(commands::projects::ProjectsCmd),
-
-    /// Manage spec items (functional and technical)
-    #[command(subcommand)]
-    Items(commands::items::ItemsCmd),
-
-    /// Manage dependency edges between spec items
-    #[command(subcommand)]
-    Edges(commands::edges::EdgesCmd),
-
-    /// Fetch live agent instructions for the current project
-    Instructions(commands::instructions::InstructionsArgs),
-
-    /// Interactive setup wizard — authenticate, configure, and scaffold agent files
-    Onboard(commands::onboard::OnboardArgs),
-
-    /// Check the local environment and show a health report
-    Doctor(commands::doctor::DoctorArgs),
-
-    /// Search spec items by full-text query
-    Search(commands::search::SearchArgs),
-
-    /// Show project stats and dashboard
-    Stats(commands::stats::StatsArgs),
-
-    /// Export project spec (markdown, JSON, CSV, HTML, PDF, DOCX)
-    Export(commands::export::ExportArgs),
-
-    /// Manage project snapshots (save/restore points)
-    #[command(subcommand)]
-    Snapshots(commands::snapshots::SnapshotsCmd),
-
-    /// Open project spec in browser
-    View(commands::view::ViewArgs),
-
-    /// Show version information
-    Version,
-
-    /// Generate shell completion scripts
-    Completion {
-        /// Shell to generate completions for
-        #[arg(value_enum)]
-        shell: clap_complete::Shell,
-    },
-}
-
 #[tokio::main]
 async fn main() {
-    let cli = Cli::parse();
+    // Initialise locale: FUNCSPEC_LANG > LANG > "en"
+    let raw_locale = std::env::var("FUNCSPEC_LANG")
+        .or_else(|_| std::env::var("LANG"))
+        .unwrap_or_else(|_| "en".to_string());
+    let locale = raw_locale
+        .split(['.', '@'])
+        .next()
+        .unwrap_or("en")
+        .replace('_', "-");
+    rust_i18n::set_locale(&locale);
+
+    let matches = build_cli().get_matches();
 
     // Initialise tracing based on verbosity flags
-    let filter = if cli.debug {
+    let filter = if matches.get_flag("debug") {
         EnvFilter::new("debug")
-    } else if cli.verbose {
+    } else if matches.get_flag("verbose") {
         EnvFilter::new("info")
     } else {
         EnvFilter::from_default_env().add_directive(tracing::Level::WARN.into())
@@ -116,34 +36,69 @@ async fn main() {
         .with(filter)
         .init();
 
-    context::set_project_override(cli.project.clone());
+    let format = matches
+        .get_one::<OutputFormat>("format")
+        .copied()
+        .unwrap_or_default();
 
-    if let Err(err) = run(cli).await {
+    let project = matches.get_one::<String>("project").cloned();
+    context::set_project_override(project);
+
+    if let Err(err) = run(matches, format).await {
         eprintln!("{} {err:#}", "error:".red().bold());
         std::process::exit(1);
     }
 }
 
-async fn run(cli: Cli) -> Result<()> {
-    match cli.command {
-        Commands::Ai(cmd) => commands::ai::run(cmd).await,
-        Commands::Auth(cmd) => commands::auth::run(cmd).await,
-        Commands::Config(cmd) => commands::config::run(cmd).await,
-        Commands::Projects(cmd) => commands::projects::run(cmd, cli.format).await,
-        Commands::Items(cmd) => commands::items::run(cmd, cli.format).await,
-        Commands::Edges(cmd) => commands::edges::run(cmd, cli.format).await,
-        Commands::Instructions(args) => commands::instructions::run(args, cli.format).await,
-        Commands::Onboard(args) => commands::onboard::run(args).await,
-        Commands::Doctor(args) => commands::doctor::run(args).await,
-        Commands::Search(args) => commands::search::run(args, cli.format).await,
-        Commands::Stats(args) => commands::stats::run(args, cli.format).await,
-        Commands::Export(args) => commands::export::run(args).await,
-        Commands::Snapshots(cmd) => commands::snapshots::run(cmd, cli.format).await,
-        Commands::View(args) => commands::view::run(args).await,
-        Commands::Version => commands::version::run(),
-        Commands::Completion { shell } => {
-            let mut cmd = Cli::command();
+async fn run(matches: clap::ArgMatches, format: OutputFormat) -> Result<()> {
+    match matches.subcommand() {
+        Some(("ai", sub)) => commands::ai::dispatch(sub).await,
+        Some(("auth", sub)) => commands::auth::dispatch(sub).await,
+        Some(("config", sub)) => commands::config::dispatch(sub).await,
+        Some(("projects", sub)) => commands::projects::dispatch(sub, format).await,
+        Some(("items", sub)) => commands::items::dispatch(sub, format).await,
+        Some(("edges", sub)) => commands::edges::dispatch(sub, format).await,
+        Some(("instructions", sub)) => {
+            let args = commands::instructions::from_arg_matches(sub);
+            commands::instructions::run(args, format).await
+        }
+        Some(("onboard", sub)) => {
+            let args = commands::onboard::from_arg_matches(sub);
+            commands::onboard::run(args).await
+        }
+        Some(("doctor", sub)) => {
+            let args = commands::doctor::from_arg_matches(sub);
+            commands::doctor::run(args).await
+        }
+        Some(("search", sub)) => {
+            let args = commands::search::from_arg_matches(sub);
+            commands::search::run(args, format).await
+        }
+        Some(("stats", sub)) => {
+            let args = commands::stats::from_arg_matches(sub);
+            commands::stats::run(args, format).await
+        }
+        Some(("export", sub)) => {
+            let args = commands::export::from_arg_matches(sub);
+            commands::export::run(args).await
+        }
+        Some(("snapshots", sub)) => commands::snapshots::dispatch(sub, format).await,
+        Some(("view", sub)) => {
+            let args = commands::view::from_arg_matches(sub);
+            commands::view::run(args).await
+        }
+        Some(("version", _)) => commands::version::run(),
+        Some(("completion", sub)) => {
+            let shell = sub
+                .get_one::<clap_complete::Shell>("shell")
+                .copied()
+                .unwrap();
+            let mut cmd = build_cli();
             clap_complete::generate(shell, &mut cmd, "funcspec", &mut std::io::stdout());
+            Ok(())
+        }
+        _ => {
+            build_cli().print_help().ok();
             Ok(())
         }
     }

@@ -1,36 +1,68 @@
 use anyhow::Result;
-use clap::Args;
 use funcspec_client::models::*;
+use rust_i18n::t;
 
 use crate::context::client_and_project;
 use crate::output::{self, OutputFormat};
 
 /// Arguments for the `funcspec search` command.
-#[derive(Debug, Args)]
-#[command(about = "Search spec items by full-text query")]
 pub struct SearchArgs {
-    /// Search query string
     pub query: String,
-
-    /// Filter by type: func or tech
-    #[arg(long, short = 't')]
     pub r#type: Option<String>,
-
-    /// Filter by tag
-    #[arg(long)]
     pub tag: Option<String>,
-
-    /// Output as JSON (overrides --format)
-    #[arg(long)]
     pub json: bool,
-
-    /// Quiet mode: output only permalinks, one per line (overrides --format)
-    #[arg(long)]
     pub quiet: bool,
-
-    /// Output just the count of matching items
-    #[arg(long)]
     pub count: bool,
+}
+
+pub fn build_command() -> clap::Command {
+    clap::Command::new("search")
+        .about(t!("cmd.search.about").to_string())
+        .arg(
+            clap::Arg::new("query")
+                .required(true)
+                .help(t!("cmd.search.query").to_string()),
+        )
+        .arg(
+            clap::Arg::new("type")
+                .long("type")
+                .short('t')
+                .help(t!("cmd.search.type").to_string()),
+        )
+        .arg(
+            clap::Arg::new("tag")
+                .long("tag")
+                .help(t!("cmd.search.tag").to_string()),
+        )
+        .arg(
+            clap::Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help(t!("cmd.search.json").to_string()),
+        )
+        .arg(
+            clap::Arg::new("quiet")
+                .long("quiet")
+                .action(clap::ArgAction::SetTrue)
+                .help(t!("cmd.search.quiet").to_string()),
+        )
+        .arg(
+            clap::Arg::new("count")
+                .long("count")
+                .action(clap::ArgAction::SetTrue)
+                .help(t!("cmd.search.count").to_string()),
+        )
+}
+
+pub fn from_arg_matches(matches: &clap::ArgMatches) -> SearchArgs {
+    SearchArgs {
+        query: matches.get_one::<String>("query").unwrap().clone(),
+        r#type: matches.get_one::<String>("type").cloned(),
+        tag: matches.get_one::<String>("tag").cloned(),
+        json: matches.get_flag("json"),
+        quiet: matches.get_flag("quiet"),
+        count: matches.get_flag("count"),
+    }
 }
 
 pub async fn run(args: SearchArgs, format: OutputFormat) -> Result<()> {
@@ -161,5 +193,34 @@ mod tests {
             global
         };
         assert_eq!(fmt, OutputFormat::Csv);
+    }
+
+    #[test]
+    fn build_command_requires_query() {
+        let cmd = build_command();
+        assert!(cmd.try_get_matches_from(["search"]).is_err());
+    }
+
+    #[test]
+    fn build_command_parses_query() {
+        let cmd = build_command();
+        let m = cmd
+            .try_get_matches_from(["search", "authentication flow"])
+            .unwrap();
+        assert_eq!(
+            m.get_one::<String>("query").unwrap(),
+            "authentication flow"
+        );
+    }
+
+    #[test]
+    fn build_command_parses_flags() {
+        let cmd = build_command();
+        let m = cmd
+            .try_get_matches_from(["search", "foo", "--json", "--count"])
+            .unwrap();
+        assert!(m.get_flag("json"));
+        assert!(m.get_flag("count"));
+        assert!(!m.get_flag("quiet"));
     }
 }

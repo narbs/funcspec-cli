@@ -1,0 +1,240 @@
+cli:
+  about: "Kommandozeilenschnittstelle für FuncSpec — KI-gestützte Spezifikationsverwaltung"
+  verbose: "Ausführliche Ausgabe aktivieren (HTTP-Anfragen/-Antworten)"
+  debug: "Debug-Ausgabe aktivieren (vollständige Header, Body, Timing)"
+  format: "Ausgabeformat (Standard: Tabelle bei TTY, json bei Pipe)"
+  project: "Projekt-ID, Slug oder Org/Projekt-Slug (überschreibt Standardprojekt)"
+  help: "Hilfe anzeigen"
+  version_flag: "Version anzeigen"
+
+cmd:
+  ai:
+    about: "KI-gestützte Überprüfungs-, Verbesserungs-, Generierungs- und Prüfoperationen"
+    review:
+      about: "KI-Überprüfung eines einzelnen Spezifikationselements auslösen; zeigt Bewertung, Urteil, Abdeckungskarte und Lücken"
+      permalink: "Element-Permalink (z.B. F-5)"
+    review_all:
+      about: "Batch-KI-Überprüfung aller Elemente im Projekt auslösen (asynchron, fragt ab bis abgeschlossen)"
+    improve:
+      about: "KI-generierte Verbesserung für ein Spezifikationselement vorschlagen; zeigt Diff und fordert Akzeptieren/Ablehnen"
+      permalink: "Element-Permalink (z.B. F-5)"
+      auto_accept: "Vorschlag automatisch ohne interaktive Eingabeaufforderung akzeptieren"
+    generate:
+      about: "Technische Spezifikationsvorschläge aus einem funktionalen Element generieren"
+      permalink: "Element-Permalink (z.B. F-5)"
+    audit:
+      about: "Code-Prüfung für ein Spezifikationselement ausführen und Abdeckung und Ergebnisse anzeigen"
+      permalink: "Element-Permalink (z.B. F-5)"
+
+  auth:
+    about: "Authentifizierung und Anmeldedaten verwalten"
+    login:
+      about: "Bei einer FuncSpec-Instanz anmelden"
+      host: "Host-URL (Standard: https://funcspec.net)"
+      key: "API-Schlüssel (oder Umgebungsvariable FUNCSPEC_API_KEY setzen)"
+      profile: "Profilname, unter dem die Anmeldedaten gespeichert werden"
+    logout:
+      about: "Abmelden und gespeicherte Anmeldedaten entfernen"
+      profile: "Zu entfernendes Profil"
+    status:
+      about: "Aktuellen Authentifizierungsstatus anzeigen"
+
+  config:
+    about: "Konfigurationswerte verwalten"
+    set:
+      about: "Einen Konfigurationswert setzen"
+      key: "Zu setzender Schlüssel (z.B. project, host, api_key)"
+      value: "Zu setzender Wert"
+      local: "In .funcspec im aktuellen Verzeichnis statt in globaler Konfiguration schreiben"
+    get:
+      about: "Einen Konfigurationswert abrufen"
+      key: "Abzurufender Schlüssel"
+    list:
+      about: "Alle Konfigurationswerte auflisten"
+    set_profile:
+      about: "Aktives Profil wechseln"
+      name: "Zu aktivierender Profilname"
+
+  projects:
+    about: "Projekte auflisten und verwalten"
+    list:
+      about: "Alle Projekte auflisten"
+      json: "Ausgabe als JSON (überschreibt --format)"
+    show:
+      about: "Projektdetails anzeigen"
+      slug: "Projekt-Slug oder -ID"
+      json: "Ausgabe als JSON (überschreibt --format)"
+    set_default:
+      about: "Standardprojekt für Befehle setzen"
+      slug: "Projekt-Slug (z.B. \"funcspec-cli\" oder \"tambit/funcspec-cli\")"
+
+  items:
+    about: "Spezifikationselemente verwalten (funktionale und technische)"
+    list:
+      about: "Spezifikationselemente auflisten"
+      type: "Nach Typ filtern: func oder tech"
+      status: "Nach Implementierungsstatus filtern"
+      tag: "Nach Tag filtern"
+      q: "Suchanfrage"
+      has_review: "Filter: nur Elemente mit Überprüfungen"
+      review_verdict: "Nach Überprüfungsurteil filtern"
+      parent: "Nach übergeordnetem Element filtern (Permalink oder ID)"
+      page: "Seitennummer"
+      per: "Elemente pro Seite"
+      sort: "Sortierfeld: score, title, created_at, updated_at, permalink"
+      json: "Ausgabe als JSON (überschreibt --format)"
+      quiet: "Stiller Modus: nur Permalinks ausgeben (überschreibt --format)"
+      bare: "Einfache TSV-Ausgabe ohne Rahmen oder Kopfzeilen (überschreibt --format)"
+      count: "Nur die Anzahl der übereinstimmenden Elemente ausgeben"
+    show:
+      about: "Elementdetails anzeigen"
+      item: "Element-Permalink (z.B. F-1) oder ID"
+      json: "Ausgabe als JSON (überschreibt --format)"
+    create:
+      about: "Neues Spezifikationselement erstellen"
+      title: "Elementtitel"
+      type: "Typ: func oder tech"
+      description: "Beschreibung (liest von stdin wenn \"-\")"
+      parent: "Übergeordnetes Element-Permalink oder ID"
+      tag: "Tags (kommagetrennt)"
+    update:
+      about: "Spezifikationselement aktualisieren"
+      item: "Element-Permalink (z.B. F-377) oder ID"
+      title: "Neuer Titel"
+      description: "Neue Beschreibung (liest von stdin wenn \"-\")"
+      status: "Neuer Implementierungsstatus"
+      tag: "Tags (kommagetrennt, ersetzt vorhandene)"
+      parent: "Übergeordnetes Element setzen (Permalink oder ID)"
+      no_parent: "Übergeordnetes Element entfernen (Element zur obersten Ebene machen)"
+    edit:
+      about: "Elementbeschreibung in $EDITOR bearbeiten"
+      item: "Element-Permalink (z.B. F-1) oder ID"
+    delete:
+      about: "Spezifikationselement löschen"
+      item: "Element-Permalink oder ID"
+      yes: "Bestätigung überspringen"
+    link:
+      about: "Commit mit einem Spezifikationselement verknüpfen"
+      item: "Element-Permalink (z.B. F-1) oder ID"
+      sha: "Commit-SHA"
+      message: "Commit-Nachricht"
+    record_run:
+      about: "Agentenlauf für ein Spezifikationselement aufzeichnen"
+      item: "Element-Permalink (z.B. F-1) oder ID"
+      model: "Modellname (z.B. claude-opus-4-6)"
+      tokens: "Token-Anzahl"
+      cost: "Kosten in USD"
+      status: "Laufstatus (success, failure)"
+    transition:
+      about: "Spezifikationselement in einen neuen Implementierungsstatus überführen"
+      item: "Element-Permalink (z.B. F-1) oder ID"
+      status: "Neuer Status (not_started, in_progress, implemented, verified, released)"
+
+  edges:
+    about: "Abhängigkeitskanten zwischen Spezifikationselementen verwalten"
+    list:
+      about: "Abhängigkeitskanten auflisten (optional nach Quelle, Ziel oder Typ gefiltert)"
+      source: "Nach Quell-Element-Permalink oder ID filtern (z.B. F-1)"
+      target: "Nach Ziel-Element-Permalink oder ID filtern (z.B. T-5)"
+      type: "Nach Kantentyp filtern (depends_on, implements, tests, blocks, relates_to)"
+      json: "Ausgabe als JSON (überschreibt --format)"
+    link:
+      about: "Abhängigkeitskante zwischen zwei Spezifikationselementen erstellen"
+      source: "Quell-Element-Permalink oder ID (z.B. F-1)"
+      target: "Ziel-Element-Permalink oder ID (z.B. T-5)"
+      type: "Kantentyp: depends_on, implements, tests, blocks, relates_to"
+    unlink:
+      about: "Abhängigkeitskante nach ID löschen (oder nach --source/--target/--type)"
+      edge_id: "Zu löschende Kanten-ID"
+      source: "Quell-Element-Permalink oder ID (zum Finden der Kante)"
+      target: "Ziel-Element-Permalink oder ID (zum Finden der Kante)"
+      type: "Kantentypfilter (zum Finden der Kante)"
+      yes: "Bestätigungsaufforderung überspringen"
+
+  instructions:
+    about: "Live-Agentenanweisungen für das aktuelle Projekt abrufen"
+    raw: "Die vollständige JSON-Antwort statt nur des Inhaltsfelds ausgeben. Hat Vorrang vor --format."
+
+  onboard:
+    about: "Interaktiver Einrichtungsassistent — authentifizieren, konfigurieren und Agentendateien erstellen"
+    non_interactive: "Nicht-interaktiv ausführen (für CI). Erfordert FUNCSPEC_API_KEY oder --api-key."
+    api_key: "API-Schlüssel (überschreibt Umgebungsvariable FUNCSPEC_API_KEY)"
+    set_project: "Standard-Projekt-Slug vorauswählen (interaktive Auswahl überspringen)"
+    skip_llm: "LLM-Agenten-Konfigurationsdatei-Integrationsschritt überspringen"
+    llm_configs: "Pfad zu einer bestimmten zu aktualisierenden LLM-Konfigurationsdatei (wiederholbar)"
+    dry_run: "Anzeigen, was passieren würde, ohne etwas zu schreiben"
+    dir: "Zielverzeichnis für FUNCSPEC.md und LLM-Konfigurationsscanning"
+
+  doctor:
+    about: "Lokale Umgebung prüfen und Gesundheitsbericht anzeigen"
+    json: "Ergebnisse als JSON ausgeben"
+    fix: "Probleme automatisch beheben, wo möglich"
+    yes: "Korrekturen ohne Nachfrage automatisch bestätigen (mit --fix verwenden)"
+    quiet: "Nur Fehler und Warnungen anzeigen"
+    no_color: "ANSI-Farbausgabe deaktivieren (auch über Umgebungsvariable NO_COLOR)"
+    verbose: "Zusätzliche Details für jede Prüfung anzeigen"
+    timeout: "Timeout in Sekunden für jede netzwerkabhängige Prüfung"
+    dir: "Zielverzeichnis für FUNCSPEC.md und LLM-Konfigurationsscanning"
+
+  search:
+    about: "Spezifikationselemente per Volltextsuche suchen"
+    query: "Suchanfragezeichenfolge"
+    type: "Nach Typ filtern: func oder tech"
+    tag: "Nach Tag filtern"
+    json: "Ausgabe als JSON (überschreibt --format)"
+    quiet: "Stiller Modus: nur Permalinks ausgeben, einer pro Zeile (überschreibt --format)"
+    count: "Nur die Anzahl der übereinstimmenden Elemente ausgeben"
+
+  stats:
+    about: "Projektstatistiken und Dashboard anzeigen"
+    json: "Ausgabe als JSON (maschinenlesbar)"
+    usage: "Auf LLM-Nutzungsstatistiken konzentrieren"
+    month: "Monat für Nutzungsstatistiken im YYYY-MM-Format (z.B. 2026-03)"
+
+  export:
+    about: "Projektspezifikation in verschiedenen Formaten exportieren"
+    long_about: "Aktuelle Projektspezifikation als Markdown, JSON, CSV, HTML, PDF oder DOCX exportieren.\nTextformate (md, json, csv) werden an stdout gestreamt, außer -o wird angegeben.\nBinärformate (pdf, docx) erfordern -o oder verwenden <slug>.<ext> als Standard."
+    export_format: "Exportformat (md, json, csv, html, pdf, docx)"
+    output: "Ausgabe in diese Datei statt nach stdout schreiben"
+    type: "Nach Typ filtern: func oder tech"
+    tag: "Nach Tag filtern"
+    open: "Nach dem Schreiben im Browser öffnen (nur HTML)"
+
+  snapshots:
+    about: "Projekt-Snapshots verwalten (Speicher-/Wiederherstellungspunkte)"
+    list:
+      about: "Alle Snapshots des aktuellen Projekts auflisten"
+      json: "Ausgabe als JSON (überschreibt --format)"
+    create:
+      about: "Neuen Snapshot erstellen"
+      name: "Snapshot-Name (z.B. \"pre-v2-refactor\")"
+      description: "Optionale Beschreibung"
+    show:
+      about: "Snapshot-Details und Elementzusammenfassung anzeigen"
+      identifier: "Snapshot-ID oder -Name"
+      json: "Ausgabe als JSON (überschreibt --format)"
+    restore:
+      about: "Projekt auf einen Snapshot zurücksetzen (destruktiv!)"
+      identifier: "Snapshot-ID oder -Name"
+      yes: "Bestätigungsaufforderung überspringen"
+    diff:
+      about: "Anzeigen, was sich seit der Erstellung eines Snapshots geändert hat"
+      identifier: "Snapshot-ID oder -Name"
+      json: "Ausgabe als JSON (überschreibt --format)"
+    delete:
+      about: "Snapshot löschen"
+      identifier: "Snapshot-ID oder -Name"
+      yes: "Bestätigungsaufforderung überspringen"
+
+  view:
+    about: "Projektspezifikation (oder ein bestimmtes Element) im Browser öffnen"
+    long_about: "Aktuelle Projektspezifikationsseite im Standardbrowser öffnen.\nElement-ID (z.B. F-377) übergeben, um direkt zu diesem Element zu springen.\n--url verwenden, um die URL ohne Browsereröffnung auszugeben."
+    item_id: "Zu öffnende Element-ID (z.B. F-377); weglassen, um die vollständige Projektspezifikation anzuzeigen"
+    url: "URL ausgeben statt Browser zu öffnen"
+
+  version:
+    about: "Versionsinformationen anzeigen"
+
+  completion:
+    about: "Shell-Vervollständigungsskripte generieren"
+    shell: "Shell, für die Vervollständigungen generiert werden sollen"

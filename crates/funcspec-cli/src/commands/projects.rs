@@ -1,35 +1,71 @@
 use anyhow::Result;
-use clap::Subcommand;
 use colored::Colorize;
+use rust_i18n::t;
 
 use crate::config::Config;
 use crate::context::client_and_config;
 use crate::output::{self, OutputFormat};
 
-#[derive(Debug, Subcommand)]
 pub enum ProjectsCmd {
-    /// List all projects
-    List {
-        /// Output as JSON (overrides --format)
-        #[arg(long)]
-        json: bool,
-    },
+    List { json: bool },
+    Show { slug: String, json: bool },
+    SetDefault { slug: String },
+}
 
-    /// Show project details
-    Show {
-        /// Project slug or ID
-        slug: String,
+pub fn build_command() -> clap::Command {
+    clap::Command::new("projects")
+        .about(t!("cmd.projects.about").to_string())
+        .arg_required_else_help(true)
+        .subcommand(
+            clap::Command::new("list")
+                .about(t!("cmd.projects.list.about").to_string())
+                .arg(
+                    clap::Arg::new("json")
+                        .long("json")
+                        .action(clap::ArgAction::SetTrue)
+                        .help(t!("cmd.projects.list.json").to_string()),
+                ),
+        )
+        .subcommand(
+            clap::Command::new("show")
+                .about(t!("cmd.projects.show.about").to_string())
+                .arg(clap::Arg::new("slug").required(true).help(t!("cmd.projects.show.slug").to_string()))
+                .arg(
+                    clap::Arg::new("json")
+                        .long("json")
+                        .action(clap::ArgAction::SetTrue)
+                        .help(t!("cmd.projects.show.json").to_string()),
+                ),
+        )
+        .subcommand(
+            clap::Command::new("set-default")
+                .about(t!("cmd.projects.set_default.about").to_string())
+                .arg(
+                    clap::Arg::new("slug")
+                        .required(true)
+                        .help(t!("cmd.projects.set_default.slug").to_string()),
+                ),
+        )
+}
 
-        /// Output as JSON (overrides --format)
-        #[arg(long)]
-        json: bool,
-    },
-
-    /// Set default project for commands
-    SetDefault {
-        /// Project slug (e.g., "funcspec-cli" or "tambit/funcspec-cli")
-        slug: String,
-    },
+pub async fn dispatch(matches: &clap::ArgMatches, format: OutputFormat) -> Result<()> {
+    let cmd = match matches.subcommand() {
+        Some(("list", m)) => ProjectsCmd::List {
+            json: m.get_flag("json"),
+        },
+        Some(("show", m)) => ProjectsCmd::Show {
+            slug: m.get_one::<String>("slug").unwrap().clone(),
+            json: m.get_flag("json"),
+        },
+        Some(("set-default", m)) => ProjectsCmd::SetDefault {
+            slug: m.get_one::<String>("slug").unwrap().clone(),
+        },
+        _ => {
+            build_command().print_help().ok();
+            return Ok(());
+        }
+    };
+    run(cmd, format).await
 }
 
 pub async fn run(cmd: ProjectsCmd, format: OutputFormat) -> Result<()> {
@@ -61,5 +97,39 @@ pub async fn run(cmd: ProjectsCmd, format: OutputFormat) -> Result<()> {
             }
             Ok(())
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn build_command_list_parses() {
+        let cmd = build_command();
+        let m = cmd.try_get_matches_from(["projects", "list"]).unwrap();
+        let sub = m.subcommand_matches("list").unwrap();
+        assert!(!sub.get_flag("json"));
+    }
+
+    #[test]
+    fn build_command_show_parses() {
+        let cmd = build_command();
+        let m = cmd
+            .try_get_matches_from(["projects", "show", "my-slug", "--json"])
+            .unwrap();
+        let sub = m.subcommand_matches("show").unwrap();
+        assert_eq!(sub.get_one::<String>("slug").unwrap(), "my-slug");
+        assert!(sub.get_flag("json"));
+    }
+
+    #[test]
+    fn build_command_set_default_parses() {
+        let cmd = build_command();
+        let m = cmd
+            .try_get_matches_from(["projects", "set-default", "funcspec-cli"])
+            .unwrap();
+        let sub = m.subcommand_matches("set-default").unwrap();
+        assert_eq!(sub.get_one::<String>("slug").unwrap(), "funcspec-cli");
     }
 }

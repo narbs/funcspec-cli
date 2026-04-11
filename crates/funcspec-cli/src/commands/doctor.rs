@@ -3,8 +3,8 @@ use std::time::Duration;
 
 use anyhow::Result;
 use chrono::{DateTime, Utc};
-use clap::Args;
 use console::style;
+use rust_i18n::t;
 use serde::{Deserialize, Serialize};
 
 use crate::config::{Config, LocalConfig};
@@ -26,40 +26,41 @@ const GITHUB_RELEASES_URL: &str =
 const VERSION_CACHE_FILE: &str = "version_cache.json";
 
 /// Arguments for `funcspec doctor`.
-#[derive(Debug, Args)]
-#[command(about = "Check the local environment and show a health report")]
 pub struct DoctorArgs {
-    /// Output results as JSON
-    #[arg(long)]
     pub json: bool,
-
-    /// Automatically fix issues where possible
-    #[arg(long)]
     pub fix: bool,
-
-    /// Auto-confirm fixes without prompting (use with --fix)
-    #[arg(long)]
     pub yes: bool,
-
-    /// Only show failures and warnings
-    #[arg(long)]
     pub quiet: bool,
-
-    /// Disable ANSI color output (also honoured via NO_COLOR env var)
-    #[arg(long)]
     pub no_color: bool,
-
-    /// Show additional detail for each check
-    #[arg(long)]
     pub verbose: bool,
-
-    /// Timeout in seconds for each network-dependent check
-    #[arg(long, default_value = "10")]
     pub timeout: u64,
-
-    /// Target directory for FUNCSPEC.md and LLM config scanning
-    #[arg(long, default_value = ".")]
     pub dir: PathBuf,
+}
+
+pub fn build_command() -> clap::Command {
+    clap::Command::new("doctor")
+        .about(t!("cmd.doctor.about").to_string())
+        .arg(clap::Arg::new("json").long("json").action(clap::ArgAction::SetTrue).help(t!("cmd.doctor.json").to_string()))
+        .arg(clap::Arg::new("fix").long("fix").action(clap::ArgAction::SetTrue).help(t!("cmd.doctor.fix").to_string()))
+        .arg(clap::Arg::new("yes").long("yes").action(clap::ArgAction::SetTrue).help(t!("cmd.doctor.yes").to_string()))
+        .arg(clap::Arg::new("quiet").long("quiet").action(clap::ArgAction::SetTrue).help(t!("cmd.doctor.quiet").to_string()))
+        .arg(clap::Arg::new("no_color").long("no-color").action(clap::ArgAction::SetTrue).help(t!("cmd.doctor.no_color").to_string()))
+        .arg(clap::Arg::new("check_verbose").long("check-verbose").action(clap::ArgAction::SetTrue).help(t!("cmd.doctor.verbose").to_string()))
+        .arg(clap::Arg::new("timeout").long("timeout").value_parser(clap::value_parser!(u64)).default_value("10").help(t!("cmd.doctor.timeout").to_string()))
+        .arg(clap::Arg::new("dir").long("dir").value_parser(clap::value_parser!(PathBuf)).default_value(".").help(t!("cmd.doctor.dir").to_string()))
+}
+
+pub fn from_arg_matches(matches: &clap::ArgMatches) -> DoctorArgs {
+    DoctorArgs {
+        json: matches.get_flag("json"),
+        fix: matches.get_flag("fix"),
+        yes: matches.get_flag("yes"),
+        quiet: matches.get_flag("quiet"),
+        no_color: matches.get_flag("no_color"),
+        verbose: matches.get_flag("check_verbose"),
+        timeout: matches.get_one::<u64>("timeout").copied().unwrap_or(10),
+        dir: matches.get_one::<PathBuf>("dir").cloned().unwrap_or_else(|| PathBuf::from(".")),
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]

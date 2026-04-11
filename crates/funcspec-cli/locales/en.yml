@@ -1,0 +1,240 @@
+cli:
+  about: "Command-line interface for FuncSpec — AI-driven spec management"
+  verbose: "Enable verbose output (HTTP requests/responses)"
+  debug: "Enable debug output (full headers, bodies, timing)"
+  format: "Output format (default: table when TTY, json when piped)"
+  project: "Project ID, slug, or org/project slug (overrides default project)"
+  help: "Print help"
+  version_flag: "Print version"
+
+cmd:
+  ai:
+    about: "AI-powered review, improvement, generation, and audit operations"
+    review:
+      about: "Trigger AI review of a single spec item; shows score, verdict, coverage map, and gaps"
+      permalink: "Item permalink (e.g. F-5)"
+    review_all:
+      about: "Trigger batch AI review of all items in the project (async, polls until complete)"
+    improve:
+      about: "Propose an AI-generated improvement for a spec item; shows diff and prompts accept/reject"
+      permalink: "Item permalink (e.g. F-5)"
+      auto_accept: "Auto-accept the proposal without interactive prompting"
+    generate:
+      about: "Generate technical spec proposals from a functional item"
+      permalink: "Item permalink (e.g. F-5)"
+    audit:
+      about: "Run a code audit on a spec item and show coverage and results"
+      permalink: "Item permalink (e.g. F-5)"
+
+  auth:
+    about: "Manage authentication and credentials"
+    login:
+      about: "Log in to a FuncSpec instance"
+      host: "Host URL (default: https://funcspec.net)"
+      key: "API key (or set FUNCSPEC_API_KEY env var)"
+      profile: "Profile name to save credentials under"
+    logout:
+      about: "Log out and remove stored credentials"
+      profile: "Profile to remove"
+    status:
+      about: "Show current authentication status"
+
+  config:
+    about: "Manage configuration values"
+    set:
+      about: "Set a configuration value"
+      key: "Key to set (e.g. project, host, api_key)"
+      value: "Value to set"
+      local: "Write to .funcspec in the current directory instead of global config"
+    get:
+      about: "Get a configuration value"
+      key: "Key to get"
+    list:
+      about: "List all configuration values"
+    set_profile:
+      about: "Switch the active profile"
+      name: "Profile name to activate"
+
+  projects:
+    about: "List and manage projects"
+    list:
+      about: "List all projects"
+      json: "Output as JSON (overrides --format)"
+    show:
+      about: "Show project details"
+      slug: "Project slug or ID"
+      json: "Output as JSON (overrides --format)"
+    set_default:
+      about: "Set default project for commands"
+      slug: "Project slug (e.g., \"funcspec-cli\" or \"tambit/funcspec-cli\")"
+
+  items:
+    about: "Manage spec items (functional and technical)"
+    list:
+      about: "List spec items"
+      type: "Filter by type: func or tech"
+      status: "Filter by implementation status"
+      tag: "Filter by tag"
+      q: "Search query"
+      has_review: "Filter: only items with reviews"
+      review_verdict: "Filter by review verdict"
+      parent: "Filter by parent item (permalink or ID)"
+      page: "Page number"
+      per: "Items per page"
+      sort: "Sort field: score, title, created_at, updated_at, permalink"
+      json: "Output as JSON (overrides --format)"
+      quiet: "Quiet mode: only output permalinks (overrides --format)"
+      bare: "Bare TSV output without borders or headers (overrides --format)"
+      count: "Output only the count of matching items"
+    show:
+      about: "Show item details"
+      item: "Item permalink (e.g., F-1) or ID"
+      json: "Output as JSON (overrides --format)"
+    create:
+      about: "Create a new spec item"
+      title: "Item title"
+      type: "Type: func or tech"
+      description: "Description (reads from stdin if \"-\")"
+      parent: "Parent item permalink or ID"
+      tag: "Tags (comma-separated)"
+    update:
+      about: "Update a spec item"
+      item: "Item permalink (e.g., F-377) or ID"
+      title: "New title"
+      description: "New description (reads from stdin if \"-\")"
+      status: "New implementation status"
+      tag: "Tags (comma-separated, replaces existing)"
+      parent: "Set parent item (permalink or ID)"
+      no_parent: "Remove parent (make item top-level)"
+    edit:
+      about: "Edit item description in $EDITOR"
+      item: "Item permalink (e.g., F-1) or ID"
+    delete:
+      about: "Delete a spec item"
+      item: "Item permalink or ID"
+      yes: "Skip confirmation"
+    link:
+      about: "Link a commit to a spec item"
+      item: "Item permalink (e.g., F-1) or ID"
+      sha: "Commit SHA"
+      message: "Commit message"
+    record_run:
+      about: "Record an agent run for a spec item"
+      item: "Item permalink (e.g., F-1) or ID"
+      model: "Model name (e.g. claude-opus-4-6)"
+      tokens: "Token count"
+      cost: "Cost in USD"
+      status: "Run status (success, failure)"
+    transition:
+      about: "Transition a spec item to a new implementation status"
+      item: "Item permalink (e.g., F-1) or ID"
+      status: "New status (not_started, in_progress, implemented, verified, released)"
+
+  edges:
+    about: "Manage dependency edges between spec items"
+    list:
+      about: "List dependency edges (optionally filtered by source, target, or type)"
+      source: "Filter by source item permalink or ID (e.g. F-1)"
+      target: "Filter by target item permalink or ID (e.g. T-5)"
+      type: "Filter by edge type (depends_on, implements, tests, blocks, relates_to)"
+      json: "Output as JSON (overrides --format)"
+    link:
+      about: "Create a dependency edge between two spec items"
+      source: "Source item permalink or ID (e.g. F-1)"
+      target: "Target item permalink or ID (e.g. T-5)"
+      type: "Edge type: depends_on, implements, tests, blocks, relates_to"
+    unlink:
+      about: "Delete a dependency edge by ID (or by --source/--target/--type)"
+      edge_id: "Edge ID to delete"
+      source: "Source item permalink or ID (used to find the edge)"
+      target: "Target item permalink or ID (used to find the edge)"
+      type: "Edge type filter (used to find the edge)"
+      yes: "Skip confirmation prompt"
+
+  instructions:
+    about: "Fetch live agent instructions for the current project"
+    raw: "Print the full JSON response instead of just the content field. Takes precedence over --format."
+
+  onboard:
+    about: "Interactive setup wizard — authenticate, configure, and scaffold agent files"
+    non_interactive: "Run non-interactively (for CI). Requires FUNCSPEC_API_KEY or --api-key."
+    api_key: "API key (overrides FUNCSPEC_API_KEY env var)"
+    set_project: "Pre-select default project slug (skip interactive selection)"
+    skip_llm: "Skip LLM agent config file integration step"
+    llm_configs: "Path to a specific LLM config file to update (repeatable)"
+    dry_run: "Show what would happen without writing anything"
+    dir: "Target directory for FUNCSPEC.md and LLM config scanning"
+
+  doctor:
+    about: "Check the local environment and show a health report"
+    json: "Output results as JSON"
+    fix: "Automatically fix issues where possible"
+    yes: "Auto-confirm fixes without prompting (use with --fix)"
+    quiet: "Only show failures and warnings"
+    no_color: "Disable ANSI color output (also honoured via NO_COLOR env var)"
+    verbose: "Show additional detail for each check"
+    timeout: "Timeout in seconds for each network-dependent check"
+    dir: "Target directory for FUNCSPEC.md and LLM config scanning"
+
+  search:
+    about: "Search spec items by full-text query"
+    query: "Search query string"
+    type: "Filter by type: func or tech"
+    tag: "Filter by tag"
+    json: "Output as JSON (overrides --format)"
+    quiet: "Quiet mode: output only permalinks, one per line (overrides --format)"
+    count: "Output just the count of matching items"
+
+  stats:
+    about: "Show project stats and dashboard"
+    json: "Output as JSON (machine-readable)"
+    usage: "Focus on LLM usage stats"
+    month: "Month for usage stats in YYYY-MM format (e.g. 2026-03)"
+
+  export:
+    about: "Export project spec in various formats"
+    long_about: "Export the current project spec as markdown, JSON, CSV, HTML, PDF, or DOCX.\nText formats (md, json, csv) stream to stdout unless -o is given.\nBinary formats (pdf, docx) require -o or default to <slug>.<ext>."
+    export_format: "Export format (md, json, csv, html, pdf, docx)"
+    output: "Write output to this file instead of stdout"
+    type: "Filter by type: func or tech"
+    tag: "Filter by tag"
+    open: "Open in browser after writing (HTML only)"
+
+  snapshots:
+    about: "Manage project snapshots (save/restore points)"
+    list:
+      about: "List all snapshots for the current project"
+      json: "Output as JSON (overrides --format)"
+    create:
+      about: "Create a new snapshot"
+      name: "Snapshot name (e.g. \"pre-v2-refactor\")"
+      description: "Optional description"
+    show:
+      about: "Show snapshot details and item summary"
+      identifier: "Snapshot ID or name"
+      json: "Output as JSON (overrides --format)"
+    restore:
+      about: "Restore project to a snapshot (destructive!)"
+      identifier: "Snapshot ID or name"
+      yes: "Skip confirmation prompt"
+    diff:
+      about: "Show what changed since a snapshot was taken"
+      identifier: "Snapshot ID or name"
+      json: "Output as JSON (overrides --format)"
+    delete:
+      about: "Delete a snapshot"
+      identifier: "Snapshot ID or name"
+      yes: "Skip confirmation prompt"
+
+  view:
+    about: "Open project spec (or a specific item) in the browser"
+    long_about: "Open the current project's spec page in the default browser.\nPass an item ID (e.g. F-377) to jump directly to that item.\nUse --url to print the URL without opening a browser."
+    item_id: "Item ID to open (e.g. F-377); omit to view the full project spec"
+    url: "Print the URL instead of opening the browser"
+
+  version:
+    about: "Show version information"
+
+  completion:
+    about: "Generate shell completion scripts"
+    shell: "Shell to generate completions for"

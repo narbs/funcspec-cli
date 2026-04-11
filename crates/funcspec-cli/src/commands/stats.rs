@@ -1,24 +1,45 @@
 use anyhow::{Context, Result, bail};
-use clap::Args;
+use rust_i18n::t;
 
 use crate::context::client_and_config;
 use crate::output::{self, OutputFormat};
 
 /// Arguments for the `funcspec stats` command.
-#[derive(Debug, Args)]
-#[command(about = "Show project stats and dashboard")]
 pub struct StatsArgs {
-    /// Output as JSON (machine-readable)
-    #[arg(long)]
     pub json: bool,
-
-    /// Focus on LLM usage stats
-    #[arg(long)]
     pub usage: bool,
-
-    /// Month for usage stats in YYYY-MM format (e.g. 2026-03)
-    #[arg(long, value_name = "YYYY-MM")]
     pub month: Option<String>,
+}
+
+pub fn build_command() -> clap::Command {
+    clap::Command::new("stats")
+        .about(t!("cmd.stats.about").to_string())
+        .arg(
+            clap::Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help(t!("cmd.stats.json").to_string()),
+        )
+        .arg(
+            clap::Arg::new("usage")
+                .long("usage")
+                .action(clap::ArgAction::SetTrue)
+                .help(t!("cmd.stats.usage").to_string()),
+        )
+        .arg(
+            clap::Arg::new("month")
+                .long("month")
+                .value_name("YYYY-MM")
+                .help(t!("cmd.stats.month").to_string()),
+        )
+}
+
+pub fn from_arg_matches(matches: &clap::ArgMatches) -> StatsArgs {
+    StatsArgs {
+        json: matches.get_flag("json"),
+        usage: matches.get_flag("usage"),
+        month: matches.get_one::<String>("month").cloned(),
+    }
 }
 
 pub async fn run(args: StatsArgs, _format: OutputFormat) -> Result<()> {
@@ -134,7 +155,6 @@ mod tests {
 
     #[test]
     fn stats_args_defaults() {
-        // Verify the struct can be constructed with defaults
         let args = StatsArgs {
             json: false,
             usage: false,
@@ -155,5 +175,24 @@ mod tests {
         assert!(args.json);
         assert!(args.usage);
         assert_eq!(args.month.as_deref(), Some("2026-03"));
+    }
+
+    #[test]
+    fn build_command_parses_month() {
+        let cmd = build_command();
+        let m = cmd
+            .try_get_matches_from(["stats", "--month", "2026-03"])
+            .unwrap();
+        assert_eq!(m.get_one::<String>("month").unwrap(), "2026-03");
+    }
+
+    #[test]
+    fn build_command_parses_flags() {
+        let cmd = build_command();
+        let m = cmd
+            .try_get_matches_from(["stats", "--json", "--usage"])
+            .unwrap();
+        assert!(m.get_flag("json"));
+        assert!(m.get_flag("usage"));
     }
 }

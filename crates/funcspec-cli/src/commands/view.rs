@@ -1,23 +1,35 @@
 use anyhow::{Context, Result};
-use clap::Args;
+use rust_i18n::t;
 
 use crate::context::client_and_config;
 
 /// Arguments for `funcspec view`.
-#[derive(Debug, Args)]
-#[command(
-    about = "Open project spec (or a specific item) in the browser",
-    long_about = "Open the current project's spec page in the default browser.\n\
-                  Pass an item ID (e.g. F-377) to jump directly to that item.\n\
-                  Use --url to print the URL without opening a browser."
-)]
 pub struct ViewArgs {
-    /// Item ID to open (e.g. F-377); omit to view the full project spec
     pub item_id: Option<String>,
-
-    /// Print the URL instead of opening the browser
-    #[arg(long)]
     pub url: bool,
+}
+
+pub fn build_command() -> clap::Command {
+    clap::Command::new("view")
+        .about(t!("cmd.view.about").to_string())
+        .long_about(t!("cmd.view.long_about").to_string())
+        .arg(
+            clap::Arg::new("item_id")
+                .help(t!("cmd.view.item_id").to_string()),
+        )
+        .arg(
+            clap::Arg::new("url")
+                .long("url")
+                .action(clap::ArgAction::SetTrue)
+                .help(t!("cmd.view.url").to_string()),
+        )
+}
+
+pub fn from_arg_matches(matches: &clap::ArgMatches) -> ViewArgs {
+    ViewArgs {
+        item_id: matches.get_one::<String>("item_id").cloned(),
+        url: matches.get_flag("url"),
+    }
 }
 
 pub async fn run(args: ViewArgs) -> Result<()> {
@@ -84,7 +96,6 @@ mod tests {
 
     #[test]
     fn view_args_defaults() {
-        // item_id defaults to None, url defaults to false
         let args = ViewArgs {
             item_id: None,
             url: false,
@@ -109,5 +120,27 @@ mod tests {
             url: true,
         };
         assert!(args.url);
+    }
+
+    #[test]
+    fn build_command_parses_url_flag() {
+        let cmd = build_command();
+        let m = cmd.try_get_matches_from(["view", "--url"]).unwrap();
+        assert!(m.get_flag("url"));
+    }
+
+    #[test]
+    fn build_command_parses_item_id() {
+        let cmd = build_command();
+        let m = cmd.try_get_matches_from(["view", "F-377"]).unwrap();
+        assert_eq!(m.get_one::<String>("item_id").unwrap(), "F-377");
+    }
+
+    #[test]
+    fn build_command_no_args() {
+        let cmd = build_command();
+        let m = cmd.try_get_matches_from(["view"]).unwrap();
+        assert!(m.get_one::<String>("item_id").is_none());
+        assert!(!m.get_flag("url"));
     }
 }

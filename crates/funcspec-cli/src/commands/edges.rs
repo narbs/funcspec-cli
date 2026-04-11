@@ -1,69 +1,89 @@
 use anyhow::{Result, bail};
-use clap::Subcommand;
 use console::style;
 use funcspec_client::models::*;
+use rust_i18n::t;
 use std::collections::HashMap;
 
 use crate::context::client_and_project;
 use crate::output::{self, OutputFormat};
 
-#[derive(Debug, Subcommand)]
 pub enum EdgesCmd {
-    /// List dependency edges (optionally filtered by source, target, or type)
     List {
-        /// Filter by source item permalink or ID (e.g. F-1)
-        #[arg(long)]
         source: Option<String>,
-
-        /// Filter by target item permalink or ID (e.g. T-5)
-        #[arg(long)]
         target: Option<String>,
-
-        /// Filter by edge type (depends_on, implements, tests, blocks, relates_to)
-        #[arg(long, value_name = "TYPE")]
         r#type: Option<String>,
-
-        /// Output as JSON (overrides --format)
-        #[arg(long)]
         json: bool,
     },
-
-    /// Create a dependency edge between two spec items
     Link {
-        /// Source item permalink or ID (e.g. F-1)
-        #[arg(long, required = true)]
         source: String,
-
-        /// Target item permalink or ID (e.g. T-5)
-        #[arg(long, required = true)]
         target: String,
-
-        /// Edge type: depends_on, implements, tests, blocks, relates_to
-        #[arg(long, value_name = "TYPE", required = true)]
         r#type: String,
     },
-
-    /// Delete a dependency edge by ID (or by --source/--target/--type)
     Unlink {
-        /// Edge ID to delete
         edge_id: Option<u64>,
-
-        /// Source item permalink or ID (used to find the edge)
-        #[arg(long)]
         source: Option<String>,
-
-        /// Target item permalink or ID (used to find the edge)
-        #[arg(long)]
         target: Option<String>,
-
-        /// Edge type filter (used to find the edge)
-        #[arg(long, value_name = "TYPE")]
         r#type: Option<String>,
-
-        /// Skip confirmation prompt
-        #[arg(long, short)]
         yes: bool,
     },
+}
+
+pub fn build_command() -> clap::Command {
+    clap::Command::new("edges")
+        .about(t!("cmd.edges.about").to_string())
+        .arg_required_else_help(true)
+        .subcommand(
+            clap::Command::new("list")
+                .about(t!("cmd.edges.list.about").to_string())
+                .arg(clap::Arg::new("source").long("source").help(t!("cmd.edges.list.source").to_string()))
+                .arg(clap::Arg::new("target").long("target").help(t!("cmd.edges.list.target").to_string()))
+                .arg(clap::Arg::new("type").long("type").value_name("TYPE").help(t!("cmd.edges.list.type").to_string()))
+                .arg(clap::Arg::new("json").long("json").action(clap::ArgAction::SetTrue).help(t!("cmd.edges.list.json").to_string())),
+        )
+        .subcommand(
+            clap::Command::new("link")
+                .about(t!("cmd.edges.link.about").to_string())
+                .arg(clap::Arg::new("source").long("source").required(true).help(t!("cmd.edges.link.source").to_string()))
+                .arg(clap::Arg::new("target").long("target").required(true).help(t!("cmd.edges.link.target").to_string()))
+                .arg(clap::Arg::new("type").long("type").value_name("TYPE").required(true).help(t!("cmd.edges.link.type").to_string())),
+        )
+        .subcommand(
+            clap::Command::new("unlink")
+                .about(t!("cmd.edges.unlink.about").to_string())
+                .arg(clap::Arg::new("edge_id").value_parser(clap::value_parser!(u64)).help(t!("cmd.edges.unlink.edge_id").to_string()))
+                .arg(clap::Arg::new("source").long("source").help(t!("cmd.edges.unlink.source").to_string()))
+                .arg(clap::Arg::new("target").long("target").help(t!("cmd.edges.unlink.target").to_string()))
+                .arg(clap::Arg::new("type").long("type").value_name("TYPE").help(t!("cmd.edges.unlink.type").to_string()))
+                .arg(clap::Arg::new("yes").long("yes").short('y').action(clap::ArgAction::SetTrue).help(t!("cmd.edges.unlink.yes").to_string())),
+        )
+}
+
+pub async fn dispatch(matches: &clap::ArgMatches, format: OutputFormat) -> Result<()> {
+    let cmd = match matches.subcommand() {
+        Some(("list", m)) => EdgesCmd::List {
+            source: m.get_one::<String>("source").cloned(),
+            target: m.get_one::<String>("target").cloned(),
+            r#type: m.get_one::<String>("type").cloned(),
+            json: m.get_flag("json"),
+        },
+        Some(("link", m)) => EdgesCmd::Link {
+            source: m.get_one::<String>("source").unwrap().clone(),
+            target: m.get_one::<String>("target").unwrap().clone(),
+            r#type: m.get_one::<String>("type").unwrap().clone(),
+        },
+        Some(("unlink", m)) => EdgesCmd::Unlink {
+            edge_id: m.get_one::<u64>("edge_id").copied(),
+            source: m.get_one::<String>("source").cloned(),
+            target: m.get_one::<String>("target").cloned(),
+            r#type: m.get_one::<String>("type").cloned(),
+            yes: m.get_flag("yes"),
+        },
+        _ => {
+            build_command().print_help().ok();
+            return Ok(());
+        }
+    };
+    run(cmd, format).await
 }
 
 pub async fn run(cmd: EdgesCmd, format: OutputFormat) -> Result<()> {
@@ -297,7 +317,6 @@ mod tests {
 
     #[test]
     fn unlink_format_override_json_flag() {
-        // json=true overrides any global format to Json
         let fmt = if true {
             OutputFormat::Json
         } else {
@@ -308,25 +327,33 @@ mod tests {
 
     #[test]
     fn edges_list_cmd_parses_source_target() {
-        // Verify the struct fields are accessible with expected types
-        let cmd = EdgesCmd::List {
-            source: Some("F-1".to_string()),
-            target: Some("T-5".to_string()),
-            r#type: Some("implements".to_string()),
-            json: false,
-        };
-        match cmd {
-            EdgesCmd::List {
-                source,
-                target,
-                r#type,
-                ..
-            } => {
-                assert_eq!(source.as_deref(), Some("F-1"));
-                assert_eq!(target.as_deref(), Some("T-5"));
-                assert_eq!(r#type.as_deref(), Some("implements"));
-            }
-            _ => panic!("wrong variant"),
-        }
+        let cmd = build_command();
+        let m = cmd
+            .try_get_matches_from(["edges", "list", "--source", "F-1", "--target", "T-5", "--type", "implements"])
+            .unwrap();
+        let sub = m.subcommand_matches("list").unwrap();
+        assert_eq!(sub.get_one::<String>("source").unwrap(), "F-1");
+        assert_eq!(sub.get_one::<String>("target").unwrap(), "T-5");
+        assert_eq!(sub.get_one::<String>("type").unwrap(), "implements");
+    }
+
+    #[test]
+    fn build_command_link_requires_source_target_type() {
+        let cmd = build_command();
+        assert!(cmd
+            .try_get_matches_from(["edges", "link", "--source", "F-1"])
+            .is_err());
+    }
+
+    #[test]
+    fn build_command_link_parses() {
+        let cmd = build_command();
+        let m = cmd
+            .try_get_matches_from(["edges", "link", "--source", "F-1", "--target", "T-5", "--type", "implements"])
+            .unwrap();
+        let sub = m.subcommand_matches("link").unwrap();
+        assert_eq!(sub.get_one::<String>("source").unwrap(), "F-1");
+        assert_eq!(sub.get_one::<String>("target").unwrap(), "T-5");
+        assert_eq!(sub.get_one::<String>("type").unwrap(), "implements");
     }
 }
