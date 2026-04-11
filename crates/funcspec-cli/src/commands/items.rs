@@ -60,57 +60,204 @@ pub fn build_command() -> clap::Command {
         .subcommand(
             clap::Command::new("list")
                 .about(t!("cmd.items.list.about").to_string())
-                .arg(clap::Arg::new("type").long("type").short('t').help(t!("cmd.items.list.type").to_string()))
-                .arg(clap::Arg::new("status").long("status").short('s').help(t!("cmd.items.list.status").to_string()))
-                .arg(clap::Arg::new("tag").long("tag").help(t!("cmd.items.list.tag").to_string()))
-                .arg(clap::Arg::new("q").long("q").short('q').help(t!("cmd.items.list.q").to_string()))
-                .arg(clap::Arg::new("has_review").long("has-review").action(clap::ArgAction::SetTrue).help(t!("cmd.items.list.has_review").to_string()))
-                .arg(clap::Arg::new("review_verdict").long("review-verdict").help(t!("cmd.items.list.review_verdict").to_string()))
-                .arg(clap::Arg::new("parent").long("parent").help(t!("cmd.items.list.parent").to_string()))
-                .arg(clap::Arg::new("page").long("page").value_parser(clap::value_parser!(u32)).default_value("1").help(t!("cmd.items.list.page").to_string()))
-                .arg(clap::Arg::new("per").long("per").value_parser(clap::value_parser!(u32)).default_value("25").help(t!("cmd.items.list.per").to_string()))
-                .arg(clap::Arg::new("sort").long("sort").help(t!("cmd.items.list.sort").to_string()))
-                .arg(clap::Arg::new("json").long("json").action(clap::ArgAction::SetTrue).help(t!("cmd.items.list.json").to_string()))
-                .arg(clap::Arg::new("quiet").long("quiet").action(clap::ArgAction::SetTrue).help(t!("cmd.items.list.quiet").to_string()))
-                .arg(clap::Arg::new("bare").long("bare").action(clap::ArgAction::SetTrue).help(t!("cmd.items.list.bare").to_string()))
-                .arg(clap::Arg::new("count").long("count").action(clap::ArgAction::SetTrue).help(t!("cmd.items.list.count").to_string())),
+                .arg(
+                    clap::Arg::new("type")
+                        .long("type")
+                        .short('t')
+                        .help(t!("cmd.items.list.type").to_string()),
+                )
+                .arg(
+                    clap::Arg::new("status")
+                        .long("status")
+                        .short('s')
+                        .help(t!("cmd.items.list.status").to_string()),
+                )
+                .arg(
+                    clap::Arg::new("tag")
+                        .long("tag")
+                        .help(t!("cmd.items.list.tag").to_string()),
+                )
+                .arg(
+                    clap::Arg::new("q")
+                        .long("q")
+                        .short('q')
+                        .help(t!("cmd.items.list.q").to_string()),
+                )
+                .arg(
+                    clap::Arg::new("has_review")
+                        .long("has-review")
+                        .action(clap::ArgAction::SetTrue)
+                        .help(t!("cmd.items.list.has_review").to_string()),
+                )
+                .arg(
+                    clap::Arg::new("review_verdict")
+                        .long("review-verdict")
+                        .help(t!("cmd.items.list.review_verdict").to_string()),
+                )
+                .arg(
+                    clap::Arg::new("parent")
+                        .long("parent")
+                        .help(t!("cmd.items.list.parent").to_string()),
+                )
+                .arg(
+                    clap::Arg::new("page")
+                        .long("page")
+                        .value_parser(clap::value_parser!(u32))
+                        .default_value("1")
+                        .help(t!("cmd.items.list.page").to_string()),
+                )
+                .arg(
+                    clap::Arg::new("per")
+                        .long("per")
+                        .value_parser(clap::value_parser!(u32))
+                        .default_value("25")
+                        .help(t!("cmd.items.list.per").to_string()),
+                )
+                .arg(
+                    clap::Arg::new("sort")
+                        .long("sort")
+                        .help(t!("cmd.items.list.sort").to_string()),
+                )
+                .arg(
+                    clap::Arg::new("json")
+                        .long("json")
+                        .action(clap::ArgAction::SetTrue)
+                        .help(t!("cmd.items.list.json").to_string()),
+                )
+                .arg(
+                    clap::Arg::new("quiet")
+                        .long("quiet")
+                        .action(clap::ArgAction::SetTrue)
+                        .help(t!("cmd.items.list.quiet").to_string()),
+                )
+                .arg(
+                    clap::Arg::new("bare")
+                        .long("bare")
+                        .action(clap::ArgAction::SetTrue)
+                        .help(t!("cmd.items.list.bare").to_string()),
+                )
+                .arg(
+                    clap::Arg::new("count")
+                        .long("count")
+                        .action(clap::ArgAction::SetTrue)
+                        .help(t!("cmd.items.list.count").to_string()),
+                ),
         )
         .subcommand(
             clap::Command::new("show")
                 .about(t!("cmd.items.show.about").to_string())
-                .arg(clap::Arg::new("item").required(true).help(t!("cmd.items.show.item").to_string()))
-                .arg(clap::Arg::new("json").long("json").action(clap::ArgAction::SetTrue).help(t!("cmd.items.show.json").to_string())),
+                .arg(
+                    clap::Arg::new("item")
+                        .required(true)
+                        .help(t!("cmd.items.show.item").to_string()),
+                )
+                .arg(
+                    clap::Arg::new("json")
+                        .long("json")
+                        .action(clap::ArgAction::SetTrue)
+                        .help(t!("cmd.items.show.json").to_string()),
+                ),
         )
         .subcommand(
             clap::Command::new("create")
                 .about(t!("cmd.items.create.about").to_string())
-                .arg(clap::Arg::new("title").long("title").required(true).help(t!("cmd.items.create.title").to_string()))
-                .arg(clap::Arg::new("type").long("type").short('t').default_value("func").help(t!("cmd.items.create.type").to_string()))
-                .arg(clap::Arg::new("description").long("description").short('d').help(t!("cmd.items.create.description").to_string()))
-                .arg(clap::Arg::new("parent").long("parent").help(t!("cmd.items.create.parent").to_string()))
-                .arg(clap::Arg::new("tag").long("tag").help(t!("cmd.items.create.tag").to_string())),
+                .arg(
+                    clap::Arg::new("title")
+                        .long("title")
+                        .required(true)
+                        .help(t!("cmd.items.create.title").to_string()),
+                )
+                .arg(
+                    clap::Arg::new("type")
+                        .long("type")
+                        .short('t')
+                        .default_value("func")
+                        .help(t!("cmd.items.create.type").to_string()),
+                )
+                .arg(
+                    clap::Arg::new("description")
+                        .long("description")
+                        .short('d')
+                        .help(t!("cmd.items.create.description").to_string()),
+                )
+                .arg(
+                    clap::Arg::new("parent")
+                        .long("parent")
+                        .help(t!("cmd.items.create.parent").to_string()),
+                )
+                .arg(
+                    clap::Arg::new("tag")
+                        .long("tag")
+                        .help(t!("cmd.items.create.tag").to_string()),
+                ),
         )
         .subcommand(
             clap::Command::new("update")
                 .about(t!("cmd.items.update.about").to_string())
-                .arg(clap::Arg::new("item").required(true).help(t!("cmd.items.update.item").to_string()))
-                .arg(clap::Arg::new("title").long("title").help(t!("cmd.items.update.title").to_string()))
-                .arg(clap::Arg::new("description").long("description").short('d').help(t!("cmd.items.update.description").to_string()))
-                .arg(clap::Arg::new("status").long("status").short('s').help(t!("cmd.items.update.status").to_string()))
-                .arg(clap::Arg::new("tag").long("tag").help(t!("cmd.items.update.tag").to_string()))
-                .arg(clap::Arg::new("parent").long("parent").conflicts_with("no_parent").help(t!("cmd.items.update.parent").to_string()))
-                .arg(clap::Arg::new("no_parent").long("no-parent").action(clap::ArgAction::SetTrue).help(t!("cmd.items.update.no_parent").to_string())),
+                .arg(
+                    clap::Arg::new("item")
+                        .required(true)
+                        .help(t!("cmd.items.update.item").to_string()),
+                )
+                .arg(
+                    clap::Arg::new("title")
+                        .long("title")
+                        .help(t!("cmd.items.update.title").to_string()),
+                )
+                .arg(
+                    clap::Arg::new("description")
+                        .long("description")
+                        .short('d')
+                        .help(t!("cmd.items.update.description").to_string()),
+                )
+                .arg(
+                    clap::Arg::new("status")
+                        .long("status")
+                        .short('s')
+                        .help(t!("cmd.items.update.status").to_string()),
+                )
+                .arg(
+                    clap::Arg::new("tag")
+                        .long("tag")
+                        .help(t!("cmd.items.update.tag").to_string()),
+                )
+                .arg(
+                    clap::Arg::new("parent")
+                        .long("parent")
+                        .conflicts_with("no_parent")
+                        .help(t!("cmd.items.update.parent").to_string()),
+                )
+                .arg(
+                    clap::Arg::new("no_parent")
+                        .long("no-parent")
+                        .action(clap::ArgAction::SetTrue)
+                        .help(t!("cmd.items.update.no_parent").to_string()),
+                ),
         )
         .subcommand(
             clap::Command::new("edit")
                 .about(t!("cmd.items.edit.about").to_string())
-                .arg(clap::Arg::new("item").required(true).help(t!("cmd.items.edit.item").to_string())),
+                .arg(
+                    clap::Arg::new("item")
+                        .required(true)
+                        .help(t!("cmd.items.edit.item").to_string()),
+                ),
         )
         .subcommand(
             clap::Command::new("delete")
                 .about(t!("cmd.items.delete.about").to_string())
-                .arg(clap::Arg::new("item").required(true).help(t!("cmd.items.delete.item").to_string()))
-                .arg(clap::Arg::new("yes").long("yes").short('y').action(clap::ArgAction::SetTrue).help(t!("cmd.items.delete.yes").to_string())),
+                .arg(
+                    clap::Arg::new("item")
+                        .required(true)
+                        .help(t!("cmd.items.delete.item").to_string()),
+                )
+                .arg(
+                    clap::Arg::new("yes")
+                        .long("yes")
+                        .short('y')
+                        .action(clap::ArgAction::SetTrue)
+                        .help(t!("cmd.items.delete.yes").to_string()),
+                ),
         )
 }
 
@@ -587,8 +734,9 @@ mod tests {
     #[test]
     fn build_command_update_parent_conflicts_no_parent() {
         let cmd = build_command();
-        assert!(cmd
-            .try_get_matches_from(["items", "update", "F-5", "--parent", "F-1", "--no-parent"])
-            .is_err());
+        assert!(
+            cmd.try_get_matches_from(["items", "update", "F-5", "--parent", "F-1", "--no-parent"])
+                .is_err()
+        );
     }
 }

@@ -53,9 +53,7 @@ pub fn build_command() -> clap::Command {
                         .help(t!("cmd.auth.logout.profile").to_string()),
                 ),
         )
-        .subcommand(
-            clap::Command::new("status").about(t!("cmd.auth.status.about").to_string()),
-        )
+        .subcommand(clap::Command::new("status").about(t!("cmd.auth.status.about").to_string()))
 }
 
 pub async fn dispatch(matches: &clap::ArgMatches) -> Result<()> {
@@ -212,11 +210,12 @@ mod tests {
     #[test]
     fn build_command_login_parses_defaults() {
         let cmd = build_command();
-        let m = cmd
-            .try_get_matches_from(["auth", "login"])
-            .unwrap();
+        let m = cmd.try_get_matches_from(["auth", "login"]).unwrap();
         let sub = m.subcommand_matches("login").unwrap();
-        assert_eq!(sub.get_one::<String>("host").unwrap(), "https://funcspec.net");
+        assert_eq!(
+            sub.get_one::<String>("host").unwrap(),
+            "https://funcspec.net"
+        );
         assert_eq!(sub.get_one::<String>("profile").unwrap(), "default");
         assert!(sub.get_one::<String>("key").is_none());
     }
@@ -225,7 +224,14 @@ mod tests {
     fn build_command_login_parses_custom() {
         let cmd = build_command();
         let m = cmd
-            .try_get_matches_from(["auth", "login", "--host", "https://self.host", "--profile", "work"])
+            .try_get_matches_from([
+                "auth",
+                "login",
+                "--host",
+                "https://self.host",
+                "--profile",
+                "work",
+            ])
             .unwrap();
         let sub = m.subcommand_matches("login").unwrap();
         assert_eq!(sub.get_one::<String>("host").unwrap(), "https://self.host");

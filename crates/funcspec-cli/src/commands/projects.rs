@@ -29,7 +29,11 @@ pub fn build_command() -> clap::Command {
         .subcommand(
             clap::Command::new("show")
                 .about(t!("cmd.projects.show.about").to_string())
-                .arg(clap::Arg::new("slug").required(true).help(t!("cmd.projects.show.slug").to_string()))
+                .arg(
+                    clap::Arg::new("slug")
+                        .required(true)
+                        .help(t!("cmd.projects.show.slug").to_string()),
+                )
                 .arg(
                     clap::Arg::new("json")
                         .long("json")

@@ -17,11 +17,20 @@ use crate::output::format_diff;
 // ---------------------------------------------------------------------------
 
 pub enum AiCmd {
-    Review { permalink: String },
+    Review {
+        permalink: String,
+    },
     ReviewAll,
-    Improve { permalink: String, auto_accept: bool },
-    Generate { permalink: String },
-    Audit { permalink: String },
+    Improve {
+        permalink: String,
+        auto_accept: bool,
+    },
+    Generate {
+        permalink: String,
+    },
+    Audit {
+        permalink: String,
+    },
 }
 
 pub fn build_command() -> clap::Command {
@@ -31,27 +40,47 @@ pub fn build_command() -> clap::Command {
         .subcommand(
             clap::Command::new("review")
                 .about(t!("cmd.ai.review.about").to_string())
-                .arg(clap::Arg::new("permalink").required(true).help(t!("cmd.ai.review.permalink").to_string())),
+                .arg(
+                    clap::Arg::new("permalink")
+                        .required(true)
+                        .help(t!("cmd.ai.review.permalink").to_string()),
+                ),
         )
         .subcommand(
-            clap::Command::new("review-all")
-                .about(t!("cmd.ai.review_all.about").to_string()),
+            clap::Command::new("review-all").about(t!("cmd.ai.review_all.about").to_string()),
         )
         .subcommand(
             clap::Command::new("improve")
                 .about(t!("cmd.ai.improve.about").to_string())
-                .arg(clap::Arg::new("permalink").required(true).help(t!("cmd.ai.improve.permalink").to_string()))
-                .arg(clap::Arg::new("auto_accept").long("auto-accept").action(clap::ArgAction::SetTrue).help(t!("cmd.ai.improve.auto_accept").to_string())),
+                .arg(
+                    clap::Arg::new("permalink")
+                        .required(true)
+                        .help(t!("cmd.ai.improve.permalink").to_string()),
+                )
+                .arg(
+                    clap::Arg::new("auto_accept")
+                        .long("auto-accept")
+                        .action(clap::ArgAction::SetTrue)
+                        .help(t!("cmd.ai.improve.auto_accept").to_string()),
+                ),
         )
         .subcommand(
             clap::Command::new("generate")
                 .about(t!("cmd.ai.generate.about").to_string())
-                .arg(clap::Arg::new("permalink").required(true).help(t!("cmd.ai.generate.permalink").to_string())),
+                .arg(
+                    clap::Arg::new("permalink")
+                        .required(true)
+                        .help(t!("cmd.ai.generate.permalink").to_string()),
+                ),
         )
         .subcommand(
             clap::Command::new("audit")
                 .about(t!("cmd.ai.audit.about").to_string())
-                .arg(clap::Arg::new("permalink").required(true).help(t!("cmd.ai.audit.permalink").to_string())),
+                .arg(
+                    clap::Arg::new("permalink")
+                        .required(true)
+                        .help(t!("cmd.ai.audit.permalink").to_string()),
+                ),
         )
 }
 
@@ -526,9 +555,7 @@ mod tests {
     #[test]
     fn ai_cmd_improve_auto_accept_defaults_false() {
         let cmd = build_command();
-        let m = cmd
-            .try_get_matches_from(["ai", "improve", "F-10"])
-            .unwrap();
+        let m = cmd.try_get_matches_from(["ai", "improve", "F-10"]).unwrap();
         let sub = m.subcommand_matches("improve").unwrap();
         assert!(!sub.get_flag("auto_accept"));
     }

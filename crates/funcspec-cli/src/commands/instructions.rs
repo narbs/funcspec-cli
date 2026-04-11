@@ -136,9 +136,7 @@ mod tests {
     #[test]
     fn build_command_has_raw_flag() {
         let cmd = build_command();
-        let m = cmd
-            .try_get_matches_from(["instructions", "--raw"])
-            .unwrap();
+        let m = cmd.try_get_matches_from(["instructions", "--raw"]).unwrap();
         assert!(m.get_flag("raw"));
     }
 

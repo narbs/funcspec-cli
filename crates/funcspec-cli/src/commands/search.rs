@@ -207,10 +207,7 @@ mod tests {
         let m = cmd
             .try_get_matches_from(["search", "authentication flow"])
             .unwrap();
-        assert_eq!(
-            m.get_one::<String>("query").unwrap(),
-            "authentication flow"
-        );
+        assert_eq!(m.get_one::<String>("query").unwrap(), "authentication flow");
     }
 
     #[test]

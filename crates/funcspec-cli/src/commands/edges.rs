@@ -35,26 +35,83 @@ pub fn build_command() -> clap::Command {
         .subcommand(
             clap::Command::new("list")
                 .about(t!("cmd.edges.list.about").to_string())
-                .arg(clap::Arg::new("source").long("source").help(t!("cmd.edges.list.source").to_string()))
-                .arg(clap::Arg::new("target").long("target").help(t!("cmd.edges.list.target").to_string()))
-                .arg(clap::Arg::new("type").long("type").value_name("TYPE").help(t!("cmd.edges.list.type").to_string()))
-                .arg(clap::Arg::new("json").long("json").action(clap::ArgAction::SetTrue).help(t!("cmd.edges.list.json").to_string())),
+                .arg(
+                    clap::Arg::new("source")
+                        .long("source")
+                        .help(t!("cmd.edges.list.source").to_string()),
+                )
+                .arg(
+                    clap::Arg::new("target")
+                        .long("target")
+                        .help(t!("cmd.edges.list.target").to_string()),
+                )
+                .arg(
+                    clap::Arg::new("type")
+                        .long("type")
+                        .value_name("TYPE")
+                        .help(t!("cmd.edges.list.type").to_string()),
+                )
+                .arg(
+                    clap::Arg::new("json")
+                        .long("json")
+                        .action(clap::ArgAction::SetTrue)
+                        .help(t!("cmd.edges.list.json").to_string()),
+                ),
         )
         .subcommand(
             clap::Command::new("link")
                 .about(t!("cmd.edges.link.about").to_string())
-                .arg(clap::Arg::new("source").long("source").required(true).help(t!("cmd.edges.link.source").to_string()))
-                .arg(clap::Arg::new("target").long("target").required(true).help(t!("cmd.edges.link.target").to_string()))
-                .arg(clap::Arg::new("type").long("type").value_name("TYPE").required(true).help(t!("cmd.edges.link.type").to_string())),
+                .arg(
+                    clap::Arg::new("source")
+                        .long("source")
+                        .required(true)
+                        .help(t!("cmd.edges.link.source").to_string()),
+                )
+                .arg(
+                    clap::Arg::new("target")
+                        .long("target")
+                        .required(true)
+                        .help(t!("cmd.edges.link.target").to_string()),
+                )
+                .arg(
+                    clap::Arg::new("type")
+                        .long("type")
+                        .value_name("TYPE")
+                        .required(true)
+                        .help(t!("cmd.edges.link.type").to_string()),
+                ),
         )
         .subcommand(
             clap::Command::new("unlink")
                 .about(t!("cmd.edges.unlink.about").to_string())
-                .arg(clap::Arg::new("edge_id").value_parser(clap::value_parser!(u64)).help(t!("cmd.edges.unlink.edge_id").to_string()))
-                .arg(clap::Arg::new("source").long("source").help(t!("cmd.edges.unlink.source").to_string()))
-                .arg(clap::Arg::new("target").long("target").help(t!("cmd.edges.unlink.target").to_string()))
-                .arg(clap::Arg::new("type").long("type").value_name("TYPE").help(t!("cmd.edges.unlink.type").to_string()))
-                .arg(clap::Arg::new("yes").long("yes").short('y').action(clap::ArgAction::SetTrue).help(t!("cmd.edges.unlink.yes").to_string())),
+                .arg(
+                    clap::Arg::new("edge_id")
+                        .value_parser(clap::value_parser!(u64))
+                        .help(t!("cmd.edges.unlink.edge_id").to_string()),
+                )
+                .arg(
+                    clap::Arg::new("source")
+                        .long("source")
+                        .help(t!("cmd.edges.unlink.source").to_string()),
+                )
+                .arg(
+                    clap::Arg::new("target")
+                        .long("target")
+                        .help(t!("cmd.edges.unlink.target").to_string()),
+                )
+                .arg(
+                    clap::Arg::new("type")
+                        .long("type")
+                        .value_name("TYPE")
+                        .help(t!("cmd.edges.unlink.type").to_string()),
+                )
+                .arg(
+                    clap::Arg::new("yes")
+                        .long("yes")
+                        .short('y')
+                        .action(clap::ArgAction::SetTrue)
+                        .help(t!("cmd.edges.unlink.yes").to_string()),
+                ),
         )
 }
 
@@ -329,7 +386,16 @@ mod tests {
     fn edges_list_cmd_parses_source_target() {
         let cmd = build_command();
         let m = cmd
-            .try_get_matches_from(["edges", "list", "--source", "F-1", "--target", "T-5", "--type", "implements"])
+            .try_get_matches_from([
+                "edges",
+                "list",
+                "--source",
+                "F-1",
+                "--target",
+                "T-5",
+                "--type",
+                "implements",
+            ])
             .unwrap();
         let sub = m.subcommand_matches("list").unwrap();
         assert_eq!(sub.get_one::<String>("source").unwrap(), "F-1");
@@ -340,16 +406,26 @@ mod tests {
     #[test]
     fn build_command_link_requires_source_target_type() {
         let cmd = build_command();
-        assert!(cmd
-            .try_get_matches_from(["edges", "link", "--source", "F-1"])
-            .is_err());
+        assert!(
+            cmd.try_get_matches_from(["edges", "link", "--source", "F-1"])
+                .is_err()
+        );
     }
 
     #[test]
     fn build_command_link_parses() {
         let cmd = build_command();
         let m = cmd
-            .try_get_matches_from(["edges", "link", "--source", "F-1", "--target", "T-5", "--type", "implements"])
+            .try_get_matches_from([
+                "edges",
+                "link",
+                "--source",
+                "F-1",
+                "--target",
+                "T-5",
+                "--type",
+                "implements",
+            ])
             .unwrap();
         let sub = m.subcommand_matches("link").unwrap();
         assert_eq!(sub.get_one::<String>("source").unwrap(), "F-1");

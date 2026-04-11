@@ -1,5 +1,5 @@
-use clap::{Arg, ArgAction, Command};
 use clap::builder::EnumValueParser;
+use clap::{Arg, ArgAction, Command};
 use rust_i18n::t;
 
 use crate::commands;
@@ -94,7 +94,10 @@ mod tests {
     fn t_macro_resolves_en() {
         rust_i18n::set_locale("en");
         let s = t!("cli.about").to_string();
-        assert_ne!(s, "cli.about", "t! returned raw key — locale data not embedded");
+        assert_ne!(
+            s, "cli.about",
+            "t! returned raw key — locale data not embedded"
+        );
         assert!(s.contains("FuncSpec"), "unexpected: {s}");
     }
 }

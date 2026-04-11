@@ -12,12 +12,29 @@ use crate::output::OutputFormat;
 // ---------------------------------------------------------------------------
 
 pub enum SnapshotsCmd {
-    List { json: bool },
-    Create { name: String, description: Option<String> },
-    Show { identifier: String, json: bool },
-    Restore { identifier: String, yes: bool },
-    Diff { identifier: String, json: bool },
-    Delete { identifier: String, yes: bool },
+    List {
+        json: bool,
+    },
+    Create {
+        name: String,
+        description: Option<String>,
+    },
+    Show {
+        identifier: String,
+        json: bool,
+    },
+    Restore {
+        identifier: String,
+        yes: bool,
+    },
+    Diff {
+        identifier: String,
+        json: bool,
+    },
+    Delete {
+        identifier: String,
+        yes: bool,
+    },
 }
 
 pub fn build_command() -> clap::Command {
@@ -27,43 +44,99 @@ pub fn build_command() -> clap::Command {
         .subcommand(
             clap::Command::new("list")
                 .about(t!("cmd.snapshots.list.about").to_string())
-                .arg(clap::Arg::new("json").long("json").action(clap::ArgAction::SetTrue).help(t!("cmd.snapshots.list.json").to_string())),
+                .arg(
+                    clap::Arg::new("json")
+                        .long("json")
+                        .action(clap::ArgAction::SetTrue)
+                        .help(t!("cmd.snapshots.list.json").to_string()),
+                ),
         )
         .subcommand(
             clap::Command::new("create")
                 .about(t!("cmd.snapshots.create.about").to_string())
-                .arg(clap::Arg::new("name").long("name").short('n').required(true).help(t!("cmd.snapshots.create.name").to_string()))
-                .arg(clap::Arg::new("description").long("description").short('d').help(t!("cmd.snapshots.create.description").to_string())),
+                .arg(
+                    clap::Arg::new("name")
+                        .long("name")
+                        .short('n')
+                        .required(true)
+                        .help(t!("cmd.snapshots.create.name").to_string()),
+                )
+                .arg(
+                    clap::Arg::new("description")
+                        .long("description")
+                        .short('d')
+                        .help(t!("cmd.snapshots.create.description").to_string()),
+                ),
         )
         .subcommand(
             clap::Command::new("show")
                 .about(t!("cmd.snapshots.show.about").to_string())
-                .arg(clap::Arg::new("identifier").required(true).help(t!("cmd.snapshots.show.identifier").to_string()))
-                .arg(clap::Arg::new("json").long("json").action(clap::ArgAction::SetTrue).help(t!("cmd.snapshots.show.json").to_string())),
+                .arg(
+                    clap::Arg::new("identifier")
+                        .required(true)
+                        .help(t!("cmd.snapshots.show.identifier").to_string()),
+                )
+                .arg(
+                    clap::Arg::new("json")
+                        .long("json")
+                        .action(clap::ArgAction::SetTrue)
+                        .help(t!("cmd.snapshots.show.json").to_string()),
+                ),
         )
         .subcommand(
             clap::Command::new("restore")
                 .about(t!("cmd.snapshots.restore.about").to_string())
-                .arg(clap::Arg::new("identifier").required(true).help(t!("cmd.snapshots.restore.identifier").to_string()))
-                .arg(clap::Arg::new("yes").long("yes").short('y').action(clap::ArgAction::SetTrue).help(t!("cmd.snapshots.restore.yes").to_string())),
+                .arg(
+                    clap::Arg::new("identifier")
+                        .required(true)
+                        .help(t!("cmd.snapshots.restore.identifier").to_string()),
+                )
+                .arg(
+                    clap::Arg::new("yes")
+                        .long("yes")
+                        .short('y')
+                        .action(clap::ArgAction::SetTrue)
+                        .help(t!("cmd.snapshots.restore.yes").to_string()),
+                ),
         )
         .subcommand(
             clap::Command::new("diff")
                 .about(t!("cmd.snapshots.diff.about").to_string())
-                .arg(clap::Arg::new("identifier").required(true).help(t!("cmd.snapshots.diff.identifier").to_string()))
-                .arg(clap::Arg::new("json").long("json").action(clap::ArgAction::SetTrue).help(t!("cmd.snapshots.diff.json").to_string())),
+                .arg(
+                    clap::Arg::new("identifier")
+                        .required(true)
+                        .help(t!("cmd.snapshots.diff.identifier").to_string()),
+                )
+                .arg(
+                    clap::Arg::new("json")
+                        .long("json")
+                        .action(clap::ArgAction::SetTrue)
+                        .help(t!("cmd.snapshots.diff.json").to_string()),
+                ),
         )
         .subcommand(
             clap::Command::new("delete")
                 .about(t!("cmd.snapshots.delete.about").to_string())
-                .arg(clap::Arg::new("identifier").required(true).help(t!("cmd.snapshots.delete.identifier").to_string()))
-                .arg(clap::Arg::new("yes").long("yes").short('y').action(clap::ArgAction::SetTrue).help(t!("cmd.snapshots.delete.yes").to_string())),
+                .arg(
+                    clap::Arg::new("identifier")
+                        .required(true)
+                        .help(t!("cmd.snapshots.delete.identifier").to_string()),
+                )
+                .arg(
+                    clap::Arg::new("yes")
+                        .long("yes")
+                        .short('y')
+                        .action(clap::ArgAction::SetTrue)
+                        .help(t!("cmd.snapshots.delete.yes").to_string()),
+                ),
         )
 }
 
 pub async fn dispatch(matches: &clap::ArgMatches, format: OutputFormat) -> Result<()> {
     let cmd = match matches.subcommand() {
-        Some(("list", m)) => SnapshotsCmd::List { json: m.get_flag("json") },
+        Some(("list", m)) => SnapshotsCmd::List {
+            json: m.get_flag("json"),
+        },
         Some(("create", m)) => SnapshotsCmd::Create {
             name: m.get_one::<String>("name").unwrap().clone(),
             description: m.get_one::<String>("description").cloned(),

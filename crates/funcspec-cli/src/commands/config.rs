@@ -5,10 +5,18 @@ use rust_i18n::t;
 use crate::config::{Config, LocalConfig};
 
 pub enum ConfigCmd {
-    Set { key: String, value: String, local: bool },
-    Get { key: String },
+    Set {
+        key: String,
+        value: String,
+        local: bool,
+    },
+    Get {
+        key: String,
+    },
     List,
-    SetProfile { name: String },
+    SetProfile {
+        name: String,
+    },
 }
 
 pub fn build_command() -> clap::Command {
@@ -18,20 +26,41 @@ pub fn build_command() -> clap::Command {
         .subcommand(
             clap::Command::new("set")
                 .about(t!("cmd.config.set.about").to_string())
-                .arg(clap::Arg::new("key").required(true).help(t!("cmd.config.set.key").to_string()))
-                .arg(clap::Arg::new("value").required(true).help(t!("cmd.config.set.value").to_string()))
-                .arg(clap::Arg::new("local").long("local").action(clap::ArgAction::SetTrue).help(t!("cmd.config.set.local").to_string())),
+                .arg(
+                    clap::Arg::new("key")
+                        .required(true)
+                        .help(t!("cmd.config.set.key").to_string()),
+                )
+                .arg(
+                    clap::Arg::new("value")
+                        .required(true)
+                        .help(t!("cmd.config.set.value").to_string()),
+                )
+                .arg(
+                    clap::Arg::new("local")
+                        .long("local")
+                        .action(clap::ArgAction::SetTrue)
+                        .help(t!("cmd.config.set.local").to_string()),
+                ),
         )
         .subcommand(
             clap::Command::new("get")
                 .about(t!("cmd.config.get.about").to_string())
-                .arg(clap::Arg::new("key").required(true).help(t!("cmd.config.get.key").to_string())),
+                .arg(
+                    clap::Arg::new("key")
+                        .required(true)
+                        .help(t!("cmd.config.get.key").to_string()),
+                ),
         )
         .subcommand(clap::Command::new("list").about(t!("cmd.config.list.about").to_string()))
         .subcommand(
             clap::Command::new("set-profile")
                 .about(t!("cmd.config.set_profile.about").to_string())
-                .arg(clap::Arg::new("name").required(true).help(t!("cmd.config.set_profile.name").to_string())),
+                .arg(
+                    clap::Arg::new("name")
+                        .required(true)
+                        .help(t!("cmd.config.set_profile.name").to_string()),
+                ),
         )
 }
 
@@ -82,9 +111,7 @@ pub async fn run(cmd: ConfigCmd) -> Result<()> {
                         );
                         return Ok(());
                     }
-                    k => bail!(
-                        "--local only applies to 'project'. Got: '{k}'"
-                    ),
+                    k => bail!("--local only applies to 'project'. Got: '{k}'"),
                 }
             }
 
@@ -173,7 +200,11 @@ pub async fn run(cmd: ConfigCmd) -> Result<()> {
                         style(local_path.display().to_string()).dim()
                     );
                     if let Some(ref proj) = lc.project {
-                        eprintln!("  project: {} {}", style(proj).green(), style("(local override)").dim());
+                        eprintln!(
+                            "  project: {} {}",
+                            style(proj).green(),
+                            style("(local override)").dim()
+                        );
                     }
                     eprintln!();
                 }

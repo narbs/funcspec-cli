@@ -20,8 +20,7 @@ const LLM_CONFIG_FILES: &[&str] = &[
     ".cursor/rules",
 ];
 
-const GITHUB_RELEASES_URL: &str =
-    "https://api.github.com/repos/narbs/funcspec-cli/releases/latest";
+const GITHUB_RELEASES_URL: &str = "https://api.github.com/repos/narbs/funcspec-cli/releases/latest";
 
 const VERSION_CACHE_FILE: &str = "version_cache.json";
 
@@ -40,14 +39,56 @@ pub struct DoctorArgs {
 pub fn build_command() -> clap::Command {
     clap::Command::new("doctor")
         .about(t!("cmd.doctor.about").to_string())
-        .arg(clap::Arg::new("json").long("json").action(clap::ArgAction::SetTrue).help(t!("cmd.doctor.json").to_string()))
-        .arg(clap::Arg::new("fix").long("fix").action(clap::ArgAction::SetTrue).help(t!("cmd.doctor.fix").to_string()))
-        .arg(clap::Arg::new("yes").long("yes").action(clap::ArgAction::SetTrue).help(t!("cmd.doctor.yes").to_string()))
-        .arg(clap::Arg::new("quiet").long("quiet").action(clap::ArgAction::SetTrue).help(t!("cmd.doctor.quiet").to_string()))
-        .arg(clap::Arg::new("no_color").long("no-color").action(clap::ArgAction::SetTrue).help(t!("cmd.doctor.no_color").to_string()))
-        .arg(clap::Arg::new("check_verbose").long("check-verbose").action(clap::ArgAction::SetTrue).help(t!("cmd.doctor.verbose").to_string()))
-        .arg(clap::Arg::new("timeout").long("timeout").value_parser(clap::value_parser!(u64)).default_value("10").help(t!("cmd.doctor.timeout").to_string()))
-        .arg(clap::Arg::new("dir").long("dir").value_parser(clap::value_parser!(PathBuf)).default_value(".").help(t!("cmd.doctor.dir").to_string()))
+        .arg(
+            clap::Arg::new("json")
+                .long("json")
+                .action(clap::ArgAction::SetTrue)
+                .help(t!("cmd.doctor.json").to_string()),
+        )
+        .arg(
+            clap::Arg::new("fix")
+                .long("fix")
+                .action(clap::ArgAction::SetTrue)
+                .help(t!("cmd.doctor.fix").to_string()),
+        )
+        .arg(
+            clap::Arg::new("yes")
+                .long("yes")
+                .action(clap::ArgAction::SetTrue)
+                .help(t!("cmd.doctor.yes").to_string()),
+        )
+        .arg(
+            clap::Arg::new("quiet")
+                .long("quiet")
+                .action(clap::ArgAction::SetTrue)
+                .help(t!("cmd.doctor.quiet").to_string()),
+        )
+        .arg(
+            clap::Arg::new("no_color")
+                .long("no-color")
+                .action(clap::ArgAction::SetTrue)
+                .help(t!("cmd.doctor.no_color").to_string()),
+        )
+        .arg(
+            clap::Arg::new("check_verbose")
+                .long("check-verbose")
+                .action(clap::ArgAction::SetTrue)
+                .help(t!("cmd.doctor.verbose").to_string()),
+        )
+        .arg(
+            clap::Arg::new("timeout")
+                .long("timeout")
+                .value_parser(clap::value_parser!(u64))
+                .default_value("10")
+                .help(t!("cmd.doctor.timeout").to_string()),
+        )
+        .arg(
+            clap::Arg::new("dir")
+                .long("dir")
+                .value_parser(clap::value_parser!(PathBuf))
+                .default_value(".")
+                .help(t!("cmd.doctor.dir").to_string()),
+        )
 }
 
 pub fn from_arg_matches(matches: &clap::ArgMatches) -> DoctorArgs {
@@ -59,7 +100,10 @@ pub fn from_arg_matches(matches: &clap::ArgMatches) -> DoctorArgs {
         no_color: matches.get_flag("no_color"),
         verbose: matches.get_flag("check_verbose"),
         timeout: matches.get_one::<u64>("timeout").copied().unwrap_or(10),
-        dir: matches.get_one::<PathBuf>("dir").cloned().unwrap_or_else(|| PathBuf::from(".")),
+        dir: matches
+            .get_one::<PathBuf>("dir")
+            .cloned()
+            .unwrap_or_else(|| PathBuf::from(".")),
     }
 }
 
@@ -85,16 +129,40 @@ pub struct CheckResult {
 
 impl CheckResult {
     fn pass(name: &'static str, detail: impl Into<String>) -> Self {
-        Self { name, status: CheckStatus::Pass, detail: detail.into(), fix: None, reason: None }
+        Self {
+            name,
+            status: CheckStatus::Pass,
+            detail: detail.into(),
+            fix: None,
+            reason: None,
+        }
     }
     fn fail(name: &'static str, detail: impl Into<String>, fix: Option<String>) -> Self {
-        Self { name, status: CheckStatus::Fail, detail: detail.into(), fix, reason: None }
+        Self {
+            name,
+            status: CheckStatus::Fail,
+            detail: detail.into(),
+            fix,
+            reason: None,
+        }
     }
     fn warn(name: &'static str, detail: impl Into<String>) -> Self {
-        Self { name, status: CheckStatus::Warn, detail: detail.into(), fix: None, reason: None }
+        Self {
+            name,
+            status: CheckStatus::Warn,
+            detail: detail.into(),
+            fix: None,
+            reason: None,
+        }
     }
     fn skipped(name: &'static str, reason: impl Into<String>) -> Self {
-        Self { name, status: CheckStatus::Skipped, detail: String::new(), fix: None, reason: Some(reason.into()) }
+        Self {
+            name,
+            status: CheckStatus::Skipped,
+            detail: String::new(),
+            fix: None,
+            reason: Some(reason.into()),
+        }
     }
 }
 
@@ -134,7 +202,10 @@ pub async fn run(args: DoctorArgs) -> Result<()> {
         results.push(c);
         ok
     } else {
-        results.push(CheckResult::skipped("api_key_valid", "no API key configured"));
+        results.push(CheckResult::skipped(
+            "api_key_valid",
+            "no API key configured",
+        ));
         false
     };
 
@@ -148,7 +219,11 @@ pub async fn run(args: DoctorArgs) -> Result<()> {
     if api_ok && proj_ok {
         results.push(check_project_accessible(args.timeout, &project_slug).await);
     } else {
-        let reason = if !api_ok { "API key invalid" } else { "no default project set" };
+        let reason = if !api_ok {
+            "API key invalid"
+        } else {
+            "no default project set"
+        };
         results.push(CheckResult::skipped("project_access", reason));
     }
 
@@ -157,7 +232,10 @@ pub async fn run(args: DoctorArgs) -> Result<()> {
     results.push(check_llm_config(&dir));
 
     // ── Output ────────────────────────────────────────────────────────────────
-    let passes = results.iter().filter(|r| r.status == CheckStatus::Pass).count();
+    let passes = results
+        .iter()
+        .filter(|r| r.status == CheckStatus::Pass)
+        .count();
     let total = results.len();
 
     if args.json {
@@ -177,7 +255,12 @@ pub async fn run(args: DoctorArgs) -> Result<()> {
 
     eprintln!();
     if passes == total {
-        eprintln!("{}", style(format!("{passes}/{total} checks passed")).green().bold());
+        eprintln!(
+            "{}",
+            style(format!("{passes}/{total} checks passed"))
+                .green()
+                .bold()
+        );
     } else {
         eprintln!("{}/{} checks passed", passes, total);
     }
@@ -225,7 +308,7 @@ async fn check_cli_version(timeout_secs: u64, verbose: bool) -> CheckResult {
                     return CheckResult::warn(
                         "cli_version",
                         format!("v{current} (could not parse GitHub response)"),
-                    )
+                    );
                 }
             };
             let tag = json
@@ -265,7 +348,10 @@ struct VersionCache {
 }
 
 fn version_cache_path() -> Option<std::path::PathBuf> {
-    Config::config_path().ok()?.parent().map(|p| p.join(VERSION_CACHE_FILE))
+    Config::config_path()
+        .ok()?
+        .parent()
+        .map(|p| p.join(VERSION_CACHE_FILE))
 }
 
 fn load_version_cache(current_version: &str) -> Option<String> {
@@ -282,7 +368,9 @@ fn load_version_cache(current_version: &str) -> Option<String> {
 }
 
 fn save_version_cache(current_version: &str, latest: &str) {
-    let Some(path) = version_cache_path() else { return };
+    let Some(path) = version_cache_path() else {
+        return;
+    };
     let cache = VersionCache {
         latest: latest.to_string(),
         checked_at: Utc::now(),
@@ -351,9 +439,7 @@ async fn check_api_key_valid(timeout_secs: u64) -> CheckResult {
 
 fn check_default_project_set() -> CheckResult {
     let config = Config::load().unwrap_or_default();
-    let slug = config
-        .active_profile()
-        .and_then(|p| p.default_project);
+    let slug = config.active_profile().and_then(|p| p.default_project);
 
     match slug {
         Some(s) if !s.is_empty() => CheckResult::pass("default_project", s),
@@ -367,13 +453,10 @@ fn check_default_project_set() -> CheckResult {
 
 fn extract_project_slug() -> String {
     let config = Config::load().unwrap_or_default();
-    let global_default = config
-        .active_profile()
-        .and_then(|p| p.default_project);
+    let global_default = config.active_profile().and_then(|p| p.default_project);
     let cwd = std::env::current_dir().unwrap_or_default();
     let local = LocalConfig::find_and_load(&cwd);
-    resolve_project_slug(None, global_default.as_deref(), local.as_ref())
-        .unwrap_or_default()
+    resolve_project_slug(None, global_default.as_deref(), local.as_ref()).unwrap_or_default()
 }
 
 async fn check_project_accessible(timeout_secs: u64, slug: &str) -> CheckResult {
@@ -425,7 +508,11 @@ fn check_funcspec_md(dir: &Path, project_slug: &str) -> CheckResult {
     let content = match std::fs::read_to_string(&path) {
         Ok(c) => c,
         Err(e) => {
-            return CheckResult::fail("funcspec_md", format!("could not read FUNCSPEC.md: {e}"), None)
+            return CheckResult::fail(
+                "funcspec_md",
+                format!("could not read FUNCSPEC.md: {e}"),
+                None,
+            );
         }
     };
 
@@ -442,9 +529,15 @@ fn check_funcspec_md(dir: &Path, project_slug: &str) -> CheckResult {
         CheckResult::pass("funcspec_md", "present and current")
     } else {
         let mut issues = Vec::new();
-        if !has_word { issues.push("missing 'funcspec' reference"); }
-        if !has_slug && !project_slug.is_empty() { issues.push("project slug not found"); }
-        if !has_marker && !project_slug.is_empty() { issues.push("version marker missing or mismatched"); }
+        if !has_word {
+            issues.push("missing 'funcspec' reference");
+        }
+        if !has_slug && !project_slug.is_empty() {
+            issues.push("project slug not found");
+        }
+        if !has_marker && !project_slug.is_empty() {
+            issues.push("version marker missing or mismatched");
+        }
         CheckResult::warn(
             "funcspec_md",
             format!("present but may be stale ({})", issues.join(", ")),
@@ -474,7 +567,12 @@ fn check_llm_config(dir: &Path) -> CheckResult {
                 .map(|c| c.contains("FUNCSPEC.md"))
                 .unwrap_or(false)
         })
-        .map(|p| p.file_name().unwrap_or_default().to_string_lossy().into_owned())
+        .map(|p| {
+            p.file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .into_owned()
+        })
         .collect();
 
     let not_referencing: Vec<String> = found
@@ -484,16 +582,18 @@ fn check_llm_config(dir: &Path) -> CheckResult {
                 .map(|c| c.contains("FUNCSPEC.md"))
                 .unwrap_or(false)
         })
-        .map(|p| p.file_name().unwrap_or_default().to_string_lossy().into_owned())
+        .map(|p| {
+            p.file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .into_owned()
+        })
         .collect();
 
     if referencing.is_empty() {
         CheckResult::fail(
             "llm_config",
-            format!(
-                "{} found but none reference FUNCSPEC.md",
-                found.len()
-            ),
+            format!("{} found but none reference FUNCSPEC.md", found.len()),
             Some("funcspec onboard".into()),
         )
     } else {
@@ -521,16 +621,32 @@ fn print_check(result: &CheckResult, no_color: bool, quiet: bool, _verbose: bool
 
     let symbol = match result.status {
         CheckStatus::Pass => {
-            if no_color { "✓".to_string() } else { style("✓").green().bold().to_string() }
+            if no_color {
+                "✓".to_string()
+            } else {
+                style("✓").green().bold().to_string()
+            }
         }
         CheckStatus::Fail => {
-            if no_color { "✗".to_string() } else { style("✗").red().bold().to_string() }
+            if no_color {
+                "✗".to_string()
+            } else {
+                style("✗").red().bold().to_string()
+            }
         }
         CheckStatus::Warn => {
-            if no_color { "⚠".to_string() } else { style("⚠").yellow().bold().to_string() }
+            if no_color {
+                "⚠".to_string()
+            } else {
+                style("⚠").yellow().bold().to_string()
+            }
         }
         CheckStatus::Skipped => {
-            if no_color { "-".to_string() } else { style("-").dim().to_string() }
+            if no_color {
+                "-".to_string()
+            } else {
+                style("-").dim().to_string()
+            }
         }
     };
 

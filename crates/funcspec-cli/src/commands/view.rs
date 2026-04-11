@@ -13,10 +13,7 @@ pub fn build_command() -> clap::Command {
     clap::Command::new("view")
         .about(t!("cmd.view.about").to_string())
         .long_about(t!("cmd.view.long_about").to_string())
-        .arg(
-            clap::Arg::new("item_id")
-                .help(t!("cmd.view.item_id").to_string()),
-        )
+        .arg(clap::Arg::new("item_id").help(t!("cmd.view.item_id").to_string()))
         .arg(
             clap::Arg::new("url")
                 .long("url")

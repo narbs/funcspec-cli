@@ -3,9 +3,9 @@ use std::time::Duration;
 
 use anyhow::{Context, Result, bail};
 use console::style;
-use rust_i18n::t;
 use dialoguer::{Confirm, Input, Select};
 use funcspec_client::FuncspecClient;
+use rust_i18n::t;
 
 use crate::config::{Config, LocalConfig, Profile};
 
@@ -37,13 +37,49 @@ pub struct OnboardArgs {
 pub fn build_command() -> clap::Command {
     clap::Command::new("onboard")
         .about(t!("cmd.onboard.about").to_string())
-        .arg(clap::Arg::new("non_interactive").long("non-interactive").action(clap::ArgAction::SetTrue).help(t!("cmd.onboard.non_interactive").to_string()))
-        .arg(clap::Arg::new("api_key").long("api-key").env("FUNCSPEC_API_KEY").help(t!("cmd.onboard.api_key").to_string()))
-        .arg(clap::Arg::new("set_project").long("set-project").help(t!("cmd.onboard.set_project").to_string()))
-        .arg(clap::Arg::new("skip_llm").long("skip-llm").action(clap::ArgAction::SetTrue).help(t!("cmd.onboard.skip_llm").to_string()))
-        .arg(clap::Arg::new("llm_configs").long("llm-config").value_parser(clap::value_parser!(PathBuf)).action(clap::ArgAction::Append).help(t!("cmd.onboard.llm_configs").to_string()))
-        .arg(clap::Arg::new("dry_run").long("dry-run").action(clap::ArgAction::SetTrue).help(t!("cmd.onboard.dry_run").to_string()))
-        .arg(clap::Arg::new("dir").long("dir").value_parser(clap::value_parser!(PathBuf)).default_value(".").help(t!("cmd.onboard.dir").to_string()))
+        .arg(
+            clap::Arg::new("non_interactive")
+                .long("non-interactive")
+                .action(clap::ArgAction::SetTrue)
+                .help(t!("cmd.onboard.non_interactive").to_string()),
+        )
+        .arg(
+            clap::Arg::new("api_key")
+                .long("api-key")
+                .env("FUNCSPEC_API_KEY")
+                .help(t!("cmd.onboard.api_key").to_string()),
+        )
+        .arg(
+            clap::Arg::new("set_project")
+                .long("set-project")
+                .help(t!("cmd.onboard.set_project").to_string()),
+        )
+        .arg(
+            clap::Arg::new("skip_llm")
+                .long("skip-llm")
+                .action(clap::ArgAction::SetTrue)
+                .help(t!("cmd.onboard.skip_llm").to_string()),
+        )
+        .arg(
+            clap::Arg::new("llm_configs")
+                .long("llm-config")
+                .value_parser(clap::value_parser!(PathBuf))
+                .action(clap::ArgAction::Append)
+                .help(t!("cmd.onboard.llm_configs").to_string()),
+        )
+        .arg(
+            clap::Arg::new("dry_run")
+                .long("dry-run")
+                .action(clap::ArgAction::SetTrue)
+                .help(t!("cmd.onboard.dry_run").to_string()),
+        )
+        .arg(
+            clap::Arg::new("dir")
+                .long("dir")
+                .value_parser(clap::value_parser!(PathBuf))
+                .default_value(".")
+                .help(t!("cmd.onboard.dir").to_string()),
+        )
 }
 
 pub fn from_arg_matches(matches: &clap::ArgMatches) -> OnboardArgs {
@@ -68,10 +104,7 @@ pub async fn run(args: OnboardArgs) -> Result<()> {
     let dir = args.dir.canonicalize().unwrap_or(args.dir.clone());
 
     eprintln!();
-    eprintln!(
-        "{}",
-        style("Welcome to FuncSpec Onboarding").cyan().bold()
-    );
+    eprintln!("{}", style("Welcome to FuncSpec Onboarding").cyan().bold());
     eprintln!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     eprintln!(
         "This wizard will help you authenticate, set a default project,\n\
@@ -86,9 +119,8 @@ pub async fn run(args: OnboardArgs) -> Result<()> {
     let api_key = resolve_api_key(&args).await?;
     let host = "https://funcspec.net".to_string();
 
-    let client =
-        FuncspecClient::with_timeout(&host, &api_key, Duration::from_secs(10))
-            .context("Failed to build API client")?;
+    let client = FuncspecClient::with_timeout(&host, &api_key, Duration::from_secs(10))
+        .context("Failed to build API client")?;
 
     if args.dry_run {
         eprintln!("  {} API key validation (dry run)", style("[skip]").dim());
@@ -98,7 +130,9 @@ pub async fn run(args: OnboardArgs) -> Result<()> {
             Ok(_) => eprintln!("{}", style("✓").green().bold()),
             Err(e) => {
                 eprintln!("{}", style("✗").red().bold());
-                bail!("API key validation failed: {e}\nGet a key at: https://funcspec.net/settings#api-keys");
+                bail!(
+                    "API key validation failed: {e}\nGet a key at: https://funcspec.net/settings#api-keys"
+                );
             }
         }
     }
@@ -123,16 +157,20 @@ pub async fn run(args: OnboardArgs) -> Result<()> {
     eprintln!();
     eprintln!("{}", style("Step 2 — Default Project").bold());
 
-    let (project_slug, org_slug, project_name, org_name) =
-        resolve_project(&args, &client).await?;
+    let (project_slug, org_slug, project_name, org_name) = resolve_project(&args, &client).await?;
 
     if !args.dry_run {
         // Write .funcspec in the target dir for per-directory project binding
         let local_path = dir.join(LocalConfig::FILE_NAME);
-        let lc = LocalConfig { project: Some(project_slug.clone()) };
+        let lc = LocalConfig {
+            project: Some(project_slug.clone()),
+        };
         lc.save_to_path(&local_path)
             .with_context(|| format!("Failed to write {}", local_path.display()))?;
-        eprintln!("  {} .funcspec written (project = '{project_slug}')", style("✓").green().bold());
+        eprintln!(
+            "  {} .funcspec written (project = '{project_slug}')",
+            style("✓").green().bold()
+        );
 
         // Also update global profile default so other directories work without a .funcspec
         let mut config = Config::load()?;
@@ -141,9 +179,15 @@ pub async fn run(args: OnboardArgs) -> Result<()> {
             profile.default_project = Some(project_slug.clone());
         }
         config.save()?;
-        eprintln!("  {} Global default project set to '{project_slug}'", style("✓").green().bold());
+        eprintln!(
+            "  {} Global default project set to '{project_slug}'",
+            style("✓").green().bold()
+        );
     } else {
-        eprintln!("  {} Write .funcspec (project = '{project_slug}') (dry run)", style("[skip]").dim());
+        eprintln!(
+            "  {} Write .funcspec (project = '{project_slug}') (dry run)",
+            style("[skip]").dim()
+        );
     }
 
     // ── Step 3: FUNCSPEC.md ───────────────────────────────────────────────────
@@ -154,7 +198,11 @@ pub async fn run(args: OnboardArgs) -> Result<()> {
     let content = render_template(&org_name, &org_slug, &project_name, &project_slug);
 
     if args.dry_run {
-        let action = if funcspec_md_path.exists() { "overwrite" } else { "create" };
+        let action = if funcspec_md_path.exists() {
+            "overwrite"
+        } else {
+            "create"
+        };
         eprintln!("  [{}]    FUNCSPEC.md", action);
     } else {
         write_funcspec_md(&funcspec_md_path, &content, args.non_interactive)?;
@@ -179,8 +227,14 @@ pub async fn run(args: OnboardArgs) -> Result<()> {
     eprintln!("{}", style("Setup Complete").green().bold());
     eprintln!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     eprintln!("  {} API key", style("✓").green().bold());
-    eprintln!("  {} .funcspec (project = '{project_slug}')", style("✓").green().bold());
-    eprintln!("  {} Global default project: {project_slug}", style("✓").green().bold());
+    eprintln!(
+        "  {} .funcspec (project = '{project_slug}')",
+        style("✓").green().bold()
+    );
+    eprintln!(
+        "  {} Global default project: {project_slug}",
+        style("✓").green().bold()
+    );
     eprintln!("  {} FUNCSPEC.md", style("✓").green().bold());
     eprintln!();
     eprintln!("Next steps:");
@@ -210,9 +264,7 @@ async fn resolve_api_key(args: &OnboardArgs) -> Result<String> {
                     return Ok(profile.api_key);
                 }
                 let keep = Confirm::new()
-                    .with_prompt(format!(
-                        "An API key is already configured. Keep it?"
-                    ))
+                    .with_prompt(format!("An API key is already configured. Keep it?"))
                     .default(true)
                     .interact()?;
                 if keep {
@@ -312,10 +364,20 @@ async fn resolve_project(
 
     let org_name = titlecase(&org_slug.replace('-', " "));
 
-    Ok((project_slug, org_slug, project.attributes.name.clone(), org_name))
+    Ok((
+        project_slug,
+        org_slug,
+        project.attributes.name.clone(),
+        org_name,
+    ))
 }
 
-fn render_template(org_name: &str, org_slug: &str, project_name: &str, project_slug: &str) -> String {
+fn render_template(
+    org_name: &str,
+    org_slug: &str,
+    project_name: &str,
+    project_slug: &str,
+) -> String {
     FUNCSPEC_MD_TEMPLATE
         .replace("{{your_organization_title}}", org_name)
         .replace("{{your_organization_slug}}", org_slug)
@@ -327,7 +389,10 @@ fn write_funcspec_md(path: &Path, content: &str, non_interactive: bool) -> Resul
     if path.exists() {
         let existing = std::fs::read_to_string(path)?;
         if existing == content {
-            eprintln!("  {} FUNCSPEC.md is already up to date", style("✓").green().bold());
+            eprintln!(
+                "  {} FUNCSPEC.md is already up to date",
+                style("✓").green().bold()
+            );
             return Ok(());
         }
 
@@ -348,10 +413,8 @@ fn write_funcspec_md(path: &Path, content: &str, non_interactive: bool) -> Resul
 
     // Atomic write: write to .tmp then rename
     let tmp = path.with_extension("md.tmp");
-    std::fs::write(&tmp, content)
-        .with_context(|| format!("Failed to write {}", tmp.display()))?;
-    std::fs::rename(&tmp, path)
-        .with_context(|| format!("Failed to write {}", path.display()))?;
+    std::fs::write(&tmp, content).with_context(|| format!("Failed to write {}", tmp.display()))?;
+    std::fs::rename(&tmp, path).with_context(|| format!("Failed to write {}", path.display()))?;
 
     eprintln!("  {} FUNCSPEC.md written", style("✓").green().bold());
     Ok(())
@@ -407,7 +470,10 @@ fn update_llm_config(path: &Path, dry_run: bool, non_interactive: bool) -> Resul
 
     if content.contains("FUNCSPEC.md") {
         let name = path.display();
-        eprintln!("  {} {name} already references FUNCSPEC.md", style("[skip]").dim());
+        eprintln!(
+            "  {} {name} already references FUNCSPEC.md",
+            style("[skip]").dim()
+        );
         return Ok(true);
     }
 
@@ -445,7 +511,10 @@ fn update_llm_config(path: &Path, dry_run: bool, non_interactive: bool) -> Resul
     let new_content = if path.exists() {
         format!("{content}{LLM_BLURB}")
     } else {
-        format!("# {}\n{LLM_BLURB}", path.file_name().unwrap_or_default().to_string_lossy())
+        format!(
+            "# {}\n{LLM_BLURB}",
+            path.file_name().unwrap_or_default().to_string_lossy()
+        )
     };
 
     let tmp = path.with_extension(
