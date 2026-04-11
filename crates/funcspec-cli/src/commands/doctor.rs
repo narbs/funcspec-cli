@@ -480,12 +480,12 @@ async fn check_project_accessible(timeout_secs: u64, slug: &str) -> CheckResult 
 
     match client.get_project(slug).await {
         Ok(p) => CheckResult::pass("project_access", p.attributes.name),
-        Err(e) if matches!(e, funcspec_client::Error::NotFound(_)) => CheckResult::fail(
+        Err(funcspec_client::Error::NotFound(_)) => CheckResult::fail(
             "project_access",
             format!("project '{slug}' not found"),
             Some("Check org membership and project slug".into()),
         ),
-        Err(e) if matches!(e, funcspec_client::Error::Forbidden(_)) => CheckResult::fail(
+        Err(funcspec_client::Error::Forbidden(_)) => CheckResult::fail(
             "project_access",
             format!("access denied to project '{slug}'"),
             Some("Check org membership".into()),

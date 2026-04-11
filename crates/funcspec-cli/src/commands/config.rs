@@ -193,6 +193,7 @@ pub async fn run(cmd: ConfigCmd) -> Result<()> {
 
             // Show local .funcspec if present
             let cwd = std::env::current_dir().unwrap_or_default();
+            #[allow(clippy::collapsible_if)]
             if let Some(local_path) = LocalConfig::find(&cwd) {
                 if let Ok(lc) = LocalConfig::load_from_path(&local_path) {
                     eprintln!(

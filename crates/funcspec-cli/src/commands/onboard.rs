@@ -250,13 +250,14 @@ pub async fn run(args: OnboardArgs) -> Result<()> {
 
 async fn resolve_api_key(args: &OnboardArgs) -> Result<String> {
     // --api-key flag (which also reads FUNCSPEC_API_KEY via clap env) takes priority
-    if let Some(key) = &args.api_key {
-        if !key.is_empty() {
-            return Ok(key.clone());
-        }
+    if let Some(key) = &args.api_key
+        && !key.is_empty()
+    {
+        return Ok(key.clone());
     }
 
     // Fall back to stored config
+    #[allow(clippy::collapsible_if)]
     if let Ok(config) = Config::load() {
         if let Some(profile) = config.active_profile() {
             if !profile.api_key.is_empty() {
@@ -264,7 +265,7 @@ async fn resolve_api_key(args: &OnboardArgs) -> Result<String> {
                     return Ok(profile.api_key);
                 }
                 let keep = Confirm::new()
-                    .with_prompt(format!("An API key is already configured. Keep it?"))
+                    .with_prompt("An API key is already configured. Keep it?")
                     .default(true)
                     .interact()?;
                 if keep {

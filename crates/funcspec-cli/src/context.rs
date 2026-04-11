@@ -39,7 +39,7 @@ pub fn resolve_project_slug<'a>(
 
     flag_override
         .map(str::to_owned)
-        .or_else(|| env_project)
+        .or(env_project)
         .or_else(|| local.and_then(|lc| lc.project.clone()))
         .or_else(|| global_default.map(str::to_owned))
 }
