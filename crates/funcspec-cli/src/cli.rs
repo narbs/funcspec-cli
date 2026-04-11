@@ -6,8 +6,9 @@ use crate::commands;
 use crate::output::OutputFormat;
 
 pub fn build_cli() -> Command {
+    let about = format!("{}\nv{}", t!("cli.about"), env!("CARGO_PKG_VERSION"));
     Command::new("funcspec")
-        .about(t!("cli.about").to_string())
+        .about(about)
         .version(env!("CARGO_PKG_VERSION"))
         .propagate_version(true)
         .arg_required_else_help(true)
