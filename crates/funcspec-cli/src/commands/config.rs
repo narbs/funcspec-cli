@@ -2,7 +2,7 @@ use anyhow::{Result, bail};
 use clap::Subcommand;
 use console::style;
 
-use crate::config::Config;
+use crate::config::{Config, LocalConfig};
 
 #[derive(Debug, Subcommand)]
 pub enum ConfigCmd {
@@ -12,6 +12,9 @@ pub enum ConfigCmd {
         key: String,
         /// Value to set
         value: String,
+        /// Write to .funcspec in the current directory instead of global config
+        #[arg(long)]
+        local: bool,
     },
 
     /// Get a configuration value
@@ -32,7 +35,35 @@ pub enum ConfigCmd {
 
 pub async fn run(cmd: ConfigCmd) -> Result<()> {
     match cmd {
-        ConfigCmd::Set { key, value } => {
+        ConfigCmd::Set { key, value, local } => {
+            // --local only makes sense for "project"
+            if local {
+                match key.as_str() {
+                    "project" | "default_project" => {
+                        let path = std::env::current_dir()
+                            .unwrap_or_default()
+                            .join(LocalConfig::FILE_NAME);
+                        let mut lc = if path.exists() {
+                            LocalConfig::load_from_path(&path)?
+                        } else {
+                            LocalConfig::default()
+                        };
+                        lc.project = Some(value.clone());
+                        lc.save_to_path(&path)?;
+                        eprintln!(
+                            "Set {} = {} (local: {})",
+                            style(&key).cyan(),
+                            style(&value).green(),
+                            style(path.display().to_string()).dim(),
+                        );
+                        return Ok(());
+                    }
+                    k => bail!(
+                        "--local only applies to 'project'. Got: '{k}'"
+                    ),
+                }
+            }
+
             let mut config = Config::load()?;
             match key.as_str() {
                 "project" | "default_project" => {
@@ -108,6 +139,22 @@ pub async fn run(cmd: ConfigCmd) -> Result<()> {
 
         ConfigCmd::List => {
             let config = Config::load()?;
+
+            // Show local .funcspec if present
+            let cwd = std::env::current_dir().unwrap_or_default();
+            if let Some(local_path) = LocalConfig::find(&cwd) {
+                if let Ok(lc) = LocalConfig::load_from_path(&local_path) {
+                    eprintln!(
+                        "Local config: {}",
+                        style(local_path.display().to_string()).dim()
+                    );
+                    if let Some(ref proj) = lc.project {
+                        eprintln!("  project: {} {}", style(proj).green(), style("(local override)").dim());
+                    }
+                    eprintln!();
+                }
+            }
+
             eprintln!(
                 "Active profile: {}",
                 style(&config.active_profile).cyan().bold()

@@ -915,6 +915,31 @@ impl FuncspecClient {
         }
         Ok(())
     }
+    // -- Org --
+
+    /// Return the org slug for the authenticated user.
+    ///
+    /// Calls `GET /settings` which returns `data.attributes.slug`.
+    pub async fn get_org_slug(&self) -> Result<String, Error> {
+        let url = self.api_url("/settings");
+        debug!(%url, "get_org_slug");
+        let resp = self
+            .request_with_retry(|| self.http.get(&url).send())
+            .await?;
+        if !resp.status().is_success() {
+            return Err(Error::from_response(resp).await);
+        }
+        let body: serde_json::Value = resp.json().await?;
+        let slug = body
+            .get("data")
+            .and_then(|d| d.get("attributes"))
+            .and_then(|a| a.get("slug"))
+            .and_then(|s| s.as_str())
+            .unwrap_or("")
+            .to_string();
+        Ok(slug)
+    }
+
     // -- Agent Instructions --
 
     /// Fetch live agent instructions for a project.
@@ -951,6 +976,63 @@ mod tests {
 
     async fn make_client(base_url: &str) -> FuncspecClient {
         FuncspecClient::new(base_url, "test-key").unwrap()
+    }
+
+    #[tokio::test]
+    async fn get_agent_instructions_returns_full_json() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/api/v1/projects/my-proj/agent_instructions"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "data": {
+                    "id": 1,
+                    "type": "agent_instruction",
+                    "attributes": {
+                        "content": "# Instructions\n\nDo the thing.",
+                        "scope": "project",
+                        "version": 1
+                    }
+                }
+            })))
+            .mount(&server)
+            .await;
+
+        let client = make_client(&server.uri()).await;
+        let result = client.get_agent_instructions("my-proj").await.unwrap();
+        let content = result["data"]["attributes"]["content"].as_str().unwrap();
+        assert!(content.contains("# Instructions"));
+    }
+
+    #[tokio::test]
+    async fn get_agent_instructions_propagates_auth_error() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/api/v1/projects/secret/agent_instructions"))
+            .respond_with(ResponseTemplate::new(401).set_body_json(serde_json::json!({
+                "error": "Unauthorized"
+            })))
+            .mount(&server)
+            .await;
+
+        let client = make_client(&server.uri()).await;
+        let err = client.get_agent_instructions("secret").await.unwrap_err();
+        assert!(matches!(err, crate::error::Error::Auth(_)));
+    }
+
+    #[tokio::test]
+    async fn get_agent_instructions_propagates_not_found() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/api/v1/projects/no-such/agent_instructions"))
+            .respond_with(ResponseTemplate::new(404).set_body_json(serde_json::json!({
+                "error": "Not found"
+            })))
+            .mount(&server)
+            .await;
+
+        let client = make_client(&server.uri()).await;
+        let err = client.get_agent_instructions("no-such").await.unwrap_err();
+        assert!(matches!(err, crate::error::Error::NotFound(_)));
     }
 
     #[tokio::test]

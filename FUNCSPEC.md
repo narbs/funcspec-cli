@@ -1,4 +1,4 @@
-# FUNCSPEC.md — {{your_project_title}} (funcspec.net)
+# FUNCSPEC.md — FuncSpec Platform (funcspec.net)
 
 > This file orients AI agents to the FuncSpec spec management workflow for this project.
 > Read it at the start of every session, then fetch live instructions from the API.
@@ -6,31 +6,9 @@
 
 ## Project
 
-- **Organization:** {{your_organization_title}} (slug: `{{your_organization_slug}}`)
-- **Project:** {{your_project_title}} (slug: `{{your_project_slug}}`)
-- **Project URL:** https://funcspec.net/{{your_organization_slug}}/{{your_project_slug}}
-
-## Local Configuration
-
-A `.funcspec` file in this directory pins the default project for CLI commands run here:
-
-```toml
-project = "{{your_project_slug}}"
-```
-
-This file is **committed to version control** — do not add it to `.gitignore`. It lets
-every contributor (human or agent) run `funcspec` commands without specifying `--project`.
-
-To create or update it:
-```bash
-funcspec config set project {{your_project_slug}} --local
-```
-
-The full project resolution order is:
-1. `--project` flag
-2. `FUNCSPEC_PROJECT` env var
-3. `.funcspec` in the current or any parent directory ← this file
-4. Global default in `~/.config/funcspec/config.toml`
+- **Organization:** Your org (slug: `your-org`)
+- **Project:** FuncSpec Platform (slug: `funcspec-platform`)
+- **Project URL:** https://funcspec.net/your-org/funcspec-platform
 
 ## Step 1 — Authenticate
 
@@ -59,7 +37,7 @@ funcspec instructions
 Via direct API:
 ```
 curl -s -H "X-Api-Key: $FUNCSPEC_API_KEY" \
-  https://funcspec.net/api/v1/projects/{{your_project_slug}}/agent_instructions
+  https://funcspec.net/api/v1/projects/funcspec-platform/agent_instructions
 ```
 
 The response includes a `content` field with markdown instructions. Follow them.
@@ -74,9 +52,9 @@ funcspec items list --type tech            # technical specs
 
 Via direct API:
 ```
-GET /api/v1/projects/{{your_project_slug}}/stats
-GET /api/v1/projects/{{your_project_slug}}/spec/items
-GET /api/v1/projects/{{your_project_slug}}/tech/coverage
+GET /api/v1/projects/funcspec-platform/stats
+GET /api/v1/projects/funcspec-platform/spec/items
+GET /api/v1/projects/funcspec-platform/tech/coverage
 ```
 
 Focus on items with `implementation_status: not_started` or `in_progress`.
@@ -131,8 +109,8 @@ not_started → in_progress → implemented → verified → released
 ### Spec Divergence — Never Silently Diverge
 
 If code diverged from spec:
-- **Propose a change** via CLI or: `POST /api/v1/projects/{{your_project_slug}}/work_package/:item_id/propose`
-- **Flag drift** via: `POST /api/v1/projects/{{your_project_slug}}/inbox` with `source: "agent_drift"`
+- **Propose a change** via CLI or: `POST /api/v1/projects/funcspec-platform/work_package/:item_id/propose`
+- **Flag drift** via: `POST /api/v1/projects/funcspec-platform/inbox` with `source: "agent_drift"`
 
 ### Discovering New Work
 
@@ -147,7 +125,7 @@ EOF
 - `description` — not `body`
 - `type_of` — not `item_type` (values: `functional` or `technical`)
 - `coverage_score` — not `overall_score`
-- `:project_slug` — accepts numeric ID or slug (e.g., `{{your_project_slug}}`)
+- `:project_slug` — accepts numeric ID or slug (e.g., `funcspec-platform`)
 
 ## CLI vs Direct API
 
@@ -174,4 +152,4 @@ Full REST API reference: https://funcspec.net/api/v1/docs
 - [ ] New items created (if scope expanded)
 - [ ] Drift flagged if code diverged without a proposal
 
-<!-- funcspec:v1:{{your_organization_slug}}/{{your_project_slug}} -->
+<!-- funcspec:v1:your-org/funcspec-platform -->

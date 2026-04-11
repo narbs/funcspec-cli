@@ -6,6 +6,69 @@ use std::path::{Path, PathBuf};
 const CONFIG_DIR: &str = "funcspec";
 const CONFIG_FILE: &str = "config.toml";
 
+/// Per-directory local config stored in `.funcspec` at the repo root.
+///
+/// Overrides the global profile's `default_project` for commands run within
+/// that directory tree. Committed to version control so all contributors share
+/// the same project binding.
+///
+/// Format (TOML):
+/// ```toml
+/// project = "my-project"
+/// ```
+#[derive(Debug, Default, Serialize, Deserialize, PartialEq, Clone)]
+pub struct LocalConfig {
+    /// Project slug override for this directory tree.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub project: Option<String>,
+}
+
+impl LocalConfig {
+    pub const FILE_NAME: &'static str = ".funcspec";
+
+    /// Walk up from `start` looking for a `.funcspec` file, returning the path
+    /// of the first one found (if any).
+    pub fn find(start: &Path) -> Option<PathBuf> {
+        let mut dir = start;
+        loop {
+            let candidate = dir.join(Self::FILE_NAME);
+            if candidate.exists() {
+                return Some(candidate);
+            }
+            match dir.parent() {
+                Some(p) => dir = p,
+                None => return None,
+            }
+        }
+    }
+
+    /// Load from the first `.funcspec` found walking up from `start`.
+    /// Returns `None` if no file is found or on parse error.
+    pub fn find_and_load(start: &Path) -> Option<Self> {
+        let path = Self::find(start)?;
+        Self::load_from_path(&path).ok()
+    }
+
+    /// Load from an explicit path.
+    pub fn load_from_path(path: &Path) -> Result<Self> {
+        let content = std::fs::read_to_string(path)
+            .with_context(|| format!("Failed to read {}", path.display()))?;
+        toml::from_str(&content).with_context(|| format!("Failed to parse {}", path.display()))
+    }
+
+    /// Save to an explicit path (atomic write).
+    pub fn save_to_path(&self, path: &Path) -> Result<()> {
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        let content = toml::to_string_pretty(self)?;
+        let tmp = path.with_extension("tmp");
+        std::fs::write(&tmp, &content)?;
+        std::fs::rename(&tmp, path)?;
+        Ok(())
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct Config {
     /// Active profile name

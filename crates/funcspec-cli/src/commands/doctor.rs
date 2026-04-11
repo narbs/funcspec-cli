@@ -7,7 +7,8 @@ use clap::Args;
 use console::style;
 use serde::{Deserialize, Serialize};
 
-use crate::config::Config;
+use crate::config::{Config, LocalConfig};
+use crate::context::resolve_project_slug;
 
 const LLM_CONFIG_FILES: &[&str] = &[
     "CLAUDE.md",
@@ -20,7 +21,7 @@ const LLM_CONFIG_FILES: &[&str] = &[
 ];
 
 const GITHUB_RELEASES_URL: &str =
-    "https://api.github.com/repos/funcspec/funcspec-cli/releases/latest";
+    "https://api.github.com/repos/narbs/funcspec-cli/releases/latest";
 
 const VERSION_CACHE_FILE: &str = "version_cache.json";
 
@@ -364,10 +365,13 @@ fn check_default_project_set() -> CheckResult {
 }
 
 fn extract_project_slug() -> String {
-    Config::load()
-        .ok()
-        .and_then(|c| c.active_profile())
-        .and_then(|p| p.default_project)
+    let config = Config::load().unwrap_or_default();
+    let global_default = config
+        .active_profile()
+        .and_then(|p| p.default_project);
+    let cwd = std::env::current_dir().unwrap_or_default();
+    let local = LocalConfig::find_and_load(&cwd);
+    resolve_project_slug(None, global_default.as_deref(), local.as_ref())
         .unwrap_or_default()
 }
 
@@ -426,8 +430,12 @@ fn check_funcspec_md(dir: &Path, project_slug: &str) -> CheckResult {
 
     let has_word = content.to_lowercase().contains("funcspec");
     let has_slug = project_slug.is_empty() || content.contains(project_slug);
-    let marker = format!("<!-- funcspec:v1:{project_slug}");
-    let has_marker = !project_slug.is_empty() && content.contains(&marker);
+    // Accept both "<!-- funcspec:v1:slug -->" and "<!-- funcspec:v1:org/slug -->"
+    let has_marker = !project_slug.is_empty()
+        && (content.contains(&format!("<!-- funcspec:v1:{project_slug} -->"))
+            || content.contains(&format!("<!-- funcspec:v1:{project_slug}-->"))
+            || content.contains(&format!("/{project_slug} -->"))
+            || content.contains(&format!("/{project_slug}-->")));
 
     if has_word && has_slug && has_marker {
         CheckResult::pass("funcspec_md", "present and current")
@@ -536,5 +544,189 @@ fn print_check(result: &CheckResult, no_color: bool, quiet: bool, _verbose: bool
 
     if let Some(fix) = &result.fix {
         eprintln!("                        → {fix}");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::TempDir;
+
+    fn temp_dir() -> TempDir {
+        tempfile::tempdir().unwrap()
+    }
+
+    // ── CheckResult constructors ───────────────────────────────────────────────
+
+    #[test]
+    fn check_result_pass() {
+        let r = CheckResult::pass("my_check", "all good");
+        assert_eq!(r.status, CheckStatus::Pass);
+        assert_eq!(r.detail, "all good");
+        assert!(r.fix.is_none());
+        assert!(r.reason.is_none());
+    }
+
+    #[test]
+    fn check_result_fail_with_fix() {
+        let r = CheckResult::fail("my_check", "broken", Some("funcspec onboard".into()));
+        assert_eq!(r.status, CheckStatus::Fail);
+        assert_eq!(r.fix.as_deref(), Some("funcspec onboard"));
+    }
+
+    #[test]
+    fn check_result_warn() {
+        let r = CheckResult::warn("my_check", "might be stale");
+        assert_eq!(r.status, CheckStatus::Warn);
+        assert!(r.fix.is_none());
+    }
+
+    #[test]
+    fn check_result_skipped_has_reason() {
+        let r = CheckResult::skipped("my_check", "no API key");
+        assert_eq!(r.status, CheckStatus::Skipped);
+        assert_eq!(r.reason.as_deref(), Some("no API key"));
+        assert!(r.detail.is_empty());
+    }
+
+    // ── check_funcspec_md ──────────────────────────────────────────────────────
+
+    #[test]
+    fn funcspec_md_fail_when_missing() {
+        let dir = temp_dir();
+        let r = check_funcspec_md(dir.path(), "my-proj");
+        assert_eq!(r.status, CheckStatus::Fail);
+        assert!(r.fix.is_some());
+    }
+
+    #[test]
+    fn funcspec_md_pass_with_valid_marker() {
+        let dir = temp_dir();
+        let content = "# FuncSpec\nmy-proj details\n<!-- funcspec:v1:my-proj -->";
+        std::fs::write(dir.path().join("FUNCSPEC.md"), content).unwrap();
+        let r = check_funcspec_md(dir.path(), "my-proj");
+        assert_eq!(r.status, CheckStatus::Pass);
+    }
+
+    #[test]
+    fn funcspec_md_pass_with_org_slug_marker() {
+        // Marker includes org prefix: "<!-- funcspec:v1:tambit/pearl -->"
+        // Doctor is given just the project slug "pearl" from config.
+        let dir = temp_dir();
+        let content = "# FuncSpec\npearl details\n<!-- funcspec:v1:tambit/pearl -->";
+        std::fs::write(dir.path().join("FUNCSPEC.md"), content).unwrap();
+        let r = check_funcspec_md(dir.path(), "pearl");
+        assert_eq!(r.status, CheckStatus::Pass);
+    }
+
+    #[test]
+    fn funcspec_md_warn_when_marker_missing() {
+        let dir = temp_dir();
+        std::fs::write(dir.path().join("FUNCSPEC.md"), "# FuncSpec\nmy-proj").unwrap();
+        let r = check_funcspec_md(dir.path(), "my-proj");
+        assert_eq!(r.status, CheckStatus::Warn);
+        assert!(r.detail.contains("stale"));
+    }
+
+    #[test]
+    fn funcspec_md_warn_when_slug_mismatched() {
+        let dir = temp_dir();
+        let content = "# FuncSpec\nother-proj\n<!-- funcspec:v1:other-proj -->";
+        std::fs::write(dir.path().join("FUNCSPEC.md"), content).unwrap();
+        let r = check_funcspec_md(dir.path(), "my-proj");
+        assert_eq!(r.status, CheckStatus::Warn);
+    }
+
+    #[test]
+    fn funcspec_md_warn_with_empty_slug() {
+        // When no default project slug is set, the marker check cannot match (slug is empty),
+        // so the result is a warning rather than pass — file exists but marker can't be verified.
+        let dir = temp_dir();
+        std::fs::write(dir.path().join("FUNCSPEC.md"), "# FuncSpec intro").unwrap();
+        let r = check_funcspec_md(dir.path(), "");
+        assert_eq!(r.status, CheckStatus::Warn);
+    }
+
+    // ── check_llm_config ──────────────────────────────────────────────────────
+
+    #[test]
+    fn llm_config_fail_when_no_files() {
+        let dir = temp_dir();
+        let r = check_llm_config(dir.path());
+        assert_eq!(r.status, CheckStatus::Fail);
+        assert!(r.fix.is_some());
+    }
+
+    #[test]
+    fn llm_config_pass_when_file_references_funcspec() {
+        let dir = temp_dir();
+        std::fs::write(dir.path().join("CLAUDE.md"), "Read `FUNCSPEC.md`").unwrap();
+        let r = check_llm_config(dir.path());
+        assert_eq!(r.status, CheckStatus::Pass);
+        assert!(r.detail.contains("CLAUDE.md"));
+    }
+
+    #[test]
+    fn llm_config_fail_when_files_exist_but_none_reference() {
+        let dir = temp_dir();
+        std::fs::write(dir.path().join("CLAUDE.md"), "# No funcspec ref here").unwrap();
+        let r = check_llm_config(dir.path());
+        assert_eq!(r.status, CheckStatus::Fail);
+    }
+
+    #[test]
+    fn llm_config_pass_when_at_least_one_references() {
+        let dir = temp_dir();
+        std::fs::write(dir.path().join("CLAUDE.md"), "# No ref").unwrap();
+        std::fs::write(dir.path().join("AGENTS.md"), "Read `FUNCSPEC.md`").unwrap();
+        let r = check_llm_config(dir.path());
+        assert_eq!(r.status, CheckStatus::Pass);
+        assert!(r.detail.contains("do not"));
+    }
+
+    #[test]
+    fn llm_config_scans_nested_copilot_path() {
+        let dir = temp_dir();
+        let gh = dir.path().join(".github");
+        std::fs::create_dir_all(&gh).unwrap();
+        std::fs::write(gh.join("copilot-instructions.md"), "See `FUNCSPEC.md`").unwrap();
+        let r = check_llm_config(dir.path());
+        assert_eq!(r.status, CheckStatus::Pass);
+    }
+
+    // ── JSON serialization ─────────────────────────────────────────────────────
+
+    #[test]
+    fn check_status_serializes_to_snake_case() {
+        assert_eq!(
+            serde_json::to_string(&CheckStatus::Pass).unwrap(),
+            "\"pass\""
+        );
+        assert_eq!(
+            serde_json::to_string(&CheckStatus::Skipped).unwrap(),
+            "\"skipped\""
+        );
+    }
+
+    #[test]
+    fn check_result_skipped_omits_fix_field() {
+        let r = CheckResult::skipped("foo", "no key");
+        let json = serde_json::to_value(&r).unwrap();
+        assert!(json.get("fix").is_none());
+        assert_eq!(json["reason"], "no key");
+    }
+
+    #[test]
+    fn version_cache_roundtrip() {
+        // Verify cache struct serializes and deserializes cleanly
+        let cache = VersionCache {
+            latest: "0.3.0".into(),
+            checked_at: chrono::Utc::now(),
+            cli_version: "0.2.4".into(),
+        };
+        let json = serde_json::to_string(&cache).unwrap();
+        let back: VersionCache = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.latest, "0.3.0");
+        assert_eq!(back.cli_version, "0.2.4");
     }
 }

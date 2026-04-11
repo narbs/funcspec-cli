@@ -7,7 +7,7 @@ use console::style;
 use dialoguer::{Confirm, Input, Select};
 use funcspec_client::FuncspecClient;
 
-use crate::config::{Config, Profile};
+use crate::config::{Config, LocalConfig, Profile};
 
 const LLM_CONFIG_FILES: &[&str] = &[
     "CLAUDE.md",
@@ -119,15 +119,23 @@ pub async fn run(args: OnboardArgs) -> Result<()> {
         resolve_project(&args, &client).await?;
 
     if !args.dry_run {
+        // Write .funcspec in the target dir for per-directory project binding
+        let local_path = dir.join(LocalConfig::FILE_NAME);
+        let lc = LocalConfig { project: Some(project_slug.clone()) };
+        lc.save_to_path(&local_path)
+            .with_context(|| format!("Failed to write {}", local_path.display()))?;
+        eprintln!("  {} .funcspec written (project = '{project_slug}')", style("✓").green().bold());
+
+        // Also update global profile default so other directories work without a .funcspec
         let mut config = Config::load()?;
         let profile_name = config.active_profile.clone();
         if let Some(profile) = config.profiles.get_mut(&profile_name) {
             profile.default_project = Some(project_slug.clone());
         }
         config.save()?;
-        eprintln!("  {} Default project set to '{project_slug}'", style("✓").green().bold());
+        eprintln!("  {} Global default project set to '{project_slug}'", style("✓").green().bold());
     } else {
-        eprintln!("  {} Set default project to '{project_slug}' (dry run)", style("[skip]").dim());
+        eprintln!("  {} Write .funcspec (project = '{project_slug}') (dry run)", style("[skip]").dim());
     }
 
     // ── Step 3: FUNCSPEC.md ───────────────────────────────────────────────────
@@ -163,7 +171,8 @@ pub async fn run(args: OnboardArgs) -> Result<()> {
     eprintln!("{}", style("Setup Complete").green().bold());
     eprintln!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     eprintln!("  {} API key", style("✓").green().bold());
-    eprintln!("  {} Default project: {project_slug}", style("✓").green().bold());
+    eprintln!("  {} .funcspec (project = '{project_slug}')", style("✓").green().bold());
+    eprintln!("  {} Global default project: {project_slug}", style("✓").green().bold());
     eprintln!("  {} FUNCSPEC.md", style("✓").green().bold());
     eprintln!();
     eprintln!("Next steps:");
@@ -283,22 +292,17 @@ async fn resolve_project(
         .find(|p| p.attributes.slug == chosen_slug)
         .unwrap();
 
-    // Derive org slug: for slugs like "org/project", use the prefix; otherwise use "your-org"
+    // Derive org slug from the project slug if it contains '/' (e.g. "tambit/funcspec-cli"),
+    // otherwise fetch one item and parse the org from its URL ("/tambit/funcspec-cli/F-1").
     let (org_slug, project_slug) = if chosen_slug.contains('/') {
         let parts: Vec<&str> = chosen_slug.splitn(2, '/').collect();
         (parts[0].to_string(), parts[1].to_string())
     } else {
-        ("your-org".to_string(), chosen_slug.clone())
+        let org = resolve_org_slug(client, project.id).await;
+        (org, chosen_slug.clone())
     };
 
-    let org_name = org_slug.replace('-', " ");
-    let org_name = {
-        let mut c = org_name.chars();
-        match c.next() {
-            None => String::new(),
-            Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
-        }
-    };
+    let org_name = titlecase(&org_slug.replace('-', " "));
 
     Ok((project_slug, org_slug, project.attributes.name.clone(), org_name))
 }
@@ -448,6 +452,23 @@ fn update_llm_config(path: &Path, dry_run: bool, non_interactive: bool) -> Resul
     Ok(true)
 }
 
+/// Return the org slug for the authenticated user via `GET /api/v1/settings`.
+/// Falls back to `"your-org"` on any error.
+async fn resolve_org_slug(client: &FuncspecClient, _project_id: u64) -> String {
+    match client.get_org_slug().await {
+        Ok(slug) if !slug.is_empty() => slug,
+        _ => "your-org".to_string(),
+    }
+}
+
+fn titlecase(s: &str) -> String {
+    let mut chars = s.chars();
+    match chars.next() {
+        None => String::new(),
+        Some(f) => f.to_uppercase().collect::<String>() + chars.as_str(),
+    }
+}
+
 /// Check if the given directory appears fully onboarded.
 pub fn is_onboarded(profile: &crate::config::Profile, dir: &Path) -> bool {
     let has_key = !profile.api_key.is_empty();
@@ -478,5 +499,220 @@ pub fn check_funcspec_md_marker(dir: &Path, project_slug: &str) -> bool {
     };
     content.to_lowercase().contains("funcspec")
         && (project_slug.is_empty() || content.contains(project_slug))
-        && content.contains(&format!("<!-- funcspec:v1:{project_slug}"))
+        && !project_slug.is_empty()
+        && (content.contains(&format!("<!-- funcspec:v1:{project_slug} -->"))
+            || content.contains(&format!("<!-- funcspec:v1:{project_slug}-->"))
+            || content.contains(&format!("/{project_slug} -->"))
+            || content.contains(&format!("/{project_slug}-->")))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::TempDir;
+
+    fn temp_dir() -> TempDir {
+        tempfile::tempdir().unwrap()
+    }
+
+    // ── render_template ────────────────────────────────────────────────────────
+
+    #[test]
+    fn render_template_substitutes_all_placeholders() {
+        let out = render_template("Acme Corp", "acme", "My Project", "my-project");
+        assert!(out.contains("Acme Corp"));
+        assert!(out.contains("acme"));
+        assert!(out.contains("My Project"));
+        assert!(out.contains("my-project"));
+        assert!(!out.contains("{{your_organization_title}}"));
+        assert!(!out.contains("{{your_organization_slug}}"));
+        assert!(!out.contains("{{your_project_title}}"));
+        assert!(!out.contains("{{your_project_slug}}"));
+    }
+
+    #[test]
+    fn render_template_includes_footer_marker() {
+        let out = render_template("Org", "org", "Proj", "proj");
+        assert!(out.contains("<!-- funcspec:v1:org/proj -->"));
+    }
+
+    #[test]
+    fn render_template_includes_project_url() {
+        let out = render_template("Org", "org", "Proj", "proj");
+        assert!(out.contains("https://funcspec.net/org/proj"));
+    }
+
+    // ── write_funcspec_md ──────────────────────────────────────────────────────
+
+    #[test]
+    fn write_funcspec_md_creates_new_file() {
+        let dir = temp_dir();
+        let path = dir.path().join("FUNCSPEC.md");
+        write_funcspec_md(&path, "# Hello", true).unwrap();
+        assert!(path.exists());
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "# Hello");
+    }
+
+    #[test]
+    fn write_funcspec_md_skips_when_identical() {
+        let dir = temp_dir();
+        let path = dir.path().join("FUNCSPEC.md");
+        std::fs::write(&path, "same content").unwrap();
+        // non_interactive=true so no prompt; content is identical so it should skip (not error)
+        write_funcspec_md(&path, "same content", true).unwrap();
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "same content");
+    }
+
+    #[test]
+    fn write_funcspec_md_overwrites_in_non_interactive() {
+        let dir = temp_dir();
+        let path = dir.path().join("FUNCSPEC.md");
+        std::fs::write(&path, "old content").unwrap();
+        write_funcspec_md(&path, "new content", true).unwrap();
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "new content");
+    }
+
+    // ── check_funcspec_md_marker ───────────────────────────────────────────────
+
+    #[test]
+    fn marker_returns_false_when_no_file() {
+        let dir = temp_dir();
+        assert!(!check_funcspec_md_marker(dir.path(), "my-proj"));
+    }
+
+    #[test]
+    fn marker_returns_true_for_valid_content() {
+        let dir = temp_dir();
+        let content = "# FuncSpec\nmy-proj stuff\n<!-- funcspec:v1:my-proj -->";
+        std::fs::write(dir.path().join("FUNCSPEC.md"), content).unwrap();
+        assert!(check_funcspec_md_marker(dir.path(), "my-proj"));
+    }
+
+    #[test]
+    fn marker_returns_true_for_org_slug_form() {
+        // Marker written as "org/slug" — slug-only check must still pass
+        let dir = temp_dir();
+        let content = "# FuncSpec\nmy-proj stuff\n<!-- funcspec:v1:tambit/my-proj -->";
+        std::fs::write(dir.path().join("FUNCSPEC.md"), content).unwrap();
+        assert!(check_funcspec_md_marker(dir.path(), "my-proj"));
+    }
+
+    #[test]
+    fn marker_returns_false_when_slug_missing() {
+        let dir = temp_dir();
+        let content = "# FuncSpec\nother-proj\n<!-- funcspec:v1:other-proj -->";
+        std::fs::write(dir.path().join("FUNCSPEC.md"), content).unwrap();
+        assert!(!check_funcspec_md_marker(dir.path(), "my-proj"));
+    }
+
+    #[test]
+    fn marker_returns_false_when_marker_absent() {
+        let dir = temp_dir();
+        let content = "# FuncSpec\nmy-proj stuff\n(no marker here)";
+        std::fs::write(dir.path().join("FUNCSPEC.md"), content).unwrap();
+        assert!(!check_funcspec_md_marker(dir.path(), "my-proj"));
+    }
+
+    #[test]
+    fn marker_returns_false_with_empty_slug() {
+        // Empty slug: marker check requires `<!-- funcspec:v1: -->` literally — without a real
+        // slug the marker is never present, so the check returns false.
+        let dir = temp_dir();
+        std::fs::write(dir.path().join("FUNCSPEC.md"), "# FuncSpec intro").unwrap();
+        assert!(!check_funcspec_md_marker(dir.path(), ""));
+    }
+
+    // ── update_llm_config ─────────────────────────────────────────────────────
+
+    #[test]
+    fn update_llm_config_creates_new_file_non_interactive() {
+        let dir = temp_dir();
+        let path = dir.path().join("CLAUDE.md");
+        update_llm_config(&path, false, true).unwrap();
+        let content = std::fs::read_to_string(&path).unwrap();
+        assert!(content.contains("FUNCSPEC.md"));
+        assert!(content.contains("FuncSpec Integration"));
+    }
+
+    #[test]
+    fn update_llm_config_appends_to_existing_non_interactive() {
+        let dir = temp_dir();
+        let path = dir.path().join("CLAUDE.md");
+        std::fs::write(&path, "# Existing content\n").unwrap();
+        update_llm_config(&path, false, true).unwrap();
+        let content = std::fs::read_to_string(&path).unwrap();
+        assert!(content.contains("# Existing content"));
+        assert!(content.contains("FUNCSPEC.md"));
+    }
+
+    #[test]
+    fn update_llm_config_skips_when_already_referenced() {
+        let dir = temp_dir();
+        let path = dir.path().join("CLAUDE.md");
+        std::fs::write(&path, "Read `FUNCSPEC.md` for instructions.\n").unwrap();
+        let result = update_llm_config(&path, false, true).unwrap();
+        assert!(result);
+        // Content unchanged
+        assert_eq!(
+            std::fs::read_to_string(&path).unwrap(),
+            "Read `FUNCSPEC.md` for instructions.\n"
+        );
+    }
+
+    #[test]
+    fn update_llm_config_dry_run_does_not_write() {
+        let dir = temp_dir();
+        let path = dir.path().join("CLAUDE.md");
+        update_llm_config(&path, true, true).unwrap();
+        assert!(!path.exists());
+    }
+
+    #[test]
+    fn update_llm_config_creates_parent_dirs() {
+        let dir = temp_dir();
+        let path = dir.path().join(".github").join("copilot-instructions.md");
+        update_llm_config(&path, false, true).unwrap();
+        assert!(path.exists());
+    }
+
+    // ── is_onboarded ──────────────────────────────────────────────────────────
+
+    #[test]
+    fn is_onboarded_false_when_no_key() {
+        let dir = temp_dir();
+        let profile = crate::config::Profile {
+            host: "https://funcspec.net".into(),
+            api_key: "".into(),
+            default_project: Some("my-proj".into()),
+        };
+        assert!(!is_onboarded(&profile, dir.path()));
+    }
+
+    #[test]
+    fn is_onboarded_false_when_no_project() {
+        let dir = temp_dir();
+        let profile = crate::config::Profile {
+            host: "https://funcspec.net".into(),
+            api_key: "mykey".into(),
+            default_project: None,
+        };
+        assert!(!is_onboarded(&profile, dir.path()));
+    }
+
+    #[test]
+    fn is_onboarded_true_when_all_criteria_met() {
+        let dir = temp_dir();
+        // Write valid FUNCSPEC.md
+        let funcspec_content = "# FuncSpec\nmy-proj\n<!-- funcspec:v1:my-proj -->";
+        std::fs::write(dir.path().join("FUNCSPEC.md"), funcspec_content).unwrap();
+        // Write LLM config that references FUNCSPEC.md
+        std::fs::write(dir.path().join("CLAUDE.md"), "Read `FUNCSPEC.md`").unwrap();
+
+        let profile = crate::config::Profile {
+            host: "https://funcspec.net".into(),
+            api_key: "mykey".into(),
+            default_project: Some("my-proj".into()),
+        };
+        assert!(is_onboarded(&profile, dir.path()));
+    }
 }
