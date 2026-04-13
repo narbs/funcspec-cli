@@ -1,7 +1,8 @@
 use anyhow::{Context, Result, bail};
 use rust_i18n::t;
 
-use crate::context::client_and_config;
+use crate::config::LocalConfig;
+use crate::context::{client_and_config, project_slug_override, resolve_project_slug};
 use crate::output::{self, OutputFormat};
 
 /// Arguments for the `funcspec stats` command.
@@ -54,13 +55,21 @@ pub async fn run(args: StatsArgs, _format: OutputFormat) -> Result<()> {
     let profile = config
         .active_profile()
         .context("Not logged in. Run `funcspec auth login` to connect.")?;
-    let project_slug = profile
-        .default_project
-        .as_deref()
-        .context("No default project set. Run `funcspec projects set-default <slug>`.")?;
+
+    let cwd = std::env::current_dir().unwrap_or_default();
+    let local = LocalConfig::find_and_load(&cwd);
+    let project_slug = resolve_project_slug(
+        project_slug_override(),
+        profile.default_project.as_deref(),
+        local.as_ref(),
+    )
+    .context(
+        "No project specified. Use --project <slug>, set FUNCSPEC_PROJECT, \
+         add a .funcspec file, or run `funcspec onboard`.",
+    )?;
 
     let project = client
-        .get_project(project_slug)
+        .get_project(&project_slug)
         .await
         .with_context(|| format!("Project '{project_slug}' not found"))?;
 

@@ -472,13 +472,13 @@ pub struct StatsSpecItems {
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct StatsReviews {
     #[serde(default)]
-    pub tech_reviewed: u32,
+    pub tech_reviewed: i32,
     #[serde(default)]
-    pub tech_unreviewed: u32,
+    pub tech_unreviewed: i32,
     #[serde(default)]
-    pub func_reviewed: u32,
+    pub func_reviewed: i32,
     #[serde(default)]
-    pub func_unreviewed: u32,
+    pub func_unreviewed: i32,
     #[serde(default)]
     pub avg_tech_score: Option<f64>,
     #[serde(default)]
@@ -790,6 +790,30 @@ mod tests {
         assert_eq!(s.coverage.functional_with_tech, 5);
         assert_eq!(s.recent_activity.items_updated_24h, 2);
         assert_eq!(s.recent_activity.reviews_24h, 3);
+    }
+
+    #[test]
+    fn project_stats_negative_unreviewed() {
+        // Server can return negative values when review count exceeds item count (server bug).
+        // The client must accept them rather than panic.
+        let json = r#"{
+            "type": "project_stats",
+            "spec_items": {"total": 90, "by_type": {}, "by_state": {}, "by_implementation": {}},
+            "reviews": {
+                "tech_reviewed": 92,
+                "tech_unreviewed": -2,
+                "func_reviewed": 0,
+                "func_unreviewed": 0,
+                "avg_tech_score": null,
+                "avg_func_score": null,
+                "by_verdict": {}
+            },
+            "coverage": {"functional_with_tech": 0, "functional_without_tech": 0},
+            "recent_activity": {"items_updated_24h": 0, "reviews_24h": 0, "agent_runs_24h": 0}
+        }"#;
+        let s: ProjectStats = serde_json::from_str(json).unwrap();
+        assert_eq!(s.reviews.tech_reviewed, 92);
+        assert_eq!(s.reviews.tech_unreviewed, -2);
     }
 
     #[test]

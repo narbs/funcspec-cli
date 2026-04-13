@@ -647,7 +647,7 @@ pub fn format_stats_dashboard(
 
     // Review coverage
     let rev = &stats.reviews;
-    let reviewed = rev.tech_reviewed + rev.func_reviewed;
+    let reviewed = (rev.tech_reviewed.max(0) + rev.func_reviewed.max(0)) as u32;
     let pct_rev = percent(reviewed, total);
     let avg = rev
         .avg_tech_score
