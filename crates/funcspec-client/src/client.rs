@@ -606,9 +606,13 @@ impl FuncspecClient {
         if !resp.status().is_success() {
             return Err(Error::from_response(resp).await);
         }
-        let text = resp.text().await.map_err(|e| Error::Network(e.to_string()))?;
-        let body: ApiResponse<ProjectStats> = serde_json::from_str(&text)
-            .map_err(|e| Error::Other(format!("Failed to parse stats response: {e}\nBody: {text}")))?;
+        let text = resp
+            .text()
+            .await
+            .map_err(|e| Error::Network(e.to_string()))?;
+        let body: ApiResponse<ProjectStats> = serde_json::from_str(&text).map_err(|e| {
+            Error::Other(format!("Failed to parse stats response: {e}\nBody: {text}"))
+        })?;
         Ok(body.data)
     }
 

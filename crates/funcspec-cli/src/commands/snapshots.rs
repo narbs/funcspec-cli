@@ -199,11 +199,18 @@ async fn resolve_snapshot_id(
         if snapshots.iter().any(|s| s.id == id) {
             return Ok(id);
         }
-        let available: Vec<String> = snapshots.iter().map(|s| format!("{} ({})", s.id, s.attributes.name)).collect();
+        let available: Vec<String> = snapshots
+            .iter()
+            .map(|s| format!("{} ({})", s.id, s.attributes.name))
+            .collect();
         anyhow::bail!(
             "No snapshot with ID {}. Available: {}",
             id,
-            if available.is_empty() { "none".to_string() } else { available.join(", ") }
+            if available.is_empty() {
+                "none".to_string()
+            } else {
+                available.join(", ")
+            }
         );
     }
 
@@ -454,7 +461,10 @@ async fn handle_diff(identifier: &str, json: bool, format: OutputFormat) -> Resu
             if !diff.spec_items.added.is_empty() {
                 println!("{}", "Added items:".green().bold());
                 for item in &diff.spec_items.added {
-                    let permalink = item.get("permalink").and_then(|v| v.as_str()).unwrap_or("?");
+                    let permalink = item
+                        .get("permalink")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("?");
                     let title = item.get("title").and_then(|v| v.as_str()).unwrap_or("?");
                     println!("  {} {} — {}", "+".green().bold(), permalink.cyan(), title);
                 }
@@ -464,7 +474,10 @@ async fn handle_diff(identifier: &str, json: bool, format: OutputFormat) -> Resu
             if !diff.spec_items.removed.is_empty() {
                 println!("{}", "Removed items:".red().bold());
                 for item in &diff.spec_items.removed {
-                    let permalink = item.get("permalink").and_then(|v| v.as_str()).unwrap_or("?");
+                    let permalink = item
+                        .get("permalink")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("?");
                     let title = item.get("title").and_then(|v| v.as_str()).unwrap_or("?");
                     println!("  {} {} — {}", "-".red().bold(), permalink.cyan(), title);
                 }
@@ -476,8 +489,14 @@ async fn handle_diff(identifier: &str, json: bool, format: OutputFormat) -> Resu
                 for entry in &diff.spec_items.modified {
                     println!("  {} {}", "~".yellow().bold(), entry.permalink.cyan());
                     for (field, change) in &entry.changes {
-                        let before = change.get("before").map(|v| v.to_string()).unwrap_or_default();
-                        let after = change.get("after").map(|v| v.to_string()).unwrap_or_default();
+                        let before = change
+                            .get("before")
+                            .map(|v| v.to_string())
+                            .unwrap_or_default();
+                        let after = change
+                            .get("after")
+                            .map(|v| v.to_string())
+                            .unwrap_or_default();
                         println!("      {}: {} → {}", field, before.red(), after.green());
                     }
                 }

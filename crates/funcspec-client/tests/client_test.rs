@@ -1106,8 +1106,14 @@ async fn diff_snapshot_success() {
     assert_eq!(diff.spec_items.removed[0]["permalink"], "F-2");
     assert_eq!(diff.spec_items.modified.len(), 1);
     assert_eq!(diff.spec_items.modified[0].permalink, "F-3");
-    assert_eq!(diff.spec_items.modified[0].changes["title"]["before"], "Old title");
-    assert_eq!(diff.spec_items.modified[0].changes["title"]["after"], "New title");
+    assert_eq!(
+        diff.spec_items.modified[0].changes["title"]["before"],
+        "Old title"
+    );
+    assert_eq!(
+        diff.spec_items.modified[0].changes["title"]["after"],
+        "New title"
+    );
 }
 
 #[tokio::test]
