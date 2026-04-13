@@ -61,10 +61,9 @@ pub async fn run(args: ViewArgs) -> Result<()> {
             .with_context(|| format!("Item '{}' not found", item_id))?;
         item.attributes.url.clone()
     } else {
-        // Construct the project spec view URL: host/projects/org/project/spec
+        // Construct the project URL: host/projects/:id
         let host = profile.host.trim_end_matches('/');
-        let org_slug = client.get_org_slug().await.context("Failed to fetch org slug")?;
-        format!("{}/projects/{}/{}/spec", host, org_slug, project.attributes.slug)
+        format!("{}/projects/{}", host, project.id)
     };
 
     if args.url {
@@ -89,19 +88,17 @@ mod tests {
     #[test]
     fn project_url_construction() {
         let host = "https://app.funcspec.io";
-        let org_slug = "acme";
-        let project_slug = "my-project";
-        let url = format!("{}/projects/{}/{}/spec", host.trim_end_matches('/'), org_slug, project_slug);
-        assert_eq!(url, "https://app.funcspec.io/projects/acme/my-project/spec");
+        let project_id = 42u64;
+        let url = format!("{}/projects/{}", host.trim_end_matches('/'), project_id);
+        assert_eq!(url, "https://app.funcspec.io/projects/42");
     }
 
     #[test]
     fn project_url_host_trailing_slash() {
         let host = "https://app.funcspec.io/";
-        let org_slug = "acme";
-        let project_slug = "demo";
-        let url = format!("{}/projects/{}/{}/spec", host.trim_end_matches('/'), org_slug, project_slug);
-        assert_eq!(url, "https://app.funcspec.io/projects/acme/demo/spec");
+        let project_id = 7u64;
+        let url = format!("{}/projects/{}", host.trim_end_matches('/'), project_id);
+        assert_eq!(url, "https://app.funcspec.io/projects/7");
     }
 
     #[test]
