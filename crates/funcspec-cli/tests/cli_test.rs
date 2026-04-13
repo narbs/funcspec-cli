@@ -483,14 +483,16 @@ fn snapshot_model_deserializes() {
 fn snapshot_diff_model_deserializes() {
     use funcspec_client::SnapshotDiff;
     let json = r#"{
-        "snapshot_id": 5,
-        "added": [],
-        "removed": [],
-        "modified": []
+        "spec_items": {"added": [], "removed": [], "modified": []},
+        "edges": {"added": [], "removed": []},
+        "summary": {
+            "items_added": 0, "items_removed": 0, "items_modified": 0,
+            "edges_added": 0, "edges_removed": 0
+        }
     }"#;
     let d: SnapshotDiff = serde_json::from_str(json).unwrap();
-    assert_eq!(d.snapshot_id, 5);
-    assert!(d.added.is_empty());
-    assert!(d.removed.is_empty());
-    assert!(d.modified.is_empty());
+    assert!(d.spec_items.added.is_empty());
+    assert!(d.spec_items.removed.is_empty());
+    assert!(d.spec_items.modified.is_empty());
+    assert_eq!(d.summary.items_added, 0);
 }

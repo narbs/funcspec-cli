@@ -435,7 +435,8 @@ async fn handle_diff(identifier: &str, json: bool, format: OutputFormat) -> Resu
             println!("{}", serde_json::to_string_pretty(&diff)?);
         }
         _ => {
-            let total = diff.added.len() + diff.removed.len() + diff.modified.len();
+            let s = &diff.summary;
+            let total = s.items_added + s.items_removed + s.items_modified;
             if total == 0 {
                 println!("{}", "No changes since snapshot.".green());
                 return Ok(());
@@ -444,65 +445,40 @@ async fn handle_diff(identifier: &str, json: bool, format: OutputFormat) -> Resu
             println!(
                 "{} {} added, {} removed, {} modified",
                 "Diff:".bold(),
-                diff.added.len().to_string().green(),
-                diff.removed.len().to_string().red(),
-                diff.modified.len().to_string().yellow()
+                s.items_added.to_string().green(),
+                s.items_removed.to_string().red(),
+                s.items_modified.to_string().yellow()
             );
             println!();
 
-            if !diff.added.is_empty() {
+            if !diff.spec_items.added.is_empty() {
                 println!("{}", "Added items:".green().bold());
-                for item in &diff.added {
-                    println!(
-                        "  {} {} — {}",
-                        "+".green().bold(),
-                        item.attributes.permalink.cyan(),
-                        item.attributes.title
-                    );
+                for item in &diff.spec_items.added {
+                    let permalink = item.get("permalink").and_then(|v| v.as_str()).unwrap_or("?");
+                    let title = item.get("title").and_then(|v| v.as_str()).unwrap_or("?");
+                    println!("  {} {} — {}", "+".green().bold(), permalink.cyan(), title);
                 }
                 println!();
             }
 
-            if !diff.removed.is_empty() {
+            if !diff.spec_items.removed.is_empty() {
                 println!("{}", "Removed items:".red().bold());
-                for item in &diff.removed {
-                    println!(
-                        "  {} {} — {}",
-                        "-".red().bold(),
-                        item.attributes.permalink.cyan(),
-                        item.attributes.title
-                    );
+                for item in &diff.spec_items.removed {
+                    let permalink = item.get("permalink").and_then(|v| v.as_str()).unwrap_or("?");
+                    let title = item.get("title").and_then(|v| v.as_str()).unwrap_or("?");
+                    println!("  {} {} — {}", "-".red().bold(), permalink.cyan(), title);
                 }
                 println!();
             }
 
-            if !diff.modified.is_empty() {
+            if !diff.spec_items.modified.is_empty() {
                 println!("{}", "Modified items:".yellow().bold());
-                for entry in &diff.modified {
-                    let before = &entry.before.attributes;
-                    let after = &entry.after.attributes;
-                    println!(
-                        "  {} {} — {}",
-                        "~".yellow().bold(),
-                        after.permalink.cyan(),
-                        after.title
-                    );
-                    if before.title != after.title {
-                        println!(
-                            "      title: {} → {}",
-                            before.title.red(),
-                            after.title.green()
-                        );
-                    }
-                    if before.description != after.description {
-                        println!("      description changed");
-                    }
-                    if before.implementation_status != after.implementation_status {
-                        println!(
-                            "      status: {} → {}",
-                            before.implementation_status.to_string().red(),
-                            after.implementation_status.to_string().green()
-                        );
+                for entry in &diff.spec_items.modified {
+                    println!("  {} {}", "~".yellow().bold(), entry.permalink.cyan());
+                    for (field, change) in &entry.changes {
+                        let before = change.get("before").map(|v| v.to_string()).unwrap_or_default();
+                        let after = change.get("after").map(|v| v.to_string()).unwrap_or_default();
+                        println!("      {}: {} → {}", field, before.red(), after.green());
                     }
                 }
             }

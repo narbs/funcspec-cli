@@ -551,20 +551,46 @@ impl UsageFilter {
 // Snapshot diff
 // ---------------------------------------------------------------------------
 
-/// A single modified item: the state before and after the snapshot.
+/// A single modified item in a snapshot diff.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SnapshotDiffItem {
-    pub before: SpecItem,
-    pub after: SpecItem,
+pub struct SnapshotDiffModified {
+    pub permalink: String,
+    pub before: serde_json::Value,
+    pub after: serde_json::Value,
+    pub changes: std::collections::HashMap<String, serde_json::Value>,
+}
+
+/// Spec-item changes in a snapshot diff.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SnapshotDiffItems {
+    pub added: Vec<serde_json::Value>,
+    pub removed: Vec<serde_json::Value>,
+    pub modified: Vec<SnapshotDiffModified>,
+}
+
+/// Edge changes in a snapshot diff.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SnapshotDiffEdges {
+    pub added: Vec<serde_json::Value>,
+    pub removed: Vec<serde_json::Value>,
+}
+
+/// Summary counts in a snapshot diff.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SnapshotDiffSummary {
+    pub items_added: u32,
+    pub items_removed: u32,
+    pub items_modified: u32,
+    pub edges_added: u32,
+    pub edges_removed: u32,
 }
 
 /// Diff between a snapshot and the current project state.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SnapshotDiff {
-    pub snapshot_id: u64,
-    pub added: Vec<SpecItem>,
-    pub removed: Vec<SpecItem>,
-    pub modified: Vec<SnapshotDiffItem>,
+    pub spec_items: SnapshotDiffItems,
+    pub edges: SnapshotDiffEdges,
+    pub summary: SnapshotDiffSummary,
 }
 
 // ---------------------------------------------------------------------------

@@ -1069,15 +1069,23 @@ async fn diff_snapshot_success() {
     let server = setup_server().await;
     let body = json!({
         "data": {
-            "snapshot_id": 1,
-            "added": [make_item_json(10, "F-10", "New feature")],
-            "removed": [make_item_json(2, "F-2", "Removed feature")],
-            "modified": [
-                {
-                    "before": make_item_json(3, "F-3", "Old title"),
-                    "after": make_item_json(3, "F-3", "New title")
-                }
-            ]
+            "spec_items": {
+                "added": [{"id": 10, "permalink": "F-10", "title": "New feature"}],
+                "removed": [{"id": 2, "permalink": "F-2", "title": "Removed feature"}],
+                "modified": [
+                    {
+                        "permalink": "F-3",
+                        "before": {"id": 3, "permalink": "F-3", "title": "Old title"},
+                        "after":  {"id": 3, "permalink": "F-3", "title": "New title"},
+                        "changes": {"title": {"before": "Old title", "after": "New title"}}
+                    }
+                ]
+            },
+            "edges": {"added": [], "removed": []},
+            "summary": {
+                "items_added": 1, "items_removed": 1, "items_modified": 1,
+                "edges_added": 0, "edges_removed": 0
+            }
         }
     });
 
@@ -1089,14 +1097,17 @@ async fn diff_snapshot_success() {
 
     let client = client_for(&server);
     let diff = client.diff_snapshot(1, 1).await.unwrap();
-    assert_eq!(diff.snapshot_id, 1);
-    assert_eq!(diff.added.len(), 1);
-    assert_eq!(diff.added[0].attributes.permalink, "F-10");
-    assert_eq!(diff.removed.len(), 1);
-    assert_eq!(diff.removed[0].attributes.permalink, "F-2");
-    assert_eq!(diff.modified.len(), 1);
-    assert_eq!(diff.modified[0].before.attributes.title, "Old title");
-    assert_eq!(diff.modified[0].after.attributes.title, "New title");
+    assert_eq!(diff.summary.items_added, 1);
+    assert_eq!(diff.summary.items_removed, 1);
+    assert_eq!(diff.summary.items_modified, 1);
+    assert_eq!(diff.spec_items.added.len(), 1);
+    assert_eq!(diff.spec_items.added[0]["permalink"], "F-10");
+    assert_eq!(diff.spec_items.removed.len(), 1);
+    assert_eq!(diff.spec_items.removed[0]["permalink"], "F-2");
+    assert_eq!(diff.spec_items.modified.len(), 1);
+    assert_eq!(diff.spec_items.modified[0].permalink, "F-3");
+    assert_eq!(diff.spec_items.modified[0].changes["title"]["before"], "Old title");
+    assert_eq!(diff.spec_items.modified[0].changes["title"]["after"], "New title");
 }
 
 #[tokio::test]
@@ -1104,10 +1115,12 @@ async fn diff_snapshot_empty() {
     let server = setup_server().await;
     let body = json!({
         "data": {
-            "snapshot_id": 2,
-            "added": [],
-            "removed": [],
-            "modified": []
+            "spec_items": {"added": [], "removed": [], "modified": []},
+            "edges": {"added": [], "removed": []},
+            "summary": {
+                "items_added": 0, "items_removed": 0, "items_modified": 0,
+                "edges_added": 0, "edges_removed": 0
+            }
         }
     });
 
@@ -1119,7 +1132,8 @@ async fn diff_snapshot_empty() {
 
     let client = client_for(&server);
     let diff = client.diff_snapshot(1, 2).await.unwrap();
-    assert!(diff.added.is_empty());
-    assert!(diff.removed.is_empty());
-    assert!(diff.modified.is_empty());
+    assert!(diff.spec_items.added.is_empty());
+    assert!(diff.spec_items.removed.is_empty());
+    assert!(diff.spec_items.modified.is_empty());
+    assert_eq!(diff.summary.items_added, 0);
 }
