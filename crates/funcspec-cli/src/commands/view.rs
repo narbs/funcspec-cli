@@ -1,7 +1,8 @@
 use anyhow::{Context, Result};
 use rust_i18n::t;
 
-use crate::context::client_and_config;
+use crate::config::LocalConfig;
+use crate::context::{client_and_config, project_slug_override, resolve_project_slug};
 
 /// Arguments for `funcspec view`.
 pub struct ViewArgs {
@@ -34,12 +35,21 @@ pub async fn run(args: ViewArgs) -> Result<()> {
     let profile = config
         .active_profile()
         .context("Not logged in. Run `funcspec auth login`.")?;
-    let project_slug = profile
-        .default_project
-        .as_deref()
-        .context("No default project set. Run `funcspec projects set-default <slug>`.")?;
+
+    let cwd = std::env::current_dir().unwrap_or_default();
+    let local = LocalConfig::find_and_load(&cwd);
+    let project_slug = resolve_project_slug(
+        project_slug_override(),
+        profile.default_project.as_deref(),
+        local.as_ref(),
+    )
+    .context(
+        "No project specified. Use --project <slug>, set FUNCSPEC_PROJECT, \
+         add a .funcspec file, or run `funcspec onboard`.",
+    )?;
+
     let project = client
-        .get_project(project_slug)
+        .get_project(&project_slug)
         .await
         .with_context(|| format!("Project '{}' not found", project_slug))?;
 
@@ -51,9 +61,10 @@ pub async fn run(args: ViewArgs) -> Result<()> {
             .with_context(|| format!("Item '{}' not found", item_id))?;
         item.attributes.url.clone()
     } else {
-        // Construct the project spec view URL from the configured host
+        // Construct the project spec view URL: host/projects/org/project/spec
         let host = profile.host.trim_end_matches('/');
-        format!("{}/projects/{}/spec", host, project.attributes.slug)
+        let org_slug = client.get_org_slug().await.context("Failed to fetch org slug")?;
+        format!("{}/projects/{}/{}/spec", host, org_slug, project.attributes.slug)
     };
 
     if args.url {
@@ -78,17 +89,19 @@ mod tests {
     #[test]
     fn project_url_construction() {
         let host = "https://app.funcspec.io";
-        let slug = "my-project";
-        let url = format!("{}/projects/{}/spec", host.trim_end_matches('/'), slug);
-        assert_eq!(url, "https://app.funcspec.io/projects/my-project/spec");
+        let org_slug = "acme";
+        let project_slug = "my-project";
+        let url = format!("{}/projects/{}/{}/spec", host.trim_end_matches('/'), org_slug, project_slug);
+        assert_eq!(url, "https://app.funcspec.io/projects/acme/my-project/spec");
     }
 
     #[test]
     fn project_url_host_trailing_slash() {
         let host = "https://app.funcspec.io/";
-        let slug = "demo";
-        let url = format!("{}/projects/{}/spec", host.trim_end_matches('/'), slug);
-        assert_eq!(url, "https://app.funcspec.io/projects/demo/spec");
+        let org_slug = "acme";
+        let project_slug = "demo";
+        let url = format!("{}/projects/{}/{}/spec", host.trim_end_matches('/'), org_slug, project_slug);
+        assert_eq!(url, "https://app.funcspec.io/projects/acme/demo/spec");
     }
 
     #[test]
