@@ -189,17 +189,25 @@ async fn resolve_snapshot_id(
     project_id: u64,
     identifier: &str,
 ) -> Result<u64> {
-    // Fast path: numeric ID
-    if let Ok(id) = identifier.parse::<u64>() {
-        return Ok(id);
-    }
-
-    // Slow path: list and match by name
     let snapshots = client
         .list_snapshots(project_id)
         .await
         .context("Failed to list snapshots")?;
 
+    // Numeric identifier: match by ID
+    if let Ok(id) = identifier.parse::<u64>() {
+        if snapshots.iter().any(|s| s.id == id) {
+            return Ok(id);
+        }
+        let available: Vec<String> = snapshots.iter().map(|s| format!("{} ({})", s.id, s.attributes.name)).collect();
+        anyhow::bail!(
+            "No snapshot with ID {}. Available: {}",
+            id,
+            if available.is_empty() { "none".to_string() } else { available.join(", ") }
+        );
+    }
+
+    // Name match
     let matches: Vec<_> = snapshots
         .iter()
         .filter(|s| s.attributes.name == identifier)
