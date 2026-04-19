@@ -14,7 +14,11 @@ set -uo pipefail
 CLI="./target/release/funcspec"
 PROJECT="${FUNCSPEC_TEST_PROJECT:-test-lifecycle-$$}"
 API_KEY=$(grep api_key ~/.config/funcspec/config.toml | head -1 | sed 's/.*= *"//' | sed 's/".*//')
-API_BASE="https://funcspec.net/api/v1"
+# FUNCSPEC_API_BASE controls curl helpers; FUNCSPEC_HOST controls the CLI binary.
+# Both default to production. Set both to point at a different instance.
+API_BASE="${FUNCSPEC_API_BASE:-https://funcspec.net/api/v1}"
+# Derive host from API_BASE if not explicitly set (strip /api/v1 suffix)
+export FUNCSPEC_HOST="${FUNCSPEC_HOST:-${API_BASE%/api/v1}}"
 PASS=0
 FAIL=0
 ERRORS=""

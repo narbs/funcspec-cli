@@ -147,14 +147,14 @@ impl Config {
         let env_key = std::env::var("FUNCSPEC_API_KEY").ok();
         let env_host = std::env::var("FUNCSPEC_HOST").ok();
 
-        if let Some(key) = env_key {
+        if env_key.is_some() || env_host.is_some() {
+            let stored = self.profiles.get(&self.active_profile);
             return Some(Profile {
-                host: env_host.unwrap_or_else(|| "https://funcspec.net".into()),
-                api_key: key,
-                default_project: self
-                    .profiles
-                    .get(&self.active_profile)
-                    .and_then(|p| p.default_project.clone()),
+                host: env_host.or_else(|| stored.map(|p| p.host.clone()))
+                    .unwrap_or_else(|| "https://funcspec.net".into()),
+                api_key: env_key.or_else(|| stored.map(|p| p.api_key.clone()))
+                    .unwrap_or_default(),
+                default_project: stored.and_then(|p| p.default_project.clone()),
             });
         }
 
