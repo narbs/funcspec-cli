@@ -1,3 +1,4 @@
+use std::cmp::Reverse;
 use std::io::{self, IsTerminal};
 
 use anyhow::Result;
@@ -713,7 +714,7 @@ pub fn format_usage_stats(stats: &funcspec_client::models::UsageStats) {
         println!("\n{}", "By operation:".cyan().bold());
         let mut ops: Vec<(&String, &funcspec_client::models::TokenUsage)> =
             stats.breakdown_by_operation.iter().collect();
-        ops.sort_by(|a, b| b.1.tokens.cmp(&a.1.tokens));
+        ops.sort_by_key(|x| Reverse(x.1.tokens));
         for (op, u) in ops {
             println!(
                 "  {:<22} {} tokens  ~${:.2}",
