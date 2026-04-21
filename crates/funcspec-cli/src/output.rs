@@ -542,6 +542,9 @@ fn item_detail(item: &SpecItem) {
     if !a.tags.is_empty() {
         println!("Tags: {}", a.tags.join(", "));
     }
+    if let Some(ref url) = a.share_url {
+        println!("Share URL: {url}");
+    }
     if let Some(ref desc) = a.description {
         println!("\n{desc}");
     }

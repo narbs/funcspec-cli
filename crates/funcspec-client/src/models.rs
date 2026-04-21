@@ -88,6 +88,8 @@ pub struct SpecItemAttributes {
     pub parent_id: Option<u64>,
     pub project_id: u64,
     pub review: Option<ReviewSummary>,
+    #[serde(default)]
+    pub share_url: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
