@@ -128,7 +128,7 @@ cmd:
     transition:
       about: "نقل عنصر مواصفات إلى حالة تنفيذ جديدة"
       item: "الرابط الدائم للعنصر (مثل F-1) أو المعرف"
-      status: "الحالة الجديدة (not_started، in_progress، implemented، verified، released)"
+      state: "inbox, draft, accepted, integrated"
 
   edges:
     about: "إدارة حواف التبعية بين عناصر المواصفات"

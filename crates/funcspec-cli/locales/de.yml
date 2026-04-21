@@ -128,7 +128,7 @@ cmd:
     transition:
       about: "Spezifikationselement in einen neuen Implementierungsstatus überführen"
       item: "Element-Permalink (z.B. F-1) oder ID"
-      status: "Neuer Status (not_started, in_progress, implemented, verified, released)"
+      state: "inbox, draft, accepted, integrated"
 
   edges:
     about: "Abhängigkeitskanten zwischen Spezifikationselementen verwalten"

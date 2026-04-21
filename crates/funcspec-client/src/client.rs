@@ -353,6 +353,34 @@ impl FuncspecClient {
         Ok(())
     }
 
+    /// Transition a spec item's workflow state.
+    ///
+    /// Valid states: `inbox`, `draft`, `accepted`, `integrated`.
+    /// Allowed transitions: inbox→draft, draft→accepted/inbox,
+    /// accepted→integrated/draft, integrated→accepted.
+    ///
+    /// Calls `POST /projects/:project_id/spec/items/:permalink/transition`.
+    pub async fn transition_item_state(
+        &self,
+        project_id: u64,
+        permalink: &str,
+        state: &str,
+    ) -> Result<SpecItem, Error> {
+        let url = self.api_url(&format!(
+            "/projects/{project_id}/spec/items/{permalink}/transition"
+        ));
+        debug!(%url, %state, "transition_item_state");
+        let body = serde_json::json!({ "state": state });
+        let resp = self
+            .request_with_retry(|| self.http.post(&url).json(&body).send())
+            .await?;
+        if !resp.status().is_success() {
+            return Err(Error::from_response(resp).await);
+        }
+        let body: ApiResponse<SpecItem> = resp.json().await?;
+        Ok(body.data)
+    }
+
     // -- Reviews --
 
     pub async fn list_reviews(&self, spec_item_id: u64) -> Result<Vec<Review>, Error> {

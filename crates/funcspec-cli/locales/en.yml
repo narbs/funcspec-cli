@@ -126,9 +126,9 @@ cmd:
       cost: "Cost in USD"
       status: "Run status (success, failure)"
     transition:
-      about: "Transition a spec item to a new implementation status"
+      about: "Transition a spec item to a new workflow state (inbox, draft, accepted, integrated)"
       item: "Item permalink (e.g., F-1) or ID"
-      status: "New status (not_started, in_progress, implemented, verified, released)"
+      state: "Target state: inbox, draft, accepted, or integrated"
 
   edges:
     about: "Manage dependency edges between spec items"

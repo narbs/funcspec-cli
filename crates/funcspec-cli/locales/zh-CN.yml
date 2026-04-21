@@ -128,7 +128,7 @@ cmd:
     transition:
       about: "将规范项目转换到新的实现状态"
       item: "项目永久链接（例如 F-1）或 ID"
-      status: "新状态（not_started、in_progress、implemented、verified、released）"
+      state: "inbox, draft, accepted, integrated"
 
   edges:
     about: "管理规范项目之间的依赖关系边"

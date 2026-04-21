@@ -51,6 +51,10 @@ pub enum ItemsCmd {
         item: String,
         yes: bool,
     },
+    Transition {
+        item: String,
+        state: String,
+    },
 }
 
 pub fn build_command() -> clap::Command {
@@ -259,6 +263,21 @@ pub fn build_command() -> clap::Command {
                         .help(t!("cmd.items.delete.yes").to_string()),
                 ),
         )
+        .subcommand(
+            clap::Command::new("transition")
+                .about(t!("cmd.items.transition.about").to_string())
+                .arg(
+                    clap::Arg::new("item")
+                        .required(true)
+                        .help(t!("cmd.items.transition.item").to_string()),
+                )
+                .arg(
+                    clap::Arg::new("state")
+                        .required(true)
+                        .value_parser(["inbox", "draft", "accepted", "integrated"])
+                        .help(t!("cmd.items.transition.state").to_string()),
+                ),
+        )
 }
 
 pub async fn dispatch(matches: &clap::ArgMatches, format: OutputFormat) -> Result<()> {
@@ -305,6 +324,10 @@ pub async fn dispatch(matches: &clap::ArgMatches, format: OutputFormat) -> Resul
         Some(("delete", m)) => ItemsCmd::Delete {
             item: m.get_one::<String>("item").unwrap().clone(),
             yes: m.get_flag("yes"),
+        },
+        Some(("transition", m)) => ItemsCmd::Transition {
+            item: m.get_one::<String>("item").unwrap().clone(),
+            state: m.get_one::<String>("state").unwrap().clone(),
         },
         _ => {
             build_command().print_help().ok();
@@ -582,6 +605,19 @@ pub async fn run(cmd: ItemsCmd, format: OutputFormat) -> Result<()> {
 
             client.delete_item(project_id, spec_item.id).await?;
             eprintln!("Deleted {}", style(&spec_item.attributes.permalink).cyan());
+            Ok(())
+        }
+
+        ItemsCmd::Transition { item, state } => {
+            let (client, project_id) = client_and_project().await?;
+            let updated = client
+                .transition_item_state(project_id, &item, &state)
+                .await?;
+            eprintln!(
+                "{} → {}",
+                style(&updated.attributes.permalink).cyan().bold(),
+                style(&updated.attributes.state).green().bold(),
+            );
             Ok(())
         }
     }

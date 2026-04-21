@@ -128,7 +128,7 @@ cmd:
     transition:
       about: "將規格項目轉換到新的實作狀態"
       item: "項目永久連結（例如 F-1）或 ID"
-      status: "新狀態（not_started、in_progress、implemented、verified、released）"
+      state: "inbox, draft, accepted, integrated"
 
   edges:
     about: "管理規格項目之間的相依關係邊"

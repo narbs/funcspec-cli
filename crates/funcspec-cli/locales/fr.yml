@@ -128,7 +128,7 @@ cmd:
     transition:
       about: "Faire passer un élément de spécification à un nouveau statut d'implémentation"
       item: "Permalien de l'élément (ex. F-1) ou ID"
-      status: "Nouveau statut (not_started, in_progress, implemented, verified, released)"
+      state: "inbox, draft, accepted, integrated"
 
   edges:
     about: "Gérer les arêtes de dépendance entre les éléments de spécification"

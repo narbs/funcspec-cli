@@ -128,7 +128,7 @@ cmd:
     transition:
       about: "Перевести элемент спецификации в новый статус реализации"
       item: "Постоянная ссылка на элемент (например, F-1) или ID"
-      status: "Новый статус (not_started, in_progress, implemented, verified, released)"
+      state: "inbox, draft, accepted, integrated"
 
   edges:
     about: "Управление рёбрами зависимостей между элементами спецификации"

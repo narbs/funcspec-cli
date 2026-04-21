@@ -128,7 +128,7 @@ cmd:
     transition:
       about: "Transicionar un elemento de especificación a un nuevo estado de implementación"
       item: "Enlace permanente del elemento (p.ej., F-1) o ID"
-      status: "Nuevo estado (not_started, in_progress, implemented, verified, released)"
+      state: "inbox, draft, accepted, integrated"
 
   edges:
     about: "Gestionar aristas de dependencia entre elementos de especificación"

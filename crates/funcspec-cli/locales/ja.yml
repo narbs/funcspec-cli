@@ -128,7 +128,7 @@ cmd:
     transition:
       about: "仕様アイテムを新しい実装ステータスに移行"
       item: "アイテムのパーマリンク（例：F-1）またはID"
-      status: "新しいステータス（not_started、in_progress、implemented、verified、released）"
+      state: "inbox, draft, accepted, integrated"
 
   edges:
     about: "仕様アイテム間の依存関係エッジを管理"
