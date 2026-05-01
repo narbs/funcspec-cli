@@ -14,6 +14,7 @@ pub struct StatsArgs {
 
 pub fn build_command() -> clap::Command {
     clap::Command::new("stats")
+        .alias("status")
         .about(t!("cmd.stats.about").to_string())
         .arg(
             clap::Arg::new("json")

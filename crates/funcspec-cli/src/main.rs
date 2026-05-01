@@ -74,7 +74,7 @@ async fn run(matches: clap::ArgMatches, format: OutputFormat) -> Result<()> {
             let args = commands::search::from_arg_matches(sub);
             commands::search::run(args, format).await
         }
-        Some(("stats", sub)) => {
+        Some(("stats" | "status", sub)) => {
             let args = commands::stats::from_arg_matches(sub);
             commands::stats::run(args, format).await
         }
