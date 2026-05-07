@@ -2,6 +2,43 @@
 
 use funcspec_cli::config::{Config, Profile};
 use std::collections::BTreeMap;
+use std::sync::{Mutex, MutexGuard};
+
+static ENV_MUTEX: Mutex<()> = Mutex::new(());
+
+struct EnvGuard<'a> {
+    _lock: MutexGuard<'a, ()>,
+    saved: Vec<(String, Option<String>)>,
+}
+
+impl<'a> EnvGuard<'a> {
+    fn unset(keys: &[&str]) -> Self {
+        let lock = ENV_MUTEX.lock().unwrap_or_else(|e| e.into_inner());
+        let saved = keys
+            .iter()
+            .map(|k| {
+                let v = std::env::var(k).ok();
+                // SAFETY: we hold ENV_MUTEX exclusively across all env-sensitive tests
+                unsafe { std::env::remove_var(k) };
+                (k.to_string(), v)
+            })
+            .collect();
+        Self { _lock: lock, saved }
+    }
+}
+
+impl Drop for EnvGuard<'_> {
+    fn drop(&mut self) {
+        for (k, v) in &self.saved {
+            match v {
+                Some(val) => unsafe { std::env::set_var(k, val) },
+                None => unsafe { std::env::remove_var(k) },
+            }
+        }
+    }
+}
+
+const ENV_VARS: &[&str] = &["FUNCSPEC_API_KEY", "FUNCSPEC_HOST"];
 
 fn profile(host: &str, key: &str) -> Profile {
     Profile {
@@ -57,6 +94,7 @@ fn full_config_roundtrip() {
 
 #[test]
 fn active_profile_returns_correct_profile() {
+    let _env = EnvGuard::unset(ENV_VARS);
     let mut profiles = BTreeMap::new();
     profiles.insert("default".into(), profile("https://funcspec.net", "key1"));
     profiles.insert("prod".into(), profile("https://prod.funcspec.net", "key2"));
@@ -73,6 +111,7 @@ fn active_profile_returns_correct_profile() {
 
 #[test]
 fn no_active_profile_when_empty() {
+    let _env = EnvGuard::unset(ENV_VARS);
     let config = Config::default();
     assert!(config.active_profile().is_none());
 }

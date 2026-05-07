@@ -178,6 +178,43 @@ impl Config {
 mod tests {
     use super::*;
     use std::collections::BTreeMap;
+    use std::sync::{Mutex, MutexGuard};
+
+    static ENV_MUTEX: Mutex<()> = Mutex::new(());
+
+    struct EnvGuard<'a> {
+        _lock: MutexGuard<'a, ()>,
+        saved: Vec<(String, Option<String>)>,
+    }
+
+    impl<'a> EnvGuard<'a> {
+        fn unset(keys: &[&str]) -> Self {
+            let lock = ENV_MUTEX.lock().unwrap_or_else(|e| e.into_inner());
+            let saved = keys
+                .iter()
+                .map(|k| {
+                    let v = std::env::var(k).ok();
+                    // SAFETY: we hold ENV_MUTEX exclusively across all env-sensitive tests
+                    unsafe { std::env::remove_var(k) };
+                    (k.to_string(), v)
+                })
+                .collect();
+            Self { _lock: lock, saved }
+        }
+    }
+
+    impl Drop for EnvGuard<'_> {
+        fn drop(&mut self) {
+            for (k, v) in &self.saved {
+                match v {
+                    Some(val) => unsafe { std::env::set_var(k, val) },
+                    None => unsafe { std::env::remove_var(k) },
+                }
+            }
+        }
+    }
+
+    const ENV_VARS: &[&str] = &["FUNCSPEC_API_KEY", "FUNCSPEC_HOST"];
 
     fn make_profile(host: &str, key: &str) -> Profile {
         Profile {
@@ -208,6 +245,7 @@ mod tests {
 
     #[test]
     fn active_profile_returns_stored() {
+        let _env = EnvGuard::unset(ENV_VARS);
         let config = make_config_with_profile();
         let profile = config.active_profile().unwrap();
         assert_eq!(profile.host, "https://funcspec.net");
@@ -216,6 +254,7 @@ mod tests {
 
     #[test]
     fn active_profile_returns_none_when_missing() {
+        let _env = EnvGuard::unset(ENV_VARS);
         let config = Config::default();
         assert!(config.active_profile().is_none());
     }
@@ -293,10 +332,12 @@ mod tests {
 
     #[test]
     fn env_api_key_overrides_stored() {
+        let _env = EnvGuard::unset(ENV_VARS);
+        // SAFETY: we hold ENV_MUTEX exclusively
+        unsafe { std::env::set_var("FUNCSPEC_API_KEY", "env_key") };
         let config = make_config_with_profile();
-        // We can't set env vars safely in parallel tests, so test the logic directly
-        // by checking that active_profile() reads from profiles when no env var set
         let profile = config.active_profile().unwrap();
-        assert_eq!(profile.api_key, "key123");
+        assert_eq!(profile.api_key, "env_key");
+        assert_eq!(profile.host, "https://funcspec.net");
     }
 }

@@ -192,6 +192,41 @@ fn mask_key(key: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::{Mutex, MutexGuard};
+
+    static ENV_MUTEX: Mutex<()> = Mutex::new(());
+
+    struct EnvGuard<'a> {
+        _lock: MutexGuard<'a, ()>,
+        saved: Vec<(String, Option<String>)>,
+    }
+
+    impl<'a> EnvGuard<'a> {
+        fn unset(keys: &[&str]) -> Self {
+            let lock = ENV_MUTEX.lock().unwrap_or_else(|e| e.into_inner());
+            let saved = keys
+                .iter()
+                .map(|k| {
+                    let v = std::env::var(k).ok();
+                    // SAFETY: we hold ENV_MUTEX exclusively across all env-sensitive tests
+                    unsafe { std::env::remove_var(k) };
+                    (k.to_string(), v)
+                })
+                .collect();
+            Self { _lock: lock, saved }
+        }
+    }
+
+    impl Drop for EnvGuard<'_> {
+        fn drop(&mut self) {
+            for (k, v) in &self.saved {
+                match v {
+                    Some(val) => unsafe { std::env::set_var(k, val) },
+                    None => unsafe { std::env::remove_var(k) },
+                }
+            }
+        }
+    }
 
     #[test]
     fn mask_key_short() {
@@ -209,6 +244,7 @@ mod tests {
 
     #[test]
     fn build_command_login_parses_defaults() {
+        let _env = EnvGuard::unset(&["FUNCSPEC_API_KEY"]);
         let cmd = build_command();
         let m = cmd.try_get_matches_from(["auth", "login"]).unwrap();
         let sub = m.subcommand_matches("login").unwrap();
