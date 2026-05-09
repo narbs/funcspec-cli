@@ -572,8 +572,14 @@ fn print_review_lists(review: &funcspec_client::models::ReviewSummary) {
     print_block("Gaps", &review.gaps);
     print_block("Suggestions", &review.suggestions);
     print_block("Ambiguities", &review.ambiguities);
-    print_block("Missing acceptance criteria", &review.missing_acceptance_criteria);
-    print_block("Decomposition suggestions", &review.decomposition_suggestions);
+    print_block(
+        "Missing acceptance criteria",
+        &review.missing_acceptance_criteria,
+    );
+    print_block(
+        "Decomposition suggestions",
+        &review.decomposition_suggestions,
+    );
     print_block("Risks", &review.risks);
 }
 
@@ -607,8 +613,14 @@ fn item_detail_markdown(item: &SpecItem) {
         print_block("Gaps", &review.gaps);
         print_block("Suggestions", &review.suggestions);
         print_block("Ambiguities", &review.ambiguities);
-        print_block("Missing acceptance criteria", &review.missing_acceptance_criteria);
-        print_block("Decomposition suggestions", &review.decomposition_suggestions);
+        print_block(
+            "Missing acceptance criteria",
+            &review.missing_acceptance_criteria,
+        );
+        print_block(
+            "Decomposition suggestions",
+            &review.decomposition_suggestions,
+        );
         print_block("Risks", &review.risks);
     }
 }

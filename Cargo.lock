@@ -534,7 +534,7 @@ dependencies = [
 
 [[package]]
 name = "funcspec-cli"
-version = "0.2.18"
+version = "0.2.19"
 dependencies = [
  "anyhow",
  "assert_cmd",
@@ -567,7 +567,7 @@ dependencies = [
 
 [[package]]
 name = "funcspec-client"
-version = "0.2.18"
+version = "0.2.19"
 dependencies = [
  "async-stream",
  "chrono",
