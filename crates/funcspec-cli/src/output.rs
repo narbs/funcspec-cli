@@ -556,7 +556,25 @@ fn item_detail(item: &SpecItem) {
         if let Some(ref verdict) = review.verdict {
             println!("  Verdict: {verdict}");
         }
+        print_review_lists(review);
     }
+}
+
+fn print_review_lists(review: &funcspec_client::models::ReviewSummary) {
+    let print_block = |label: &str, items: &Option<Vec<String>>| {
+        if let Some(list) = items.as_ref().filter(|l| !l.is_empty()) {
+            println!("\n  {}", label.underline());
+            for item in list {
+                println!("  - {item}");
+            }
+        }
+    };
+    print_block("Gaps", &review.gaps);
+    print_block("Suggestions", &review.suggestions);
+    print_block("Ambiguities", &review.ambiguities);
+    print_block("Missing acceptance criteria", &review.missing_acceptance_criteria);
+    print_block("Decomposition suggestions", &review.decomposition_suggestions);
+    print_block("Risks", &review.risks);
 }
 
 fn item_detail_markdown(item: &SpecItem) {
@@ -578,6 +596,20 @@ fn item_detail_markdown(item: &SpecItem) {
         if let Some(ref verdict) = review.verdict {
             println!("- **Verdict**: {verdict}");
         }
+        let print_block = |label: &str, items: &Option<Vec<String>>| {
+            if let Some(list) = items.as_ref().filter(|l| !l.is_empty()) {
+                println!("\n**{label}**\n");
+                for item in list {
+                    println!("- {item}");
+                }
+            }
+        };
+        print_block("Gaps", &review.gaps);
+        print_block("Suggestions", &review.suggestions);
+        print_block("Ambiguities", &review.ambiguities);
+        print_block("Missing acceptance criteria", &review.missing_acceptance_criteria);
+        print_block("Decomposition suggestions", &review.decomposition_suggestions);
+        print_block("Risks", &review.risks);
     }
 }
 

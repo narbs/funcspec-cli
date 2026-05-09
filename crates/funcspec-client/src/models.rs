@@ -139,9 +139,26 @@ pub struct ReviewSummary {
     pub review_type: Option<String>,
     pub reviewed_at: Option<DateTime<Utc>>,
     pub fresh: Option<bool>,
+    // Tech-review fields (review_type == "tech_review")
     pub coverage_map: Option<serde_json::Value>,
     pub gaps: Option<Vec<String>>,
     pub suggestions: Option<Vec<String>>,
+    // Func-review fields (review_type == "func_review")
+    #[serde(default)]
+    pub ambiguities: Option<Vec<String>>,
+    #[serde(default)]
+    pub missing_acceptance_criteria: Option<Vec<String>>,
+    #[serde(default)]
+    pub decomposition_suggestions: Option<Vec<String>>,
+    #[serde(default)]
+    pub clarity_score: Option<f64>,
+    #[serde(default)]
+    pub completeness_score: Option<f64>,
+    #[serde(default)]
+    pub testability_score: Option<f64>,
+    // Shared
+    #[serde(default)]
+    pub risks: Option<Vec<String>>,
 }
 
 /// Returned by `POST /projects/:id/work_package/:id/review`.
