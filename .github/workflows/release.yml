@@ -198,3 +198,82 @@ jobs:
             artifacts/**/*.tar.gz
             artifacts/**/*.zip
             checksums.sha256
+
+  homebrew:
+    name: Update Homebrew tap
+    needs: release
+    runs-on: ubuntu-latest
+    # Skip pre-releases (tags containing "-", e.g. v0.3.0-rc1).
+    if: ${{ !contains(github.ref_name, '-') }}
+
+    steps:
+      - name: Checkout source repo (formula template)
+        uses: actions/checkout@v5
+        with:
+          path: source
+
+      - name: Checkout tap repo
+        uses: actions/checkout@v5
+        with:
+          repository: narbs/homebrew-funcspec
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: tap
+
+      - name: Get version
+        id: version
+        shell: bash
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+
+      - name: Download checksums from release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download "${{ github.ref_name }}" \
+            --repo "${{ github.repository }}" \
+            --pattern 'checksums.sha256' \
+            --dir checksums
+
+      - name: Render formula into tap
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.version.outputs.VERSION }}"
+
+          extract_sha() {
+            local pattern="$1"
+            local sha
+            sha=$(awk -v p="$pattern" '$2 == p {print $1}' checksums/checksums.sha256)
+            if [ -z "$sha" ]; then
+              echo "ERROR: no SHA256 found for $pattern" >&2
+              exit 1
+            fi
+            echo "$sha"
+          }
+
+          MACOS_X86=$(extract_sha "funcspec-v${VERSION}-x86_64-apple-darwin.zip")
+          MACOS_ARM=$(extract_sha "funcspec-v${VERSION}-aarch64-apple-darwin.zip")
+          LINUX_X86=$(extract_sha "funcspec-v${VERSION}-x86_64-unknown-linux-musl.tar.gz")
+          LINUX_ARM=$(extract_sha "funcspec-v${VERSION}-aarch64-unknown-linux-gnu.tar.gz")
+
+          mkdir -p tap/Formula
+          sed \
+            -e "s|version \"[^\"]*\"|version \"${VERSION}\"|" \
+            -e "s|PLACEHOLDER_X86_64_DARWIN_SHA256|${MACOS_X86}|" \
+            -e "s|PLACEHOLDER_AARCH64_DARWIN_SHA256|${MACOS_ARM}|" \
+            -e "s|PLACEHOLDER_X86_64_LINUX_SHA256|${LINUX_X86}|" \
+            -e "s|PLACEHOLDER_AARCH64_LINUX_SHA256|${LINUX_ARM}|" \
+            source/Formula/funcspec.rb > tap/Formula/funcspec.rb
+
+      - name: Commit and push to tap
+        working-directory: tap
+        run: |
+          set -euo pipefail
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Formula/funcspec.rb
+          if git diff --staged --quiet; then
+            echo "No formula changes to commit"
+          else
+            git commit -m "funcspec ${{ steps.version.outputs.VERSION }}"
+            git push
+          fi

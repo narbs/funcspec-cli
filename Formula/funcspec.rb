@@ -12,12 +12,12 @@ class Funcspec < Formula
 
   on_macos do
     on_intel do
-      url "https://github.com/narbs/funcspec-cli/releases/download/v#{version}/funcspec-v#{version}-x86_64-apple-darwin.tar.gz"
+      url "https://github.com/narbs/funcspec-cli/releases/download/v#{version}/funcspec-v#{version}-x86_64-apple-darwin.zip"
       sha256 "PLACEHOLDER_X86_64_DARWIN_SHA256"
     end
 
     on_arm do
-      url "https://github.com/narbs/funcspec-cli/releases/download/v#{version}/funcspec-v#{version}-aarch64-apple-darwin.tar.gz"
+      url "https://github.com/narbs/funcspec-cli/releases/download/v#{version}/funcspec-v#{version}-aarch64-apple-darwin.zip"
       sha256 "PLACEHOLDER_AARCH64_DARWIN_SHA256"
     end
   end
