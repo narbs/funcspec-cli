@@ -608,6 +608,98 @@ impl FuncspecClient {
         }
     }
 
+    // -- Workflow lifecycle --
+
+    /// Transition an item's implementation status one step at a time.
+    /// API: `POST /projects/:project_id/spec/items/:item_id/transition_implementation`
+    pub async fn transition_item_implementation(
+        &self,
+        project_id: u64,
+        item_id: u64,
+        status: &str,
+    ) -> Result<(), Error> {
+        let url = self.api_url(&format!(
+            "/projects/{project_id}/spec/items/{item_id}/transition_implementation"
+        ));
+        debug!(%url, %status, "transition_item_implementation");
+        let body = serde_json::json!({ "implementation_status": status });
+        let resp = self
+            .request_with_retry(|| self.http.post(&url).json(&body).send())
+            .await?;
+        if !resp.status().is_success() {
+            return Err(Error::from_response(resp).await);
+        }
+        Ok(())
+    }
+
+    /// Associate a git commit with a spec item.
+    /// API: `POST /projects/:project_id/work_package/:item_id/link_commit`
+    pub async fn link_commit(
+        &self,
+        project_id: u64,
+        item_id: u64,
+        params: &LinkCommitParams,
+    ) -> Result<(), Error> {
+        let url = self.api_url(&format!(
+            "/projects/{project_id}/work_package/{item_id}/link_commit"
+        ));
+        debug!(%url, sha = %params.sha, "link_commit");
+        let resp = self
+            .request_with_retry(|| self.http.post(&url).json(params).send())
+            .await?;
+        if !resp.status().is_success() {
+            return Err(Error::from_response(resp).await);
+        }
+        Ok(())
+    }
+
+    /// Record an agent run against a spec item. Returns the run ID if the API provides one.
+    /// API: `POST /projects/:project_id/work_package/:item_id/record_run`
+    pub async fn record_run(
+        &self,
+        project_id: u64,
+        item_id: u64,
+        params: &RecordRunParams,
+    ) -> Result<Option<u64>, Error> {
+        let url = self.api_url(&format!(
+            "/projects/{project_id}/work_package/{item_id}/record_run"
+        ));
+        debug!(%url, "record_run");
+        let resp = self
+            .request_with_retry(|| self.http.post(&url).json(params).send())
+            .await?;
+        if !resp.status().is_success() {
+            return Err(Error::from_response(resp).await);
+        }
+        let body: serde_json::Value = resp.json().await.unwrap_or(serde_json::Value::Null);
+        let run_id = body
+            .get("data")
+            .and_then(|d| d.get("id"))
+            .and_then(|v| v.as_u64());
+        Ok(run_id)
+    }
+
+    /// Trigger a functional AI review for a spec item.
+    /// API: `POST /projects/:project_id/work_package/:item_id/func_review`
+    pub async fn review_item_functional(
+        &self,
+        project_id: u64,
+        item_id: u64,
+    ) -> Result<Review, Error> {
+        let url = self.api_url(&format!(
+            "/projects/{project_id}/work_package/{item_id}/func_review"
+        ));
+        debug!(%url, "review_item_functional");
+        let resp = self
+            .request_with_retry(|| self.http.post(&url).send())
+            .await?;
+        if !resp.status().is_success() {
+            return Err(Error::from_response(resp).await);
+        }
+        let body: ApiResponse<Review> = resp.json().await?;
+        Ok(body.data)
+    }
+
     // -- Usage --
 
     pub async fn list_usage(&self) -> Result<Vec<UsageLog>, Error> {

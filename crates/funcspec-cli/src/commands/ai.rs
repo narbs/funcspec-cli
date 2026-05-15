@@ -415,7 +415,7 @@ async fn handle_audit(permalink: &str) -> Result<()> {
 // Display helpers
 // ---------------------------------------------------------------------------
 
-fn display_review(item: &SpecItem, review: &Review) {
+pub fn display_review(item: &SpecItem, review: &Review) {
     let attrs = &review.attributes;
     let score = attrs.coverage_score.unwrap_or(0.0);
     let verdict = attrs.verdict.as_deref().unwrap_or("—");

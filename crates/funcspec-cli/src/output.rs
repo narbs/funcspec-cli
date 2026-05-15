@@ -506,6 +506,8 @@ fn items_table(items: &[SpecItem], meta: Option<&PaginationMeta>) {
             ImplementationStatus::Implemented => "implemented".green().to_string(),
             ImplementationStatus::InProgress => "in_progress".yellow().to_string(),
             ImplementationStatus::NotStarted => "not_started".dimmed().to_string(),
+            ImplementationStatus::Verified => "verified".cyan().to_string(),
+            ImplementationStatus::Released => "released".blue().to_string(),
         };
         let score = item
             .attributes

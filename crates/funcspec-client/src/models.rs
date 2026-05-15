@@ -116,6 +116,8 @@ pub enum ImplementationStatus {
     NotStarted,
     InProgress,
     Implemented,
+    Verified,
+    Released,
 }
 
 impl std::fmt::Display for ImplementationStatus {
@@ -124,6 +126,8 @@ impl std::fmt::Display for ImplementationStatus {
             ImplementationStatus::NotStarted => write!(f, "not_started"),
             ImplementationStatus::InProgress => write!(f, "in_progress"),
             ImplementationStatus::Implemented => write!(f, "implemented"),
+            ImplementationStatus::Verified => write!(f, "verified"),
+            ImplementationStatus::Released => write!(f, "released"),
         }
     }
 }
@@ -406,6 +410,50 @@ pub struct CreateReviewParams {
     pub comment: Option<String>,
 }
 
+#[derive(Debug, Default, Serialize)]
+pub struct LinkCommitParams {
+    pub sha: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub committed_at: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub agent_run_id: Option<u64>,
+}
+
+#[derive(Debug, Default, Serialize)]
+pub struct RecordRunParams {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub session_key: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub provider: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub input_tokens: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub output_tokens: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cost: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub instruction_version: Option<u32>,
+}
+
+/// Minimal response from `POST /work_package/:id/record_run`.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct AgentRun {
+    #[serde(default)]
+    pub id: Option<u64>,
+    #[serde(default)]
+    pub spec_item_id: Option<u64>,
+    #[serde(default)]
+    pub status: Option<String>,
+}
+
 // ---------------------------------------------------------------------------
 // Query filters
 // ---------------------------------------------------------------------------
@@ -650,6 +698,8 @@ mod tests {
         assert_eq!(ImplementationStatus::NotStarted.to_string(), "not_started");
         assert_eq!(ImplementationStatus::InProgress.to_string(), "in_progress");
         assert_eq!(ImplementationStatus::Implemented.to_string(), "implemented");
+        assert_eq!(ImplementationStatus::Verified.to_string(), "verified");
+        assert_eq!(ImplementationStatus::Released.to_string(), "released");
     }
 
     #[test]
@@ -657,6 +707,51 @@ mod tests {
         let json = r#""in_progress""#;
         let s: ImplementationStatus = serde_json::from_str(json).unwrap();
         assert_eq!(s, ImplementationStatus::InProgress);
+    }
+
+    #[test]
+    fn impl_status_verified_released_roundtrip() {
+        let v: ImplementationStatus = serde_json::from_str(r#""verified""#).unwrap();
+        assert_eq!(v, ImplementationStatus::Verified);
+        let r: ImplementationStatus = serde_json::from_str(r#""released""#).unwrap();
+        assert_eq!(r, ImplementationStatus::Released);
+        assert_eq!(serde_json::to_string(&v).unwrap(), r#""verified""#);
+        assert_eq!(serde_json::to_string(&r).unwrap(), r#""released""#);
+    }
+
+    #[test]
+    fn link_commit_params_skips_none_fields() {
+        let p = LinkCommitParams {
+            sha: "abc123".into(),
+            ..Default::default()
+        };
+        let json = serde_json::to_string(&p).unwrap();
+        assert!(json.contains("abc123"));
+        assert!(!json.contains("message"));
+        assert!(!json.contains("source"));
+    }
+
+    #[test]
+    fn record_run_params_skips_none_fields() {
+        let p = RecordRunParams::default();
+        let json = serde_json::to_string(&p).unwrap();
+        assert_eq!(json, "{}");
+    }
+
+    #[test]
+    fn agent_run_deserialize_with_id() {
+        let json = r#"{"data": {"id": 9, "spec_item_id": 756, "status": "pending"}}"#;
+        let resp: serde_json::Value = serde_json::from_str(json).unwrap();
+        let id = resp.get("data").and_then(|d| d.get("id")).and_then(|v| v.as_u64());
+        assert_eq!(id, Some(9));
+    }
+
+    #[test]
+    fn agent_run_deserialize_missing_id() {
+        let json = r#"{"data": {"spec_item_id": 756}}"#;
+        let resp: serde_json::Value = serde_json::from_str(json).unwrap();
+        let id = resp.get("data").and_then(|d| d.get("id")).and_then(|v| v.as_u64());
+        assert_eq!(id, None);
     }
 
     #[test]

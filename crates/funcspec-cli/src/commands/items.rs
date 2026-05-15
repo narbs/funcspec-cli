@@ -55,6 +55,33 @@ pub enum ItemsCmd {
         item: String,
         state: String,
     },
+    TransitionImplementation {
+        item: String,
+        status: String,
+    },
+    LinkCommit {
+        item: String,
+        sha: String,
+        message: Option<String>,
+        committed_at: Option<String>,
+        source: Option<String>,
+        agent_run_id: Option<u64>,
+    },
+    Review {
+        item: String,
+        functional: bool,
+    },
+    RecordRun {
+        item: String,
+        session_key: Option<String>,
+        model: Option<String>,
+        provider: Option<String>,
+        status: Option<String>,
+        input_tokens: Option<u64>,
+        output_tokens: Option<u64>,
+        cost: Option<f64>,
+        instruction_version: Option<u32>,
+    },
 }
 
 pub fn build_command() -> clap::Command {
@@ -278,6 +305,114 @@ pub fn build_command() -> clap::Command {
                         .help(t!("cmd.items.transition.state").to_string()),
                 ),
         )
+        .subcommand(
+            clap::Command::new("transition-implementation")
+                .about("Transition an item's implementation status one step at a time")
+                .arg(
+                    clap::Arg::new("item")
+                        .required(true)
+                        .help("Item permalink (e.g. F-1) or ID"),
+                )
+                .arg(
+                    clap::Arg::new("status")
+                        .required(true)
+                        .value_parser([
+                            "not_started",
+                            "in_progress",
+                            "implemented",
+                            "verified",
+                            "released",
+                        ])
+                        .help("Target implementation status"),
+                ),
+        )
+        .subcommand(
+            clap::Command::new("link-commit")
+                .about("Associate a git commit with a spec item")
+                .arg(
+                    clap::Arg::new("item")
+                        .required(true)
+                        .help("Item permalink (e.g. F-1) or ID"),
+                )
+                .arg(
+                    clap::Arg::new("sha")
+                        .required(true)
+                        .help("Git commit SHA"),
+                )
+                .arg(
+                    clap::Arg::new("message")
+                        .long("message")
+                        .help("Commit message"),
+                )
+                .arg(
+                    clap::Arg::new("committed_at")
+                        .long("committed-at")
+                        .help("Commit timestamp in ISO 8601 format (e.g. 2026-05-15T17:00:00Z)"),
+                )
+                .arg(
+                    clap::Arg::new("source")
+                        .long("source")
+                        .help("Source identifier (e.g. manual, cli, agent)"),
+                )
+                .arg(
+                    clap::Arg::new("agent_run_id")
+                        .long("agent-run-id")
+                        .value_parser(clap::value_parser!(u64))
+                        .help("Agent run ID from a preceding record-run call"),
+                ),
+        )
+        .subcommand(
+            clap::Command::new("review")
+                .about("Trigger an AI spec review for an item and display the result")
+                .arg(
+                    clap::Arg::new("item")
+                        .required(true)
+                        .help("Item permalink (e.g. F-1) or ID"),
+                )
+                .arg(
+                    clap::Arg::new("functional")
+                        .long("functional")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Run a functional review instead of a technical review"),
+                ),
+        )
+        .subcommand(
+            clap::Command::new("record-run")
+                .about("Record an agent run against a spec item")
+                .arg(
+                    clap::Arg::new("item")
+                        .required(true)
+                        .help("Item permalink (e.g. F-1) or ID"),
+                )
+                .arg(clap::Arg::new("session_key").long("session-key").help("Session key"))
+                .arg(clap::Arg::new("model").long("model").help("Model name (e.g. claude-sonnet-4-6)"))
+                .arg(clap::Arg::new("provider").long("provider").help("Provider (e.g. anthropic)"))
+                .arg(clap::Arg::new("status").long("status").help("Run status (e.g. completed, failed)"))
+                .arg(
+                    clap::Arg::new("input_tokens")
+                        .long("input-tokens")
+                        .value_parser(clap::value_parser!(u64))
+                        .help("Input token count"),
+                )
+                .arg(
+                    clap::Arg::new("output_tokens")
+                        .long("output-tokens")
+                        .value_parser(clap::value_parser!(u64))
+                        .help("Output token count"),
+                )
+                .arg(
+                    clap::Arg::new("cost")
+                        .long("cost")
+                        .value_parser(clap::value_parser!(f64))
+                        .help("Cost in USD"),
+                )
+                .arg(
+                    clap::Arg::new("instruction_version")
+                        .long("instruction-version")
+                        .value_parser(clap::value_parser!(u32))
+                        .help("Agent instruction version being followed"),
+                ),
+        )
 }
 
 pub async fn dispatch(matches: &clap::ArgMatches, format: OutputFormat) -> Result<()> {
@@ -328,6 +463,33 @@ pub async fn dispatch(matches: &clap::ArgMatches, format: OutputFormat) -> Resul
         Some(("transition", m)) => ItemsCmd::Transition {
             item: m.get_one::<String>("item").unwrap().clone(),
             state: m.get_one::<String>("state").unwrap().clone(),
+        },
+        Some(("transition-implementation", m)) => ItemsCmd::TransitionImplementation {
+            item: m.get_one::<String>("item").unwrap().clone(),
+            status: m.get_one::<String>("status").unwrap().clone(),
+        },
+        Some(("link-commit", m)) => ItemsCmd::LinkCommit {
+            item: m.get_one::<String>("item").unwrap().clone(),
+            sha: m.get_one::<String>("sha").unwrap().clone(),
+            message: m.get_one::<String>("message").cloned(),
+            committed_at: m.get_one::<String>("committed_at").cloned(),
+            source: m.get_one::<String>("source").cloned(),
+            agent_run_id: m.get_one::<u64>("agent_run_id").copied(),
+        },
+        Some(("review", m)) => ItemsCmd::Review {
+            item: m.get_one::<String>("item").unwrap().clone(),
+            functional: m.get_flag("functional"),
+        },
+        Some(("record-run", m)) => ItemsCmd::RecordRun {
+            item: m.get_one::<String>("item").unwrap().clone(),
+            session_key: m.get_one::<String>("session_key").cloned(),
+            model: m.get_one::<String>("model").cloned(),
+            provider: m.get_one::<String>("provider").cloned(),
+            status: m.get_one::<String>("status").cloned(),
+            input_tokens: m.get_one::<u64>("input_tokens").copied(),
+            output_tokens: m.get_one::<u64>("output_tokens").copied(),
+            cost: m.get_one::<f64>("cost").copied(),
+            instruction_version: m.get_one::<u32>("instruction_version").copied(),
         },
         _ => {
             build_command().print_help().ok();
@@ -620,6 +782,121 @@ pub async fn run(cmd: ItemsCmd, format: OutputFormat) -> Result<()> {
             );
             Ok(())
         }
+
+        ItemsCmd::TransitionImplementation { item, status } => {
+            let (client, project_id) = client_and_project().await?;
+            let item_id = client.resolve_item_id(project_id, &item).await?;
+            client
+                .transition_item_implementation(project_id, item_id, &status)
+                .await?;
+            let msg = format!("{item} implementation status → {status}");
+            match format {
+                OutputFormat::Json => {
+                    println!("{}", serde_json::json!({ "message": msg }));
+                }
+                _ => eprintln!("{}", style(&msg).green()),
+            }
+            Ok(())
+        }
+
+        ItemsCmd::LinkCommit {
+            item,
+            sha,
+            message,
+            committed_at,
+            source,
+            agent_run_id,
+        } => {
+            let (client, project_id) = client_and_project().await?;
+            let item_id = client.resolve_item_id(project_id, &item).await?;
+            let params = LinkCommitParams {
+                sha: sha.clone(),
+                message,
+                committed_at,
+                source,
+                agent_run_id,
+            };
+            client.link_commit(project_id, item_id, &params).await?;
+            let msg = format!("Linked commit {} to {}", &sha[..sha.len().min(7)], item);
+            match format {
+                OutputFormat::Json => {
+                    println!("{}", serde_json::json!({ "message": msg }));
+                }
+                _ => eprintln!("{}", style(&msg).green()),
+            }
+            Ok(())
+        }
+
+        ItemsCmd::Review { item, functional } => {
+            let (client, project_id) = client_and_project().await?;
+            let spec_item = client.get_item(project_id, &item).await?;
+            let review = if functional {
+                client
+                    .review_item_functional(project_id, spec_item.id)
+                    .await?
+            } else {
+                client.review_item(project_id, spec_item.id).await?
+            };
+            match format {
+                OutputFormat::Json => {
+                    println!("{}", serde_json::to_string_pretty(&review)?);
+                }
+                _ => super::ai::display_review(&spec_item, &review),
+            }
+            Ok(())
+        }
+
+        ItemsCmd::RecordRun {
+            item,
+            session_key,
+            model,
+            provider,
+            status,
+            input_tokens,
+            output_tokens,
+            cost,
+            instruction_version,
+        } => {
+            let (client, project_id) = client_and_project().await?;
+            let item_id = client.resolve_item_id(project_id, &item).await?;
+            let params = RecordRunParams {
+                session_key,
+                model,
+                provider,
+                status,
+                input_tokens,
+                output_tokens,
+                cost,
+                instruction_version,
+            };
+            let run_id = client.record_run(project_id, item_id, &params).await?;
+            match format {
+                OutputFormat::Json => {
+                    let run_id_val = run_id.map_or(serde_json::Value::Null, |id| id.into());
+                    println!(
+                        "{}",
+                        serde_json::json!({
+                            "message": match run_id {
+                                Some(id) => format!("Recorded agent run {id} for {item}"),
+                                None => format!("Recorded agent run for {item}"),
+                            },
+                            "run_id": run_id_val
+                        })
+                    );
+                }
+                _ => match run_id {
+                    Some(id) => eprintln!(
+                        "{}",
+                        style(format!("Recorded agent run {id} for {item}")).green()
+                    ),
+                    None => eprintln!(
+                        "{}",
+                        style(format!("Recorded agent run for {item}")).green()
+                    ),
+                },
+            }
+            Ok(())
+        }
     }
 }
 
@@ -774,5 +1051,115 @@ mod tests {
             cmd.try_get_matches_from(["items", "update", "F-5", "--parent", "F-1", "--no-parent"])
                 .is_err()
         );
+    }
+
+    #[test]
+    fn build_command_transition_implementation_valid_statuses() {
+        let cmd = build_command();
+        for status in ["not_started", "in_progress", "implemented", "verified", "released"] {
+            let m = cmd
+                .clone()
+                .try_get_matches_from(["items", "transition-implementation", "F-1", status])
+                .unwrap_or_else(|e| panic!("status '{status}' rejected: {e}"));
+            let sub = m.subcommand_matches("transition-implementation").unwrap();
+            assert_eq!(sub.get_one::<String>("status").unwrap(), status);
+        }
+    }
+
+    #[test]
+    fn build_command_transition_implementation_invalid_status_rejected() {
+        let cmd = build_command();
+        assert!(
+            cmd.try_get_matches_from(["items", "transition-implementation", "F-1", "bad_status"])
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn build_command_link_commit_required_args() {
+        let cmd = build_command();
+        // Missing sha — should fail
+        assert!(
+            cmd.clone()
+                .try_get_matches_from(["items", "link-commit", "F-1"])
+                .is_err()
+        );
+        // With sha — should succeed
+        let m = cmd
+            .try_get_matches_from(["items", "link-commit", "F-1", "abc1234"])
+            .unwrap();
+        let sub = m.subcommand_matches("link-commit").unwrap();
+        assert_eq!(sub.get_one::<String>("sha").unwrap(), "abc1234");
+        assert!(sub.get_one::<String>("message").is_none());
+    }
+
+    #[test]
+    fn build_command_link_commit_optional_flags() {
+        let cmd = build_command();
+        let m = cmd
+            .try_get_matches_from([
+                "items", "link-commit", "F-1", "abc1234",
+                "--message", "Fix bug",
+                "--source", "cli",
+                "--agent-run-id", "9",
+            ])
+            .unwrap();
+        let sub = m.subcommand_matches("link-commit").unwrap();
+        assert_eq!(sub.get_one::<String>("message").unwrap(), "Fix bug");
+        assert_eq!(sub.get_one::<String>("source").unwrap(), "cli");
+        assert_eq!(sub.get_one::<u64>("agent_run_id").copied(), Some(9));
+    }
+
+    #[test]
+    fn build_command_review_functional_flag() {
+        let cmd = build_command();
+        let m = cmd
+            .try_get_matches_from(["items", "review", "F-1", "--functional"])
+            .unwrap();
+        let sub = m.subcommand_matches("review").unwrap();
+        assert!(sub.get_flag("functional"));
+    }
+
+    #[test]
+    fn build_command_review_defaults_technical() {
+        let cmd = build_command();
+        let m = cmd
+            .try_get_matches_from(["items", "review", "F-1"])
+            .unwrap();
+        let sub = m.subcommand_matches("review").unwrap();
+        assert!(!sub.get_flag("functional"));
+    }
+
+    #[test]
+    fn build_command_record_run_all_optional() {
+        let cmd = build_command();
+        // Bare call with only item — should succeed
+        let m = cmd
+            .clone()
+            .try_get_matches_from(["items", "record-run", "F-1"])
+            .unwrap();
+        let sub = m.subcommand_matches("record-run").unwrap();
+        assert!(sub.get_one::<String>("model").is_none());
+        assert!(sub.get_one::<u64>("input_tokens").is_none());
+    }
+
+    #[test]
+    fn build_command_record_run_with_flags() {
+        let cmd = build_command();
+        let m = cmd
+            .try_get_matches_from([
+                "items", "record-run", "F-1",
+                "--model", "claude-sonnet-4-6",
+                "--provider", "anthropic",
+                "--input-tokens", "12000",
+                "--output-tokens", "3000",
+                "--cost", "0.042",
+                "--instruction-version", "3",
+            ])
+            .unwrap();
+        let sub = m.subcommand_matches("record-run").unwrap();
+        assert_eq!(sub.get_one::<String>("model").unwrap(), "claude-sonnet-4-6");
+        assert_eq!(sub.get_one::<u64>("input_tokens").copied(), Some(12000));
+        assert_eq!(sub.get_one::<u32>("instruction_version").copied(), Some(3));
     }
 }
