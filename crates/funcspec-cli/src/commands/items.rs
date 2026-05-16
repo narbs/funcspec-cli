@@ -318,7 +318,9 @@ pub fn build_command() -> clap::Command {
                         .required(true)
                         .value_parser([
                             "not_started",
+                            "not-started",
                             "in_progress",
+                            "in-progress",
                             "implemented",
                             "verified",
                             "released",
@@ -466,7 +468,10 @@ pub async fn dispatch(matches: &clap::ArgMatches, format: OutputFormat) -> Resul
         },
         Some(("transition-implementation", m)) => ItemsCmd::TransitionImplementation {
             item: m.get_one::<String>("item").unwrap().clone(),
-            status: m.get_one::<String>("status").unwrap().clone(),
+            status: m
+                .get_one::<String>("status")
+                .unwrap()
+                .replace('-', "_"),
         },
         Some(("link-commit", m)) => ItemsCmd::LinkCommit {
             item: m.get_one::<String>("item").unwrap().clone(),
