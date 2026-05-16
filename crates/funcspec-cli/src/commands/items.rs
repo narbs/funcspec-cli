@@ -336,11 +336,7 @@ pub fn build_command() -> clap::Command {
                         .required(true)
                         .help("Item permalink (e.g. F-1) or ID"),
                 )
-                .arg(
-                    clap::Arg::new("sha")
-                        .required(true)
-                        .help("Git commit SHA"),
-                )
+                .arg(clap::Arg::new("sha").required(true).help("Git commit SHA"))
                 .arg(
                     clap::Arg::new("message")
                         .long("message")
@@ -386,10 +382,26 @@ pub fn build_command() -> clap::Command {
                         .required(true)
                         .help("Item permalink (e.g. F-1) or ID"),
                 )
-                .arg(clap::Arg::new("session_key").long("session-key").help("Session key"))
-                .arg(clap::Arg::new("model").long("model").help("Model name (e.g. claude-sonnet-4-6)"))
-                .arg(clap::Arg::new("provider").long("provider").help("Provider (e.g. anthropic)"))
-                .arg(clap::Arg::new("status").long("status").help("Run status (e.g. completed, failed)"))
+                .arg(
+                    clap::Arg::new("session_key")
+                        .long("session-key")
+                        .help("Session key"),
+                )
+                .arg(
+                    clap::Arg::new("model")
+                        .long("model")
+                        .help("Model name (e.g. claude-sonnet-4-6)"),
+                )
+                .arg(
+                    clap::Arg::new("provider")
+                        .long("provider")
+                        .help("Provider (e.g. anthropic)"),
+                )
+                .arg(
+                    clap::Arg::new("status")
+                        .long("status")
+                        .help("Run status (e.g. completed, failed)"),
+                )
                 .arg(
                     clap::Arg::new("input_tokens")
                         .long("input-tokens")
@@ -468,10 +480,7 @@ pub async fn dispatch(matches: &clap::ArgMatches, format: OutputFormat) -> Resul
         },
         Some(("transition-implementation", m)) => ItemsCmd::TransitionImplementation {
             item: m.get_one::<String>("item").unwrap().clone(),
-            status: m
-                .get_one::<String>("status")
-                .unwrap()
-                .replace('-', "_"),
+            status: m.get_one::<String>("status").unwrap().replace('-', "_"),
         },
         Some(("link-commit", m)) => ItemsCmd::LinkCommit {
             item: m.get_one::<String>("item").unwrap().clone(),
@@ -1061,7 +1070,13 @@ mod tests {
     #[test]
     fn build_command_transition_implementation_valid_statuses() {
         let cmd = build_command();
-        for status in ["not_started", "in_progress", "implemented", "verified", "released"] {
+        for status in [
+            "not_started",
+            "in_progress",
+            "implemented",
+            "verified",
+            "released",
+        ] {
             let m = cmd
                 .clone()
                 .try_get_matches_from(["items", "transition-implementation", "F-1", status])
@@ -1103,10 +1118,16 @@ mod tests {
         let cmd = build_command();
         let m = cmd
             .try_get_matches_from([
-                "items", "link-commit", "F-1", "abc1234",
-                "--message", "Fix bug",
-                "--source", "cli",
-                "--agent-run-id", "9",
+                "items",
+                "link-commit",
+                "F-1",
+                "abc1234",
+                "--message",
+                "Fix bug",
+                "--source",
+                "cli",
+                "--agent-run-id",
+                "9",
             ])
             .unwrap();
         let sub = m.subcommand_matches("link-commit").unwrap();
@@ -1153,13 +1174,21 @@ mod tests {
         let cmd = build_command();
         let m = cmd
             .try_get_matches_from([
-                "items", "record-run", "F-1",
-                "--model", "claude-sonnet-4-6",
-                "--provider", "anthropic",
-                "--input-tokens", "12000",
-                "--output-tokens", "3000",
-                "--cost", "0.042",
-                "--instruction-version", "3",
+                "items",
+                "record-run",
+                "F-1",
+                "--model",
+                "claude-sonnet-4-6",
+                "--provider",
+                "anthropic",
+                "--input-tokens",
+                "12000",
+                "--output-tokens",
+                "3000",
+                "--cost",
+                "0.042",
+                "--instruction-version",
+                "3",
             ])
             .unwrap();
         let sub = m.subcommand_matches("record-run").unwrap();

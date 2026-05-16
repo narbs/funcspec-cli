@@ -742,7 +742,10 @@ mod tests {
     fn agent_run_deserialize_with_id() {
         let json = r#"{"data": {"id": 9, "spec_item_id": 756, "status": "pending"}}"#;
         let resp: serde_json::Value = serde_json::from_str(json).unwrap();
-        let id = resp.get("data").and_then(|d| d.get("id")).and_then(|v| v.as_u64());
+        let id = resp
+            .get("data")
+            .and_then(|d| d.get("id"))
+            .and_then(|v| v.as_u64());
         assert_eq!(id, Some(9));
     }
 
@@ -750,7 +753,10 @@ mod tests {
     fn agent_run_deserialize_missing_id() {
         let json = r#"{"data": {"spec_item_id": 756}}"#;
         let resp: serde_json::Value = serde_json::from_str(json).unwrap();
-        let id = resp.get("data").and_then(|d| d.get("id")).and_then(|v| v.as_u64());
+        let id = resp
+            .get("data")
+            .and_then(|d| d.get("id"))
+            .and_then(|v| v.as_u64());
         assert_eq!(id, None);
     }
 
