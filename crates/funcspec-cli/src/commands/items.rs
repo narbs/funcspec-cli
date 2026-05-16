@@ -1087,6 +1087,26 @@ mod tests {
     }
 
     #[test]
+    fn build_command_transition_implementation_hyphen_variants_accepted() {
+        let cmd = build_command();
+        for (input, expected) in [
+            ("not-started", "not_started"),
+            ("in-progress", "in_progress"),
+        ] {
+            let m = cmd
+                .clone()
+                .try_get_matches_from(["items", "transition-implementation", "F-1", input])
+                .unwrap_or_else(|e| panic!("hyphen status '{input}' rejected: {e}"));
+            // Clap stores the raw matched value; dispatch normalizes it — check raw value accepted
+            let sub = m.subcommand_matches("transition-implementation").unwrap();
+            assert_eq!(sub.get_one::<String>("status").unwrap(), input);
+            // Also verify normalize produces the underscore form
+            let normalized = sub.get_one::<String>("status").unwrap().replace('-', "_");
+            assert_eq!(normalized, expected);
+        }
+    }
+
+    #[test]
     fn build_command_transition_implementation_invalid_status_rejected() {
         let cmd = build_command();
         assert!(

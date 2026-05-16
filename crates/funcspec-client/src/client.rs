@@ -1557,6 +1557,159 @@ mod tests {
         assert_eq!(job.attributes.status, JobStatus::Completed);
     }
 
+    // -- Workflow lifecycle --
+
+    #[tokio::test]
+    async fn transition_item_implementation_success() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path(
+                "/api/v1/projects/1/spec/items/5/transition_implementation",
+            ))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({})))
+            .mount(&server)
+            .await;
+
+        let client = make_client(&server.uri()).await;
+        client
+            .transition_item_implementation(1, 5, "in_progress")
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn transition_item_implementation_422_returns_validation_error() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path(
+                "/api/v1/projects/1/spec/items/5/transition_implementation",
+            ))
+            .respond_with(ResponseTemplate::new(422).set_body_json(
+                serde_json::json!({"error": "Cannot transition from released to not_started"}),
+            ))
+            .mount(&server)
+            .await;
+
+        let client = make_client(&server.uri()).await;
+        let err = client
+            .transition_item_implementation(1, 5, "not_started")
+            .await
+            .unwrap_err();
+        assert!(matches!(err, Error::Validation(_)));
+    }
+
+    #[tokio::test]
+    async fn link_commit_sends_sha_and_optional_fields() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/api/v1/projects/1/work_package/5/link_commit"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({})))
+            .mount(&server)
+            .await;
+
+        let client = make_client(&server.uri()).await;
+        let params = LinkCommitParams {
+            sha: "abc1234".into(),
+            message: Some("Fix auth".into()),
+            source: Some("cli".into()),
+            agent_run_id: Some(9),
+            ..Default::default()
+        };
+        client.link_commit(1, 5, &params).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn link_commit_bare_sha_only() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/api/v1/projects/2/work_package/7/link_commit"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({})))
+            .mount(&server)
+            .await;
+
+        let client = make_client(&server.uri()).await;
+        let params = LinkCommitParams {
+            sha: "deadbeef".into(),
+            ..Default::default()
+        };
+        client.link_commit(2, 7, &params).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn record_run_returns_run_id() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/api/v1/projects/1/work_package/5/record_run"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "data": {"id": 42, "spec_item_id": 5, "status": "pending"}
+            })))
+            .mount(&server)
+            .await;
+
+        let client = make_client(&server.uri()).await;
+        let params = RecordRunParams {
+            model: Some("claude-sonnet-4-6".into()),
+            provider: Some("anthropic".into()),
+            ..Default::default()
+        };
+        let run_id = client.record_run(1, 5, &params).await.unwrap();
+        assert_eq!(run_id, Some(42));
+    }
+
+    #[tokio::test]
+    async fn record_run_returns_none_when_no_id_in_response() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/api/v1/projects/1/work_package/5/record_run"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({})))
+            .mount(&server)
+            .await;
+
+        let client = make_client(&server.uri()).await;
+        let run_id = client
+            .record_run(1, 5, &RecordRunParams::default())
+            .await
+            .unwrap();
+        assert_eq!(run_id, None);
+    }
+
+    #[tokio::test]
+    async fn review_item_functional_returns_review() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/api/v1/projects/1/work_package/5/func_review"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "data": {
+                    "type": "review",
+                    "attributes": {
+                        "coverage_score": 75.0,
+                        "collective_coverage_score": null,
+                        "verdict": "needs_refinement",
+                        "tech_item_id": 5,
+                        "tech_item_title": "Rate limiter",
+                        "func_item_ids": [2],
+                        "functional_requirements_parsed": ["Rate limit requests"],
+                        "coverage_map": {},
+                        "gaps": ["Missing burst allowance detail"],
+                        "suggestions": [],
+                        "risks": [],
+                        "reviewed_at": "2026-01-01T00:00:00Z"
+                    }
+                }
+            })))
+            .mount(&server)
+            .await;
+
+        let client = make_client(&server.uri()).await;
+        let review = client.review_item_functional(1, 5).await.unwrap();
+        assert_eq!(review.attributes.coverage_score, Some(75.0));
+        assert_eq!(
+            review.attributes.verdict.as_deref(),
+            Some("needs_refinement")
+        );
+        assert_eq!(review.attributes.gaps.len(), 1);
+    }
+
     #[tokio::test]
     async fn poll_job_until_done_returns_failed_job() {
         let server = MockServer::start().await;

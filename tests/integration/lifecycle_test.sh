@@ -275,7 +275,48 @@ check_output "update F2 to implemented" "Updated" \
   $CLI items update "$F2_LINK" -p "$PROJECT" --status implemented
 
 # ============================================================================
-bold "Phase 11: Stats & Export"
+bold "Phase 11: Workflow Lifecycle Commands"
+# ============================================================================
+
+# transition-implementation: underscore and hyphen forms
+check_output "transition-implementation to in_progress (underscore)" "in_progress" \
+  $CLI items transition-implementation "$F1_LINK" in_progress -p "$PROJECT"
+
+check_output "transition-implementation to in-progress (hyphen accepted)" "in_progress" \
+  $CLI items transition-implementation "$F2_LINK" in-progress -p "$PROJECT"
+
+check_output "transition-implementation to implemented" "implemented" \
+  $CLI items transition-implementation "$F1_LINK" implemented -p "$PROJECT"
+
+# record-run: returns a run ID
+RUN_OUT=$($CLI items record-run "$T1_LINK" -p "$PROJECT" \
+  --model "claude-sonnet-4-6" --provider "anthropic" 2>&1) || true
+check_output "record-run returns run ID" "Recorded agent run" echo "$RUN_OUT"
+
+RUN_ID=$(echo "$RUN_OUT" | grep -oP 'run \K\d+' || echo "")
+
+# link-commit: associates a dummy SHA with the item
+FAKE_SHA="deadbeef1234567"
+if [ -n "$RUN_ID" ]; then
+  check_output "link-commit with agent-run-id" "Linked commit" \
+    $CLI items link-commit "$T1_LINK" "$FAKE_SHA" -p "$PROJECT" \
+      --message "lifecycle test commit" --source "cli" --agent-run-id "$RUN_ID"
+else
+  check_output "link-commit bare SHA" "Linked commit" \
+    $CLI items link-commit "$T1_LINK" "$FAKE_SHA" -p "$PROJECT" \
+      --message "lifecycle test commit" --source "cli"
+fi
+
+# items review (technical)
+check_output "items review technical" "score\|verdict\|coverage" \
+  $CLI items review "$T1_LINK" -p "$PROJECT" --format json
+
+# items review (functional)
+check_output "items review functional" "score\|verdict\|coverage" \
+  $CLI items review "$F1_LINK" -p "$PROJECT" --functional --format json
+
+# ============================================================================
+bold "Phase 12: Stats & Export"
 # ============================================================================
 
 check_output "stats shows 100% implemented" "100\|implemented" \
@@ -288,7 +329,7 @@ check "export json works" \
   bash -c "[ \$($CLI export -F json -p '$PROJECT' | jq '[.functional_spec[], .technical_spec[]] | length') -eq 5 ]"
 
 # ============================================================================
-bold "Phase 12: Snapshot"
+bold "Phase 13: Snapshot"
 # ============================================================================
 
 check_output "create snapshot" "Created\|snapshot" \
