@@ -1088,6 +1088,154 @@ impl FuncspecClient {
         let body: serde_json::Value = resp.json().await?;
         Ok(body)
     }
+
+    // -- AuditRuns --
+
+    pub async fn list_runs(
+        &self,
+        project_id: u64,
+        page: u32,
+        per: u32,
+    ) -> Result<(Vec<AuditRun>, Option<PaginationMeta>), Error> {
+        let url = self.api_url(&format!("/projects/{project_id}/runs"));
+        debug!(%url, "list_runs");
+        let resp = self
+            .request_with_retry(|| {
+                self.http
+                    .get(&url)
+                    .query(&[("page", page), ("per", per)])
+                    .send()
+            })
+            .await?;
+        if !resp.status().is_success() {
+            return Err(Error::from_response(resp).await);
+        }
+        let body: ApiListResponse<AuditRun> = resp.json().await?;
+        Ok((body.data, body.meta))
+    }
+
+    pub async fn create_run(
+        &self,
+        project_id: u64,
+        params: &CreateRunParams,
+    ) -> Result<AuditRun, Error> {
+        let url = self.api_url(&format!("/projects/{project_id}/runs"));
+        debug!(%url, "create_run");
+        let resp = self
+            .request_with_retry(|| self.http.post(&url).json(params).send())
+            .await?;
+        if !resp.status().is_success() {
+            return Err(Error::from_response(resp).await);
+        }
+        let body: ApiResponse<AuditRun> = resp.json().await?;
+        Ok(body.data)
+    }
+
+    pub async fn get_run(
+        &self,
+        project_id: u64,
+        run_id: u64,
+        page: u32,
+        per: u32,
+    ) -> Result<AuditRun, Error> {
+        let url = self.api_url(&format!("/projects/{project_id}/runs/{run_id}"));
+        debug!(%url, "get_run");
+        let resp = self
+            .request_with_retry(|| {
+                self.http
+                    .get(&url)
+                    .query(&[("page", page), ("per", per)])
+                    .send()
+            })
+            .await?;
+        if !resp.status().is_success() {
+            return Err(Error::from_response(resp).await);
+        }
+        let body: ApiResponse<AuditRun> = resp.json().await?;
+        Ok(body.data)
+    }
+
+    pub async fn update_run(
+        &self,
+        project_id: u64,
+        run_id: u64,
+        params: &UpdateRunParams,
+    ) -> Result<AuditRun, Error> {
+        let url = self.api_url(&format!("/projects/{project_id}/runs/{run_id}"));
+        debug!(%url, "update_run");
+        let resp = self
+            .request_with_retry(|| self.http.patch(&url).json(params).send())
+            .await?;
+        if !resp.status().is_success() {
+            return Err(Error::from_response(resp).await);
+        }
+        let body: ApiResponse<AuditRun> = resp.json().await?;
+        Ok(body.data)
+    }
+
+    pub async fn start_run(&self, project_id: u64, run_id: u64) -> Result<AuditRun, Error> {
+        let url = self.api_url(&format!("/projects/{project_id}/runs/{run_id}/start"));
+        debug!(%url, "start_run");
+        let resp = self
+            .request_with_retry(|| self.http.post(&url).send())
+            .await?;
+        if !resp.status().is_success() {
+            return Err(Error::from_response(resp).await);
+        }
+        let body: ApiResponse<AuditRun> = resp.json().await?;
+        Ok(body.data)
+    }
+
+    pub async fn pause_run(&self, project_id: u64, run_id: u64) -> Result<AuditRun, Error> {
+        let url = self.api_url(&format!("/projects/{project_id}/runs/{run_id}/pause"));
+        debug!(%url, "pause_run");
+        let resp = self
+            .request_with_retry(|| self.http.post(&url).send())
+            .await?;
+        if !resp.status().is_success() {
+            return Err(Error::from_response(resp).await);
+        }
+        let body: ApiResponse<AuditRun> = resp.json().await?;
+        Ok(body.data)
+    }
+
+    pub async fn resume_run(&self, project_id: u64, run_id: u64) -> Result<AuditRun, Error> {
+        let url = self.api_url(&format!("/projects/{project_id}/runs/{run_id}/resume"));
+        debug!(%url, "resume_run");
+        let resp = self
+            .request_with_retry(|| self.http.post(&url).send())
+            .await?;
+        if !resp.status().is_success() {
+            return Err(Error::from_response(resp).await);
+        }
+        let body: ApiResponse<AuditRun> = resp.json().await?;
+        Ok(body.data)
+    }
+
+    pub async fn cancel_run(&self, project_id: u64, run_id: u64) -> Result<AuditRun, Error> {
+        let url = self.api_url(&format!("/projects/{project_id}/runs/{run_id}/cancel"));
+        debug!(%url, "cancel_run");
+        let resp = self
+            .request_with_retry(|| self.http.post(&url).send())
+            .await?;
+        if !resp.status().is_success() {
+            return Err(Error::from_response(resp).await);
+        }
+        let body: ApiResponse<AuditRun> = resp.json().await?;
+        Ok(body.data)
+    }
+
+    pub async fn delete_run(&self, project_id: u64, run_id: u64) -> Result<(), Error> {
+        let url = self.api_url(&format!("/projects/{project_id}/runs/{run_id}"));
+        debug!(%url, "delete_run");
+        let resp = self
+            .request_with_retry(|| self.http.delete(&url).send())
+            .await?;
+        if !resp.status().is_success() {
+            return Err(Error::from_response(resp).await);
+        }
+        Ok(())
+    }
 }
 
 // ---------------------------------------------------------------------------

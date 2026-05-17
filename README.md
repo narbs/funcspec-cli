@@ -131,6 +131,39 @@ funcspec snapshot list
 funcspec snapshot diff <id1> <id2>
 ```
 
+### Audit runs
+
+Audit runs execute a batch AI review across a set of spec items. The API key must be associated with a user account. Org admins can manage any run in the org.
+
+```sh
+# Create a run (starts immediately unless --no-start)
+funcspec run create --type func --name "Q2 audit"
+funcspec run create --type func --score-below 60 --no-start
+funcspec run create --tag "auth,security" --no-start
+
+# List and inspect
+funcspec run list
+funcspec run show <id>
+funcspec run show <id> --page 2 --per 25
+
+# Lifecycle
+funcspec run start <id>
+funcspec run pause <id>
+funcspec run resume <id>
+funcspec run cancel <id>
+funcspec run delete <id> [--yes]
+
+# Watch a run poll to completion (exits non-zero if score drops below threshold)
+funcspec run watch <id> [--fail-below 60] [--interval 10]
+
+# Update a draft run's name
+funcspec run update <id> --name "Renamed"
+```
+
+**Run states:** `draft` → `running` → `paused` | `completed` | `cancelled`
+
+**Item verdicts:** `ready` | `needs_refinement` | `major_gaps`
+
 ### Shell completions
 
 ```sh

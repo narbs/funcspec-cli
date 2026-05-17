@@ -8,6 +8,7 @@ pub mod instructions;
 pub mod items;
 pub mod onboard;
 pub mod projects;
+pub mod runs;
 pub mod search;
 pub mod snapshots;
 pub mod stats;

@@ -661,6 +661,104 @@ pub struct SnapshotDiff {
 }
 
 // ---------------------------------------------------------------------------
+// AuditRun
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AuditRun {
+    pub id: u64,
+    pub name: Option<String>,
+    pub state: String,
+    pub requested_concurrency: u32,
+    pub effective_concurrency: u32,
+    pub filter_criteria: Option<serde_json::Value>,
+    pub created_by_user_id: Option<u64>,
+    pub started_at: Option<DateTime<Utc>>,
+    pub completed_at: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    pub stats: AuditRunStats,
+    #[serde(default)]
+    pub items: Vec<AuditRunItem>,
+    pub page: Option<u32>,
+    pub total_pages: Option<u32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct AuditRunStats {
+    #[serde(default)]
+    pub total: u32,
+    #[serde(default)]
+    pub pending: u32,
+    #[serde(default)]
+    pub running: u32,
+    #[serde(default)]
+    pub done: u32,
+    #[serde(default)]
+    pub failed: u32,
+    #[serde(default)]
+    pub failed_permanently: u32,
+    #[serde(default)]
+    pub cancelled: u32,
+    #[serde(default)]
+    pub improved: u32,
+    #[serde(default)]
+    pub regressed: u32,
+    #[serde(default)]
+    pub unchanged: u32,
+    pub avg_score_before: Option<f64>,
+    pub avg_score_after: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AuditRunItem {
+    pub id: u64,
+    pub spec_item_id: u64,
+    pub permalink: Option<String>,
+    pub title: Option<String>,
+    pub state: String,
+    #[serde(default)]
+    pub attempt_count: u32,
+    pub old_score: Option<f64>,
+    pub new_score: Option<f64>,
+    pub delta: Option<f64>,
+    pub verdict: Option<String>,
+    pub top_gaps: Option<serde_json::Value>,
+    pub error_message: Option<String>,
+    pub updated_at: DateTime<Utc>,
+}
+
+// ---------------------------------------------------------------------------
+// Request params — AuditRun
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Default, Serialize)]
+pub struct CreateRunParams {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub type_of: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub score_below: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tag: Option<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub item_ids: Vec<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub concurrency: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub no_start: Option<bool>,
+}
+
+#[derive(Debug, Default, Serialize)]
+pub struct UpdateRunParams {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+}
+
+// ---------------------------------------------------------------------------
 // Request params — Snapshot
 // ---------------------------------------------------------------------------
 
