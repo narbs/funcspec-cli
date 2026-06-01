@@ -140,8 +140,6 @@ Audit runs execute a batch AI review across a set of spec items. The API key mus
 funcspec run create --type func --name "Q2 audit"
 funcspec run create --type func --score-below 60 --no-start
 funcspec run create --tag "auth,security" --no-start
-
-# List and inspect
 ```
 
 Filter-based creates (including a bare `funcspec run create`, which would
@@ -155,7 +153,9 @@ given.
 funcspec run create --type func              # shows "N items will be audited" + [y/N]
 funcspec run create --type func --yes        # skip confirmation
 funcspec run create --item-ids 12,34,56      # explicit scope, no prompt
+```
 
+```sh
 # List and inspect
 funcspec run list
 funcspec run show <id>
