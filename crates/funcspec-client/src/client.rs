@@ -1114,6 +1114,24 @@ impl FuncspecClient {
         Ok((body.data, body.meta))
     }
 
+    /// Resolve filter criteria into the matching item set without creating a run.
+    pub async fn preview_run(
+        &self,
+        project_id: u64,
+        params: &CreateRunParams,
+    ) -> Result<RunPreview, Error> {
+        let url = self.api_url(&format!("/projects/{project_id}/runs/preview"));
+        debug!(%url, "preview_run");
+        let resp = self
+            .request_with_retry(|| self.http.post(&url).json(params).send())
+            .await?;
+        if !resp.status().is_success() {
+            return Err(Error::from_response(resp).await);
+        }
+        let body: ApiResponse<RunPreview> = resp.json().await?;
+        Ok(body.data)
+    }
+
     pub async fn create_run(
         &self,
         project_id: u64,
@@ -1887,5 +1905,56 @@ mod tests {
             .unwrap();
         // poll_job_until_done returns the job even when failed
         assert_eq!(job.attributes.status, JobStatus::Failed);
+    }
+
+    #[tokio::test]
+    async fn preview_run_returns_count_and_items() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/api/v1/projects/1/runs/preview"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "data": {
+                    "count": 2,
+                    "truncated": false,
+                    "filter_criteria": { "type_of": "functional" },
+                    "items": [
+                        { "id": 10, "permalink": "F-10", "title": "Login", "type_of": "functional" },
+                        { "id": 11, "permalink": "F-11", "title": "Logout", "type_of": "functional" }
+                    ]
+                }
+            })))
+            .mount(&server)
+            .await;
+
+        let client = make_client(&server.uri()).await;
+        let params = CreateRunParams {
+            type_of: Some("functional".into()),
+            ..Default::default()
+        };
+        let preview = client.preview_run(1, &params).await.unwrap();
+        assert_eq!(preview.count, 2);
+        assert!(!preview.truncated);
+        assert_eq!(preview.items.len(), 2);
+        assert_eq!(preview.items[0].permalink.as_deref(), Some("F-10"));
+    }
+
+    #[tokio::test]
+    async fn preview_run_empty_result() {
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/api/v1/projects/1/runs/preview"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "data": { "count": 0, "truncated": false, "filter_criteria": {}, "items": [] }
+            })))
+            .mount(&server)
+            .await;
+
+        let client = make_client(&server.uri()).await;
+        let preview = client
+            .preview_run(1, &CreateRunParams::default())
+            .await
+            .unwrap();
+        assert_eq!(preview.count, 0);
+        assert!(preview.items.is_empty());
     }
 }

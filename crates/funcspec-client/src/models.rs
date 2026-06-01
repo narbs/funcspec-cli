@@ -758,6 +758,26 @@ pub struct UpdateRunParams {
     pub name: Option<String>,
 }
 
+/// Result of `POST /runs/preview` — the item set a create would resolve to,
+/// without persisting a run. `items` is capped server-side; `count` is exact.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RunPreview {
+    pub count: u32,
+    #[serde(default)]
+    pub truncated: bool,
+    pub filter_criteria: Option<serde_json::Value>,
+    #[serde(default)]
+    pub items: Vec<RunPreviewItem>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RunPreviewItem {
+    pub id: u64,
+    pub permalink: Option<String>,
+    pub title: Option<String>,
+    pub type_of: Option<String>,
+}
+
 // ---------------------------------------------------------------------------
 // Request params — Snapshot
 // ---------------------------------------------------------------------------

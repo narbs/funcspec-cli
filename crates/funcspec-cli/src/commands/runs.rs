@@ -1,4 +1,6 @@
-use anyhow::{bail, Result};
+use std::io::IsTerminal;
+
+use anyhow::{Result, bail};
 use colored::Colorize;
 use comfy_table::{Attribute, Cell, ContentArrangement, Table};
 use funcspec_client::models::*;
@@ -20,6 +22,7 @@ pub enum RunsCmd {
         concurrency: Option<u32>,
         name: Option<String>,
         no_start: bool,
+        yes: bool,
     },
     Show {
         run_id: u64,
@@ -126,6 +129,13 @@ pub fn build_command() -> clap::Command {
                         .long("no-start")
                         .action(clap::ArgAction::SetTrue)
                         .help("Create in draft state without starting"),
+                )
+                .arg(
+                    clap::Arg::new("yes")
+                        .long("yes")
+                        .short('y')
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Skip the item-set confirmation prompt (implied when --item-ids is given)"),
                 ),
         )
         .subcommand(
@@ -273,6 +283,7 @@ pub async fn dispatch(matches: &clap::ArgMatches, format: OutputFormat) -> Resul
             concurrency: m.get_one::<u32>("concurrency").copied(),
             name: m.get_one::<String>("name").cloned(),
             no_start: m.get_flag("no_start"),
+            yes: m.get_flag("yes"),
         },
         Some(("show", m)) => RunsCmd::Show {
             run_id: *m.get_one::<u64>("run_id").unwrap(),
@@ -356,7 +367,12 @@ pub async fn run(cmd: RunsCmd, format: OutputFormat) -> Result<()> {
                     }
                     println!("{table}");
                     if let Some(m) = meta {
-                        println!("Page {}/{} ({} total)", m.page, m.total_pages.max(1), m.total);
+                        println!(
+                            "Page {}/{} ({} total)",
+                            m.page,
+                            m.total_pages.max(1),
+                            m.total
+                        );
                     }
                 }
             }
@@ -372,6 +388,7 @@ pub async fn run(cmd: RunsCmd, format: OutputFormat) -> Result<()> {
             concurrency,
             name,
             no_start,
+            yes,
         } => {
             let (client, project_id) = client_and_project().await?;
             let params = CreateRunParams {
@@ -384,6 +401,33 @@ pub async fn run(cmd: RunsCmd, format: OutputFormat) -> Result<()> {
                 name,
                 no_start: if no_start { Some(true) } else { None },
             };
+
+            // Explicit --item-ids scope a run precisely, so no confirmation is
+            // needed. Any filter-based (or unfiltered) create resolves to a
+            // variable set and is confirmed unless --yes is passed.
+            let explicit_items = !params.item_ids.is_empty();
+            if !explicit_items && !yes {
+                let preview = client.preview_run(project_id, &params).await?;
+                if preview.count == 0 {
+                    bail!("No items match the given filters — nothing to audit.");
+                }
+                print_preview(&preview);
+                if !std::io::stdin().is_terminal() {
+                    bail!(
+                        "Refusing to create a run for {} item(s) without confirmation. \
+                         Re-run with --yes, or use --item-ids to scope explicitly.",
+                        preview.count
+                    );
+                }
+                eprint!("Create a run for {} item(s)? [y/N] ", preview.count);
+                let mut input = String::new();
+                std::io::stdin().read_line(&mut input)?;
+                if !input.trim().eq_ignore_ascii_case("y") {
+                    println!("Aborted.");
+                    return Ok(());
+                }
+            }
+
             let audit_run = client.create_run(project_id, &params).await?;
             match format.resolve() {
                 OutputFormat::Json => {
@@ -409,10 +453,10 @@ pub async fn run(cmd: RunsCmd, format: OutputFormat) -> Result<()> {
                     if !audit_run.items.is_empty() {
                         println!();
                         print_items_table(&audit_run.items);
-                        if let (Some(p), Some(tp)) = (audit_run.page, audit_run.total_pages) {
-                            if tp > 1 {
-                                println!("Items page {p}/{tp}");
-                            }
+                        if let (Some(p), Some(tp)) = (audit_run.page, audit_run.total_pages)
+                            && tp > 1
+                        {
+                            println!("Items page {p}/{tp}");
                         }
                     }
                 }
@@ -429,7 +473,11 @@ pub async fn run(cmd: RunsCmd, format: OutputFormat) -> Result<()> {
                     println!("{}", serde_json::to_string_pretty(&audit_run)?);
                 }
                 _ => {
-                    println!("Run {} updated: {}", audit_run.id, audit_run.name.as_deref().unwrap_or("-"));
+                    println!(
+                        "Run {} updated: {}",
+                        audit_run.id,
+                        audit_run.name.as_deref().unwrap_or("-")
+                    );
                 }
             }
             Ok(())
@@ -443,7 +491,11 @@ pub async fn run(cmd: RunsCmd, format: OutputFormat) -> Result<()> {
                     println!("{}", serde_json::to_string_pretty(&audit_run)?);
                 }
                 _ => {
-                    println!("Run {} started (state: {})", audit_run.id, state_colored(&audit_run.state));
+                    println!(
+                        "Run {} started (state: {})",
+                        audit_run.id,
+                        state_colored(&audit_run.state)
+                    );
                 }
             }
             Ok(())
@@ -471,7 +523,11 @@ pub async fn run(cmd: RunsCmd, format: OutputFormat) -> Result<()> {
                     println!("{}", serde_json::to_string_pretty(&audit_run)?);
                 }
                 _ => {
-                    println!("Run {} resumed (state: {})", audit_run.id, state_colored(&audit_run.state));
+                    println!(
+                        "Run {} resumed (state: {})",
+                        audit_run.id,
+                        state_colored(&audit_run.state)
+                    );
                 }
             }
             Ok(())
@@ -536,14 +592,11 @@ pub async fn run(cmd: RunsCmd, format: OutputFormat) -> Result<()> {
                                 print_run_summary(&audit_run);
                             }
                         }
-                        if let Some(threshold) = fail_below {
-                            if let Some(avg) = audit_run.stats.avg_score_after {
-                                if avg < threshold {
-                                    bail!(
-                                        "avg_score_after {avg:.1} is below threshold {threshold:.1}"
-                                    );
-                                }
-                            }
+                        if let Some(threshold) = fail_below
+                            && let Some(avg) = audit_run.stats.avg_score_after
+                            && avg < threshold
+                        {
+                            bail!("avg_score_after {avg:.1} is below threshold {threshold:.1}");
                         }
                         return Ok(());
                     }
@@ -576,6 +629,22 @@ fn verdict_colored(verdict: &str) -> String {
     }
 }
 
+fn print_preview(p: &RunPreview) {
+    // Preview + prompt go to stderr so stdout stays clean for piped JSON output.
+    eprintln!("{} item(s) will be audited:", p.count.to_string().bold());
+    for it in &p.items {
+        eprintln!(
+            "  {:<8} {}",
+            it.permalink.as_deref().unwrap_or("-"),
+            it.title.as_deref().unwrap_or("-")
+        );
+    }
+    let shown = p.items.len() as u32;
+    if p.count > shown {
+        eprintln!("  … and {} more", p.count - shown);
+    }
+}
+
 fn print_run_summary(r: &AuditRun) {
     println!(
         "Run {} — {} [{}]",
@@ -586,13 +655,21 @@ fn print_run_summary(r: &AuditRun) {
     let s = &r.stats;
     println!(
         "  Items: {} total  {} done  {} pending  {} failed  {} cancelled",
-        s.total, s.done, s.pending, s.failed + s.failed_permanently, s.cancelled
+        s.total,
+        s.done,
+        s.pending,
+        s.failed + s.failed_permanently,
+        s.cancelled
     );
     if s.done > 0 {
         println!(
             "  Scores: before={} after={}  improved={} regressed={} unchanged={}",
-            s.avg_score_before.map(|v| format!("{v:.1}")).unwrap_or_else(|| "-".to_string()),
-            s.avg_score_after.map(|v| format!("{v:.1}")).unwrap_or_else(|| "-".to_string()),
+            s.avg_score_before
+                .map(|v| format!("{v:.1}"))
+                .unwrap_or_else(|| "-".to_string()),
+            s.avg_score_after
+                .map(|v| format!("{v:.1}"))
+                .unwrap_or_else(|| "-".to_string()),
             s.improved,
             s.regressed,
             s.unchanged,
@@ -602,7 +679,11 @@ fn print_run_summary(r: &AuditRun) {
         print!("  Started: {}", started.format("%Y-%m-%d %H:%M:%S UTC"));
         if let Some(completed) = r.completed_at {
             let elapsed = completed - started;
-            println!("  Completed: {} ({:.0}s)", completed.format("%Y-%m-%d %H:%M:%S UTC"), elapsed.num_seconds());
+            println!(
+                "  Completed: {} ({:.0}s)",
+                completed.format("%Y-%m-%d %H:%M:%S UTC"),
+                elapsed.num_seconds()
+            );
         } else {
             println!();
         }
@@ -632,10 +713,23 @@ fn print_items_table(items: &[AuditRunItem]) {
             Cell::new(i.permalink.as_deref().unwrap_or("-")),
             Cell::new(i.title.as_deref().unwrap_or("-")),
             Cell::new(state_colored(&i.state)),
-            Cell::new(i.old_score.map(|s| format!("{s:.0}")).unwrap_or_else(|| "-".to_string())),
-            Cell::new(i.new_score.map(|s| format!("{s:.0}")).unwrap_or_else(|| "-".to_string())),
+            Cell::new(
+                i.old_score
+                    .map(|s| format!("{s:.0}"))
+                    .unwrap_or_else(|| "-".to_string()),
+            ),
+            Cell::new(
+                i.new_score
+                    .map(|s| format!("{s:.0}"))
+                    .unwrap_or_else(|| "-".to_string()),
+            ),
             Cell::new(delta_str),
-            Cell::new(i.verdict.as_deref().map(verdict_colored).unwrap_or_else(|| "-".to_string())),
+            Cell::new(
+                i.verdict
+                    .as_deref()
+                    .map(verdict_colored)
+                    .unwrap_or_else(|| "-".to_string()),
+            ),
         ]);
     }
     println!("{table}");
@@ -664,7 +758,33 @@ mod tests {
             .expect("create should parse");
         let sub = m.subcommand_matches("create").unwrap();
         assert!(sub.get_flag("no_start"));
-        assert_eq!(sub.get_one::<String>("type").map(|s| s.as_str()), Some("func"));
+        assert_eq!(
+            sub.get_one::<String>("type").map(|s| s.as_str()),
+            Some("func")
+        );
+        // --yes defaults to false so a bare filter create is confirmed
+        assert!(!sub.get_flag("yes"));
+    }
+
+    #[test]
+    fn dispatch_create_yes_flag() {
+        let cmd = build_command();
+        let m = cmd
+            .try_get_matches_from(["run", "create", "--type", "func", "-y"])
+            .expect("create -y should parse");
+        let sub = m.subcommand_matches("create").unwrap();
+        assert!(sub.get_flag("yes"));
+    }
+
+    #[test]
+    fn dispatch_create_item_ids_parse() {
+        let cmd = build_command();
+        let m = cmd
+            .try_get_matches_from(["run", "create", "--item-ids", "1,2,3"])
+            .expect("create --item-ids should parse");
+        let sub = m.subcommand_matches("create").unwrap();
+        let ids: Vec<u64> = sub.get_many::<u64>("item_ids").unwrap().copied().collect();
+        assert_eq!(ids, vec![1, 2, 3]);
     }
 
     #[test]

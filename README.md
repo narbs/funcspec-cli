@@ -142,6 +142,21 @@ funcspec run create --type func --score-below 60 --no-start
 funcspec run create --tag "auth,security" --no-start
 
 # List and inspect
+```
+
+Filter-based creates (including a bare `funcspec run create`, which would
+audit every item in the project) first show the resolved item set and ask for
+confirmation, so you never launch a large run by accident. Pass `--yes`/`-y`
+to skip the prompt, or scope explicitly with `--item-ids` (which never
+prompts). In non-interactive contexts the prompt is refused unless `--yes` is
+given.
+
+```sh
+funcspec run create --type func              # shows "N items will be audited" + [y/N]
+funcspec run create --type func --yes        # skip confirmation
+funcspec run create --item-ids 12,34,56      # explicit scope, no prompt
+
+# List and inspect
 funcspec run list
 funcspec run show <id>
 funcspec run show <id> --page 2 --per 25
