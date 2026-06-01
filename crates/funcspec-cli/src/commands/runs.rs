@@ -391,7 +391,7 @@ pub async fn run(cmd: RunsCmd, format: OutputFormat) -> Result<()> {
             yes,
         } => {
             let (client, project_id) = client_and_project().await?;
-            let params = CreateRunParams {
+            let mut params = CreateRunParams {
                 type_of,
                 status,
                 score_below,
@@ -400,6 +400,7 @@ pub async fn run(cmd: RunsCmd, format: OutputFormat) -> Result<()> {
                 concurrency,
                 name,
                 no_start: if no_start { Some(true) } else { None },
+                confirmed: None,
             };
 
             // Explicit --item-ids scope a run precisely, so no confirmation is
@@ -427,6 +428,11 @@ pub async fn run(cmd: RunsCmd, format: OutputFormat) -> Result<()> {
                     return Ok(());
                 }
             }
+
+            // Reaching here means the create is acknowledged (explicit
+            // --item-ids, --yes, or an interactive yes), which satisfies the
+            // server's multi-item confirmation guard.
+            params.confirmed = Some(true);
 
             let audit_run = client.create_run(project_id, &params).await?;
             match format.resolve() {

@@ -750,6 +750,10 @@ pub struct CreateRunParams {
     pub name: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub no_start: Option<bool>,
+    /// Acknowledges a multi-item run. The server rejects a create resolving to
+    /// more than one item unless this is set.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub confirmed: Option<bool>,
 }
 
 #[derive(Debug, Default, Serialize)]
@@ -796,6 +800,20 @@ pub struct CreateSnapshotParams {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn create_run_params_serializes_confirmed_when_set() {
+        let p = CreateRunParams { confirmed: Some(true), ..Default::default() };
+        let json = serde_json::to_string(&p).unwrap();
+        assert!(json.contains("\"confirmed\":true"), "got: {json}");
+    }
+
+    #[test]
+    fn create_run_params_omits_confirmed_when_none() {
+        let p = CreateRunParams::default();
+        let json = serde_json::to_string(&p).unwrap();
+        assert!(!json.contains("confirmed"), "got: {json}");
+    }
 
     #[test]
     fn item_type_display() {
