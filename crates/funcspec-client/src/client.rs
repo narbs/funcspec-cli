@@ -353,6 +353,36 @@ impl FuncspecClient {
         Ok(())
     }
 
+    /// Mark a spec item out-of-scope (deprecated). Optional reason; confirm=true
+    /// is required by the server when the item has active children (cascade).
+    /// POST /projects/:pid/spec/items/:permalink/deprecate
+    pub async fn deprecate_item(
+        &self,
+        project_id: u64,
+        permalink: &str,
+        reason: Option<&str>,
+        confirm: bool,
+    ) -> Result<(), Error> {
+        let url = self.api_url(&format!(
+            "/projects/{project_id}/spec/items/{permalink}/deprecate"
+        ));
+        debug!(%url, "deprecate_item");
+        let mut body = serde_json::Map::new();
+        if let Some(r) = reason {
+            body.insert("reason".into(), serde_json::Value::String(r.to_string()));
+        }
+        if confirm {
+            body.insert("confirm".into(), serde_json::Value::Bool(true));
+        }
+        let resp = self
+            .request_with_retry(|| self.http.post(&url).json(&body).send())
+            .await?;
+        if !resp.status().is_success() {
+            return Err(Error::from_response(resp).await);
+        }
+        Ok(())
+    }
+
     /// Transition a spec item's workflow state.
     ///
     /// Valid states: `inbox`, `draft`, `accepted`, `integrated`.
@@ -1246,6 +1276,50 @@ impl FuncspecClient {
     pub async fn delete_run(&self, project_id: u64, run_id: u64) -> Result<(), Error> {
         let url = self.api_url(&format!("/projects/{project_id}/runs/{run_id}"));
         debug!(%url, "delete_run");
+        let resp = self
+            .request_with_retry(|| self.http.delete(&url).send())
+            .await?;
+        if !resp.status().is_success() {
+            return Err(Error::from_response(resp).await);
+        }
+        Ok(())
+    }
+
+    /// Add one or more spec items to a release version (by semver or id).
+    /// Items are identified by permalink (e.g. "T-414") or numeric id.
+    /// F-517 membership: POST /projects/:pid/release_versions/:ver/items
+    pub async fn add_items_to_version(
+        &self,
+        project_id: u64,
+        version: &str,
+        spec_item_keys: &[String],
+    ) -> Result<(), Error> {
+        let url = self.api_url(&format!(
+            "/projects/{project_id}/release_versions/{version}/items"
+        ));
+        debug!(%url, "add_items_to_version");
+        let body = serde_json::json!({ "spec_item_ids": spec_item_keys });
+        let resp = self
+            .request_with_retry(|| self.http.post(&url).json(&body).send())
+            .await?;
+        if !resp.status().is_success() {
+            return Err(Error::from_response(resp).await);
+        }
+        Ok(())
+    }
+
+    /// Remove a spec item from a release version (by semver or id).
+    /// DELETE /projects/:pid/release_versions/:ver/items/:spec_item_key
+    pub async fn remove_item_from_version(
+        &self,
+        project_id: u64,
+        version: &str,
+        spec_item_key: &str,
+    ) -> Result<(), Error> {
+        let url = self.api_url(&format!(
+            "/projects/{project_id}/release_versions/{version}/items/{spec_item_key}"
+        ));
+        debug!(%url, "remove_item_from_version");
         let resp = self
             .request_with_retry(|| self.http.delete(&url).send())
             .await?;

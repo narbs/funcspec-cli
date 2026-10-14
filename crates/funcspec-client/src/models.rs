@@ -672,6 +672,13 @@ pub struct AuditRun {
     pub requested_concurrency: u32,
     pub effective_concurrency: u32,
     pub filter_criteria: Option<serde_json::Value>,
+    /// F-517/F-293: the release version this run is scoped to (if any).
+    #[serde(default)]
+    pub release_version_id: Option<u64>,
+    /// F-517/F-293: the code branch audited (snapshotted from the version's
+    /// branch at creation). Null = the repository's default branch was used.
+    #[serde(default)]
+    pub audit_branch: Option<String>,
     pub created_by_user_id: Option<u64>,
     pub started_at: Option<DateTime<Utc>>,
     pub completed_at: Option<DateTime<Utc>>,
@@ -750,6 +757,11 @@ pub struct CreateRunParams {
     pub name: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub no_start: Option<bool>,
+    /// F-517/F-293: scope the run to a release version (semver like "0.1.0" or
+    /// its id). The server scopes to that version's member items and sets
+    /// audit_branch from the version's branch, so the audit targets that code.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub release_version: Option<String>,
     /// Acknowledges a multi-item run. The server rejects a create resolving to
     /// more than one item unless this is set.
     #[serde(skip_serializing_if = "Option::is_none")]

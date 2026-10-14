@@ -88,7 +88,7 @@ async fn run(matches: clap::ArgMatches, format: OutputFormat) -> Result<()> {
             let args = commands::view::from_arg_matches(sub);
             commands::view::run(args).await
         }
-        Some(("version", _)) => commands::version::run(),
+        Some(("version", sub)) => commands::version::dispatch(sub, format).await,
         Some(("completion", sub)) => {
             let shell = sub
                 .get_one::<clap_complete::Shell>("shell")

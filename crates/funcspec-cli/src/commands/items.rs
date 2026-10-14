@@ -51,6 +51,11 @@ pub enum ItemsCmd {
         item: String,
         yes: bool,
     },
+    Deprecate {
+        item: String,
+        reason: Option<String>,
+        confirm: bool,
+    },
     Transition {
         item: String,
         state: String,
@@ -291,6 +296,26 @@ pub fn build_command() -> clap::Command {
                 ),
         )
         .subcommand(
+            clap::Command::new("deprecate")
+                .about("Mark a spec item out-of-scope (deprecated)")
+                .arg(
+                    clap::Arg::new("item")
+                        .required(true)
+                        .help("Item permalink (e.g. T-420) or ID"),
+                )
+                .arg(
+                    clap::Arg::new("reason")
+                        .long("reason")
+                        .help("Optional deprecation reason"),
+                )
+                .arg(
+                    clap::Arg::new("confirm")
+                        .long("confirm")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Confirm cascade when the item has active children"),
+                ),
+        )
+        .subcommand(
             clap::Command::new("transition")
                 .about(t!("cmd.items.transition.about").to_string())
                 .arg(
@@ -473,6 +498,11 @@ pub async fn dispatch(matches: &clap::ArgMatches, format: OutputFormat) -> Resul
         Some(("delete", m)) => ItemsCmd::Delete {
             item: m.get_one::<String>("item").unwrap().clone(),
             yes: m.get_flag("yes"),
+        },
+        Some(("deprecate", m)) => ItemsCmd::Deprecate {
+            item: m.get_one::<String>("item").unwrap().clone(),
+            reason: m.get_one::<String>("reason").cloned(),
+            confirm: m.get_flag("confirm"),
         },
         Some(("transition", m)) => ItemsCmd::Transition {
             item: m.get_one::<String>("item").unwrap().clone(),
@@ -781,6 +811,14 @@ pub async fn run(cmd: ItemsCmd, format: OutputFormat) -> Result<()> {
 
             client.delete_item(project_id, spec_item.id).await?;
             eprintln!("Deleted {}", style(&spec_item.attributes.permalink).cyan());
+            Ok(())
+        }
+        ItemsCmd::Deprecate { item, reason, confirm } => {
+            let (client, project_id) = client_and_project().await?;
+            client
+                .deprecate_item(project_id, &item, reason.as_deref(), confirm)
+                .await?;
+            eprintln!("Deprecated {}", style(&item).cyan());
             Ok(())
         }
 

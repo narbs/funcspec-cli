@@ -22,6 +22,7 @@ pub enum RunsCmd {
         concurrency: Option<u32>,
         name: Option<String>,
         no_start: bool,
+        release_version: Option<String>,
         yes: bool,
     },
     Show {
@@ -129,6 +130,11 @@ pub fn build_command() -> clap::Command {
                         .long("no-start")
                         .action(clap::ArgAction::SetTrue)
                         .help("Create in draft state without starting"),
+                )
+                .arg(
+                    clap::Arg::new("release_version")
+                        .long("release-version")
+                        .help("Scope the run to a release version (semver e.g. 0.1.0, or id); audits that version's code branch"),
                 )
                 .arg(
                     clap::Arg::new("yes")
@@ -283,6 +289,7 @@ pub async fn dispatch(matches: &clap::ArgMatches, format: OutputFormat) -> Resul
             concurrency: m.get_one::<u32>("concurrency").copied(),
             name: m.get_one::<String>("name").cloned(),
             no_start: m.get_flag("no_start"),
+            release_version: m.get_one::<String>("release_version").cloned(),
             yes: m.get_flag("yes"),
         },
         Some(("show", m)) => RunsCmd::Show {
@@ -388,6 +395,7 @@ pub async fn run(cmd: RunsCmd, format: OutputFormat) -> Result<()> {
             concurrency,
             name,
             no_start,
+            release_version,
             yes,
         } => {
             let (client, project_id) = client_and_project().await?;
@@ -400,6 +408,7 @@ pub async fn run(cmd: RunsCmd, format: OutputFormat) -> Result<()> {
                 concurrency,
                 name,
                 no_start: if no_start { Some(true) } else { None },
+                release_version,
                 confirmed: None,
             };
 
