@@ -20,7 +20,9 @@ pub fn build_command() -> clap::Command {
                         .num_args(1..)
                         .value_delimiter(',')
                         .required(true)
-                        .help("Spec item permalink(s) or id(s) to add (comma-separated, e.g. T-414)"),
+                        .help(
+                            "Spec item permalink(s) or id(s) to add (comma-separated, e.g. T-414)",
+                        ),
                 ),
         )
         .subcommand(

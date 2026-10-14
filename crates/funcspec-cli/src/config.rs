@@ -35,10 +35,7 @@ impl LocalConfig {
             if candidate.exists() {
                 return Some(candidate);
             }
-            match dir.parent() {
-                Some(p) => dir = p,
-                None => return None,
-            }
+            dir = dir.parent()?;
         }
     }
 

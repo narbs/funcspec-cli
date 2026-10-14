@@ -813,7 +813,11 @@ pub async fn run(cmd: ItemsCmd, format: OutputFormat) -> Result<()> {
             eprintln!("Deleted {}", style(&spec_item.attributes.permalink).cyan());
             Ok(())
         }
-        ItemsCmd::Deprecate { item, reason, confirm } => {
+        ItemsCmd::Deprecate {
+            item,
+            reason,
+            confirm,
+        } => {
             let (client, project_id) = client_and_project().await?;
             client
                 .deprecate_item(project_id, &item, reason.as_deref(), confirm)

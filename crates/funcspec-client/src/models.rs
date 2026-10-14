@@ -815,7 +815,10 @@ mod tests {
 
     #[test]
     fn create_run_params_serializes_confirmed_when_set() {
-        let p = CreateRunParams { confirmed: Some(true), ..Default::default() };
+        let p = CreateRunParams {
+            confirmed: Some(true),
+            ..Default::default()
+        };
         let json = serde_json::to_string(&p).unwrap();
         assert!(json.contains("\"confirmed\":true"), "got: {json}");
     }
