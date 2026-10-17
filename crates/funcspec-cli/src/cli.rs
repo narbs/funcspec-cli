@@ -60,6 +60,13 @@ pub fn build_cli() -> Command {
                 .global(true)
                 .help(t!("cli.project").to_string()),
         )
+        .arg(
+            Arg::new("timeout")
+                .long("timeout")
+                .global(true)
+                .value_parser(clap::value_parser!(u64))
+                .help("Request timeout in seconds (default 30; audit calls default to 180)"),
+        )
         .subcommand(commands::ai::build_command())
         .subcommand(commands::auth::build_command())
         .subcommand(commands::config::build_command())

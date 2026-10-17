@@ -44,6 +44,9 @@ async fn main() {
     let project = matches.get_one::<String>("project").cloned();
     context::set_project_override(project);
 
+    let timeout = matches.get_one::<u64>("timeout").copied();
+    context::set_timeout_override(timeout);
+
     if let Err(err) = run(matches, format).await {
         eprintln!("{} {err:#}", "error:".red().bold());
         std::process::exit(1);

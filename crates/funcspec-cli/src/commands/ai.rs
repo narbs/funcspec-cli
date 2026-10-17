@@ -9,7 +9,7 @@ use funcspec_client::{FuncspecClient, JobStatus, models::*};
 use indicatif::{ProgressBar, ProgressStyle};
 use rust_i18n::t;
 
-use crate::context::client_and_project;
+use crate::context::{client_and_project, client_and_project_audit};
 use crate::output::format_diff;
 
 // ---------------------------------------------------------------------------
@@ -391,7 +391,9 @@ async fn handle_generate(permalink: &str) -> Result<()> {
 // ---------------------------------------------------------------------------
 
 async fn handle_audit(permalink: &str) -> Result<()> {
-    let (client, project_id) = client_and_project().await?;
+    // Audit is a synchronous long-running call; use the longer audit timeout
+    // (overridable with --timeout).
+    let (client, project_id) = client_and_project_audit().await?;
 
     let pb = make_spinner(&format!("Fetching {permalink}…"));
     let item = client
@@ -486,8 +488,6 @@ pub fn display_review(item: &SpecItem, review: &Review) {
 }
 
 fn display_audit(item: &SpecItem, audit: &AuditResult) {
-    let attrs = &audit.attributes;
-
     println!("\n{}", "=== Code Audit Result ===".bold());
     println!(
         "{} {} — {}",
@@ -495,18 +495,47 @@ fn display_audit(item: &SpecItem, audit: &AuditResult) {
         item.attributes.permalink.cyan(),
         item.attributes.title
     );
-    println!("{} {}", "Audit Type:".bold(), attrs.audit_type);
 
-    let status_str = if attrs.passed {
-        "PASSED".green().bold()
-    } else {
-        "FAILED".red().bold()
+    let status = audit.status_recommendation.as_str();
+    let status_str = match status {
+        "implemented" => status.green().bold(),
+        "partial" => status.yellow().bold(),
+        "not_implemented" => status.red().bold(),
+        other => other.normal().bold(),
     };
-    println!("{} {status_str}", "Result:".bold());
+    println!("{} {status_str}", "Status:".bold());
+    if !audit.confidence.is_empty() {
+        println!("{} {}", "Confidence:".bold(), audit.confidence);
+    }
+    println!("{} {:.1}%", "Coverage:".bold(), audit.coverage_percentage);
+    println!("{} {}", "Files discovered:".bold(), audit.files_discovered);
 
-    if !attrs.details.is_empty() {
-        println!("\n{}", "Details:".bold());
-        println!("{}", attrs.details);
+    if !audit.criteria_coverage.is_empty() {
+        println!("\n{}", "Criteria:".bold());
+        for c in &audit.criteria_coverage {
+            let mark = match c.status.as_str() {
+                "implemented" => "✓".green().to_string(),
+                "partial" => "~".yellow().to_string(),
+                "not_implemented" => "✗".red().to_string(),
+                _ => "?".to_string(),
+            };
+            println!("  {mark} {}", c.criterion);
+            for ev in &c.evidence {
+                if !ev.file.is_empty() {
+                    let loc = if ev.lines.is_empty() {
+                        ev.file.clone()
+                    } else {
+                        format!("{}:{}", ev.file, ev.lines)
+                    };
+                    println!("      {}", loc.dimmed());
+                }
+            }
+        }
+    }
+
+    if !audit.notes.is_empty() {
+        println!("\n{}", "Notes:".bold());
+        println!("{}", audit.notes);
     }
 
     println!();
@@ -669,14 +698,13 @@ mod tests {
 
         let audit = AuditResult {
             id: 5,
-            resource_type: "audit_result".into(),
-            attributes: AuditResultAttributes {
-                spec_item_id: 2,
-                audit_type: "coverage".into(),
-                passed: false,
-                details: "Missing test coverage for error paths".into(),
-                created_at: Utc::now(),
-            },
+            status_recommendation: "partial".into(),
+            confidence: "medium".into(),
+            files_discovered: 12,
+            coverage_percentage: 66.7,
+            criteria_coverage: vec![],
+            notes: "Missing test coverage for error paths".into(),
+            created_at: Utc::now(),
         };
 
         display_audit(&item, &audit);

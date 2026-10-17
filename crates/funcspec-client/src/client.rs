@@ -87,10 +87,13 @@ impl FuncspecClient {
                     return Ok(resp);
                 }
                 Err(e) if attempt < self.max_retries => {
-                    // Retry on network errors
-                    if e.is_connect() || e.is_timeout() {
+                    // Retry only on connection errors. Do NOT retry on timeout:
+                    // for a synchronous long-running POST (e.g. `ai audit`) a timeout
+                    // means the request is likely still running server-side, so a
+                    // retry would duplicate the work. Raise the timeout instead.
+                    if e.is_connect() {
                         let delay = Duration::from_secs(1u64 << attempt.min(6));
-                        warn!(attempt, error = %e, "Network error, retrying");
+                        warn!(attempt, error = %e, "Connection error, retrying");
                         tokio::time::sleep(delay).await;
                         attempt += 1;
                         continue;
@@ -1719,14 +1722,21 @@ mod tests {
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
                 "data": {
                     "id": 55,
-                    "type": "audit_result",
-                    "attributes": {
-                        "spec_item_id": 40,
-                        "audit_type": "coverage",
-                        "passed": true,
-                        "details": "All requirements covered",
-                        "created_at": "2026-01-01T00:00:00Z"
-                    }
+                    "status_recommendation": "implemented",
+                    "confidence": "high",
+                    "files_discovered": 28,
+                    "coverage_percentage": 73.3,
+                    "criteria_coverage": [
+                        {
+                            "criterion": "All requirements covered",
+                            "status": "implemented",
+                            "evidence": [
+                                {"file": "app/models/foo.rb", "lines": "1-10", "note": "present"}
+                            ]
+                        }
+                    ],
+                    "notes": "All requirements covered",
+                    "created_at": "2026-01-01T00:00:00Z"
                 }
             })))
             .mount(&server)
@@ -1734,8 +1744,11 @@ mod tests {
 
         let client = make_client(&server.uri()).await;
         let audit = client.audit_item(6, 40).await.unwrap();
-        assert!(audit.attributes.passed);
-        assert_eq!(audit.attributes.audit_type, "coverage");
+        assert_eq!(audit.status_recommendation, "implemented");
+        assert_eq!(audit.confidence, "high");
+        assert_eq!(audit.files_discovered, 28);
+        assert_eq!(audit.criteria_coverage.len(), 1);
+        assert_eq!(audit.criteria_coverage[0].status, "implemented");
     }
 
     #[tokio::test]

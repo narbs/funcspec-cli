@@ -253,21 +253,49 @@ pub struct TechProposals {
 // Audit
 // ---------------------------------------------------------------------------
 
+/// A code-audit result. The server returns a flat `data` object (not the
+/// `{id,type,attributes}` envelope used elsewhere), so this maps the fields
+/// directly. Unknown/absent fields are tolerated via `#[serde(default)]`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuditResult {
     pub id: u64,
-    #[serde(rename = "type")]
-    pub resource_type: String,
-    pub attributes: AuditResultAttributes,
+    /// e.g. "implemented", "partial", "not_implemented".
+    #[serde(default)]
+    pub status_recommendation: String,
+    /// e.g. "high", "medium", "low".
+    #[serde(default)]
+    pub confidence: String,
+    #[serde(default)]
+    pub files_discovered: u64,
+    #[serde(default)]
+    pub coverage_percentage: f64,
+    #[serde(default)]
+    pub criteria_coverage: Vec<CriterionCoverage>,
+    #[serde(default)]
+    pub notes: String,
+    pub created_at: DateTime<Utc>,
 }
 
+/// Per-acceptance-criterion coverage within an [`AuditResult`].
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AuditResultAttributes {
-    pub spec_item_id: u64,
-    pub audit_type: String,
-    pub passed: bool,
-    pub details: String,
-    pub created_at: DateTime<Utc>,
+pub struct CriterionCoverage {
+    #[serde(default)]
+    pub criterion: String,
+    #[serde(default)]
+    pub status: String,
+    #[serde(default)]
+    pub evidence: Vec<CriterionEvidence>,
+}
+
+/// A single file/line evidence entry for a criterion.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CriterionEvidence {
+    #[serde(default)]
+    pub file: String,
+    #[serde(default)]
+    pub lines: String,
+    #[serde(default)]
+    pub note: String,
 }
 
 // ---------------------------------------------------------------------------
