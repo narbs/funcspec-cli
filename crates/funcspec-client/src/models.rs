@@ -507,6 +507,10 @@ pub struct ItemFilter {
     pub sort: Option<String>,
     pub page: Option<u32>,
     pub per: Option<u32>,
+    /// Workflow state filter (inbox/draft/accepted/integrated).
+    pub state: Option<String>,
+    /// Include out-of-scope (deprecated) items when true.
+    pub include_deprecated: Option<bool>,
 }
 
 impl ItemFilter {
@@ -541,6 +545,12 @@ impl ItemFilter {
         }
         if let Some(p) = self.per {
             pairs.push(("per".into(), p.to_string()));
+        }
+        if let Some(ref st) = self.state {
+            pairs.push(("state".into(), st.clone()));
+        }
+        if let Some(true) = self.include_deprecated {
+            pairs.push(("include_deprecated".into(), "true".into()));
         }
         pairs
     }
@@ -1325,6 +1335,8 @@ mod tests {
             sort: Some("score".into()),
             page: Some(2),
             per: Some(10),
+            state: Some("accepted".into()),
+            include_deprecated: Some(true),
         };
         let pairs = filter.to_query_pairs();
         assert!(

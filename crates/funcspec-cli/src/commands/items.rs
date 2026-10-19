@@ -11,6 +11,8 @@ pub enum ItemsCmd {
     List {
         r#type: Option<String>,
         status: Option<String>,
+        state: Option<String>,
+        deprecated: Option<bool>,
         tag: Option<String>,
         q: Option<String>,
         has_review: bool,
@@ -18,6 +20,7 @@ pub enum ItemsCmd {
         parent: Option<String>,
         page: u32,
         per: u32,
+        all: bool,
         sort: Option<String>,
         json: bool,
         quiet: bool,
@@ -148,6 +151,25 @@ pub fn build_command() -> clap::Command {
                         .value_parser(clap::value_parser!(u32))
                         .default_value("25")
                         .help(t!("cmd.items.list.per").to_string()),
+                )
+                .arg(
+                    clap::Arg::new("all")
+                        .long("all")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Fetch ALL matching items across every page (ignores --page/--per)"),
+                )
+                .arg(
+                    clap::Arg::new("state")
+                        .long("state")
+                        .help("Filter by workflow state: inbox, draft, accepted, integrated"),
+                )
+                .arg(
+                    clap::Arg::new("deprecated")
+                        .long("deprecated")
+                        .value_parser(clap::value_parser!(bool))
+                        .num_args(0..=1)
+                        .default_missing_value("true")
+                        .help("Include/exclude out-of-scope items: --deprecated[=true] includes them, --deprecated=false excludes (default: excluded)"),
                 )
                 .arg(
                     clap::Arg::new("sort")
@@ -459,6 +481,8 @@ pub async fn dispatch(matches: &clap::ArgMatches, format: OutputFormat) -> Resul
         Some(("list", m)) => ItemsCmd::List {
             r#type: m.get_one::<String>("type").cloned(),
             status: m.get_one::<String>("status").cloned(),
+            state: m.get_one::<String>("state").cloned(),
+            deprecated: m.get_one::<bool>("deprecated").copied(),
             tag: m.get_one::<String>("tag").cloned(),
             q: m.get_one::<String>("q").cloned(),
             has_review: m.get_flag("has_review"),
@@ -466,6 +490,7 @@ pub async fn dispatch(matches: &clap::ArgMatches, format: OutputFormat) -> Resul
             parent: m.get_one::<String>("parent").cloned(),
             page: m.get_one::<u32>("page").copied().unwrap_or(1),
             per: m.get_one::<u32>("per").copied().unwrap_or(25),
+            all: m.get_flag("all"),
             sort: m.get_one::<String>("sort").cloned(),
             json: m.get_flag("json"),
             quiet: m.get_flag("quiet"),
@@ -548,6 +573,8 @@ pub async fn run(cmd: ItemsCmd, format: OutputFormat) -> Result<()> {
         ItemsCmd::List {
             r#type,
             status,
+            state,
+            deprecated,
             tag,
             q,
             has_review,
@@ -555,6 +582,7 @@ pub async fn run(cmd: ItemsCmd, format: OutputFormat) -> Result<()> {
             parent,
             page,
             per,
+            all,
             sort,
             json,
             quiet,
@@ -569,9 +597,11 @@ pub async fn run(cmd: ItemsCmd, format: OutputFormat) -> Result<()> {
                 _ => ItemType::Functional,
             });
 
-            let impl_status = status.map(|s| match s.as_str() {
+            let impl_status = status.as_deref().map(|s| match s {
+                "in_progress" | "in-progress" => ImplementationStatus::InProgress,
                 "implemented" => ImplementationStatus::Implemented,
-                "in_progress" => ImplementationStatus::InProgress,
+                "verified" => ImplementationStatus::Verified,
+                "released" => ImplementationStatus::Released,
                 _ => ImplementationStatus::NotStarted,
             });
 
@@ -592,11 +622,21 @@ pub async fn run(cmd: ItemsCmd, format: OutputFormat) -> Result<()> {
                 sort,
                 page: Some(page),
                 per: Some(per),
+                state,
+                include_deprecated: deprecated,
             };
 
-            let (items, meta) = client.list_items(project_id, &filter).await?;
+            // --all walks every page; otherwise a single page. --count uses the
+            // server's reported total, NOT the length of the returned page.
+            let (items, meta) = if all {
+                let all_items = client.list_all_items(project_id, &filter).await?;
+                (all_items, None)
+            } else {
+                client.list_items(project_id, &filter).await?
+            };
 
-            // Client-side filter: API may not enforce type_of/status filters on all projects
+            // When --deprecated=false is explicitly requested, drop deprecated
+            // rows client-side too (the server default already excludes them).
             let items: Vec<_> = items
                 .into_iter()
                 .filter(|item| {
@@ -610,12 +650,23 @@ pub async fn run(cmd: ItemsCmd, format: OutputFormat) -> Result<()> {
                     {
                         return false;
                     }
+                    if let Some(ref st) = filter.state
+                        && item.attributes.state != *st
+                    {
+                        return false;
+                    }
                     true
                 })
                 .collect();
 
             if count {
-                println!("{}", items.len());
+                // True total: prefer the server's pagination meta; for --all (or
+                // when meta is absent) the fully-walked length IS the total.
+                let total = match &meta {
+                    Some(m) => m.total,
+                    None => items.len() as u32,
+                };
+                println!("{total}");
                 return Ok(());
             }
 
