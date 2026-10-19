@@ -1364,6 +1364,47 @@ impl FuncspecClient {
         }
         Ok(())
     }
+
+    /// List all release versions for a project.
+    /// GET /projects/:pid/release_versions
+    pub async fn list_versions(&self, project_id: u64) -> Result<Vec<ReleaseVersion>, Error> {
+        let url = self.api_url(&format!("/projects/{project_id}/release_versions"));
+        debug!(%url, "list_versions");
+        let resp = self
+            .request_with_retry(|| self.http.get(&url).send())
+            .await?;
+        if !resp.status().is_success() {
+            return Err(Error::from_response(resp).await);
+        }
+        let body: ApiListResponse<ReleaseVersion> = resp.json().await?;
+        Ok(body.data)
+    }
+
+    /// Fetch one release version (by semver or id) WITH its member items.
+    /// GET /projects/:pid/release_versions/:ver[?include_deprecated=true]
+    pub async fn get_version(
+        &self,
+        project_id: u64,
+        version: &str,
+        include_deprecated: bool,
+    ) -> Result<ReleaseVersion, Error> {
+        let url = self.api_url(&format!(
+            "/projects/{project_id}/release_versions/{version}"
+        ));
+        debug!(%url, "get_version");
+        let mut req = self.http.get(&url);
+        if include_deprecated {
+            req = req.query(&[("include_deprecated", "true")]);
+        }
+        let resp = self
+            .request_with_retry(|| req.try_clone().unwrap().send())
+            .await?;
+        if !resp.status().is_success() {
+            return Err(Error::from_response(resp).await);
+        }
+        let body: ApiResponse<ReleaseVersion> = resp.json().await?;
+        Ok(body.data)
+    }
 }
 
 // ---------------------------------------------------------------------------

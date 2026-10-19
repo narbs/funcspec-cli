@@ -10,6 +10,7 @@ pub struct StatsArgs {
     pub json: bool,
     pub usage: bool,
     pub month: Option<String>,
+    pub version: Option<String>,
 }
 
 pub fn build_command() -> clap::Command {
@@ -34,6 +35,12 @@ pub fn build_command() -> clap::Command {
                 .value_name("YYYY-MM")
                 .help(t!("cmd.stats.month").to_string()),
         )
+        .arg(
+            clap::Arg::new("version")
+                .long("release-version")
+                .value_name("semver|id")
+                .help("Scope stats to a release version's members (semver 0.1.0 or id)"),
+        )
 }
 
 pub fn from_arg_matches(matches: &clap::ArgMatches) -> StatsArgs {
@@ -41,6 +48,7 @@ pub fn from_arg_matches(matches: &clap::ArgMatches) -> StatsArgs {
         json: matches.get_flag("json"),
         usage: matches.get_flag("usage"),
         month: matches.get_one::<String>("month").cloned(),
+        version: matches.get_one::<String>("version").cloned(),
     }
 }
 
@@ -169,6 +177,7 @@ mod tests {
             json: false,
             usage: false,
             month: None,
+            version: None,
         };
         assert!(!args.json);
         assert!(!args.usage);
@@ -181,6 +190,7 @@ mod tests {
             json: true,
             usage: true,
             month: Some("2026-03".to_string()),
+            version: None,
         };
         assert!(args.json);
         assert!(args.usage);

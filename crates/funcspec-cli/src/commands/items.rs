@@ -21,6 +21,7 @@ pub enum ItemsCmd {
         page: u32,
         per: u32,
         all: bool,
+        release_version: Option<String>,
         sort: Option<String>,
         json: bool,
         quiet: bool,
@@ -157,6 +158,11 @@ pub fn build_command() -> clap::Command {
                         .long("all")
                         .action(clap::ArgAction::SetTrue)
                         .help("Fetch ALL matching items across every page (ignores --page/--per)"),
+                )
+                .arg(
+                    clap::Arg::new("release_version")
+                        .long("release-version")
+                        .help("Filter to a release version's members (semver 0.1.0 or id)"),
                 )
                 .arg(
                     clap::Arg::new("state")
@@ -491,6 +497,7 @@ pub async fn dispatch(matches: &clap::ArgMatches, format: OutputFormat) -> Resul
             page: m.get_one::<u32>("page").copied().unwrap_or(1),
             per: m.get_one::<u32>("per").copied().unwrap_or(25),
             all: m.get_flag("all"),
+            release_version: m.get_one::<String>("release_version").cloned(),
             sort: m.get_one::<String>("sort").cloned(),
             json: m.get_flag("json"),
             quiet: m.get_flag("quiet"),
@@ -583,6 +590,7 @@ pub async fn run(cmd: ItemsCmd, format: OutputFormat) -> Result<()> {
             page,
             per,
             all,
+            release_version,
             sort,
             json,
             quiet,
@@ -624,6 +632,7 @@ pub async fn run(cmd: ItemsCmd, format: OutputFormat) -> Result<()> {
                 per: Some(per),
                 state,
                 include_deprecated: deprecated,
+                release_version,
             };
 
             // --all walks every page; otherwise a single page. --count uses the

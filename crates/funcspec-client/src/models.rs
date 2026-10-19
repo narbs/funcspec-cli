@@ -332,6 +332,56 @@ pub struct SnapshotAttributes {
 }
 
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Release version
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReleaseVersion {
+    pub id: u64,
+    #[serde(rename = "type")]
+    pub resource_type: String,
+    pub attributes: ReleaseVersionAttributes,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReleaseVersionAttributes {
+    pub name: Option<String>,
+    pub semver: String,
+    #[serde(default)]
+    pub lifecycle_state: Option<String>,
+    #[serde(default)]
+    pub description: Option<String>,
+    #[serde(default)]
+    pub branch: Option<String>,
+    #[serde(default)]
+    pub item_count: Option<u64>,
+    /// Member items — present when the version is fetched with items: true (show).
+    #[serde(default)]
+    pub items: Vec<VersionMember>,
+    #[serde(default)]
+    pub created_at: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub updated_at: Option<DateTime<Utc>>,
+}
+
+/// A spec item that is a member of a release version.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VersionMember {
+    pub id: u64,
+    pub permalink: String,
+    pub title: String,
+    pub type_of: String,
+    pub state: String,
+    pub implementation_status: String,
+    #[serde(default)]
+    pub parent_id: Option<u64>,
+    #[serde(default)]
+    pub position: Option<i64>,
+    #[serde(default)]
+    pub deprecated: Option<bool>,
+}
+
 // Job
 // ---------------------------------------------------------------------------
 
@@ -511,6 +561,8 @@ pub struct ItemFilter {
     pub state: Option<String>,
     /// Include out-of-scope (deprecated) items when true.
     pub include_deprecated: Option<bool>,
+    /// Scope to a release version's members (semver or id).
+    pub release_version: Option<String>,
 }
 
 impl ItemFilter {
@@ -551,6 +603,9 @@ impl ItemFilter {
         }
         if let Some(true) = self.include_deprecated {
             pairs.push(("include_deprecated".into(), "true".into()));
+        }
+        if let Some(ref rv) = self.release_version {
+            pairs.push(("release_version".into(), rv.clone()));
         }
         pairs
     }
@@ -1337,6 +1392,7 @@ mod tests {
             per: Some(10),
             state: Some("accepted".into()),
             include_deprecated: Some(true),
+            release_version: Some("0.1.0".into()),
         };
         let pairs = filter.to_query_pairs();
         assert!(
