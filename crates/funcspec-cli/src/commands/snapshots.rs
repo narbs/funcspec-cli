@@ -290,7 +290,12 @@ async fn handle_list(json: bool, format: OutputFormat) -> Result<()> {
                     Cell::new(s.id.to_string()),
                     Cell::new(&a.name),
                     Cell::new(a.created_at.format("%Y-%m-%d %H:%M").to_string()),
-                    Cell::new(a.spec_items.len().to_string()),
+                    Cell::new(
+                        a.item_count
+                            .map(|c| c as usize)
+                            .unwrap_or_else(|| a.spec_items.len())
+                            .to_string(),
+                    ),
                 ]);
             }
             println!("{table}");
@@ -310,13 +315,21 @@ async fn handle_create(name: &str, description: Option<String>) -> Result<()> {
         .await
         .context("Failed to create snapshot")?;
 
-    let item_count = snapshot.attributes.spec_items.len();
+    // Prefer the server-reported item_count; fall back to embedded spec_items
+    // length for older servers that inlined the items instead.
+    let item_count = snapshot
+        .attributes
+        .item_count
+        .map(|c| c as usize)
+        .unwrap_or_else(|| snapshot.attributes.spec_items.len());
+    let edge_count = snapshot.attributes.edge_count.unwrap_or(0);
     eprintln!(
-        "{} Snapshot {} created (ID: {}, {} items captured)",
+        "{} Snapshot {} created (ID: {}, {} items / {} edges captured)",
         "✓".green().bold(),
         snapshot.attributes.name.cyan().bold(),
         snapshot.id,
-        item_count
+        item_count,
+        edge_count
     );
     Ok(())
 }
@@ -351,7 +364,11 @@ async fn handle_show(identifier: &str, json: bool, format: OutputFormat) -> Resu
                 "Created:".bold(),
                 a.created_at.format("%Y-%m-%d %H:%M:%S UTC")
             );
-            println!("  {} {}", "Items:".bold(), a.spec_items.len());
+            let shown_items = a
+                .item_count
+                .map(|c| c as usize)
+                .unwrap_or_else(|| a.spec_items.len());
+            println!("  {} {}", "Items:".bold(), shown_items);
             println!();
 
             if !a.spec_items.is_empty() {
@@ -389,7 +406,9 @@ async fn handle_restore(identifier: &str, yes: bool) -> Result<()> {
         "→".yellow(),
         a.name.cyan().bold(),
         snapshot.id,
-        a.spec_items.len(),
+        a.item_count
+            .map(|c| c as usize)
+            .unwrap_or_else(|| a.spec_items.len()),
         a.created_at.format("%Y-%m-%d %H:%M")
     );
     eprintln!(
@@ -521,7 +540,9 @@ async fn handle_delete(identifier: &str, yes: bool) -> Result<()> {
         "→".yellow(),
         a.name.cyan().bold(),
         snapshot.id,
-        a.spec_items.len(),
+        a.item_count
+            .map(|c| c as usize)
+            .unwrap_or_else(|| a.spec_items.len()),
         a.created_at.format("%Y-%m-%d %H:%M")
     );
 

@@ -316,9 +316,18 @@ pub struct SnapshotAttributes {
     pub project_id: Option<u64>,
     pub name: String,
     pub description: Option<String>,
-    /// Full spec items — present in single-snapshot responses, may be absent in list responses.
+    /// Full spec items — present in older single-snapshot responses, absent in
+    /// current create/show responses (which return counts instead).
     #[serde(default)]
     pub spec_items: Vec<SpecItem>,
+    /// Number of spec items captured — returned by create/show (metadata: true).
+    #[serde(default)]
+    pub item_count: Option<u64>,
+    /// Number of dependency edges captured — returned by create/show (metadata: true).
+    #[serde(default)]
+    pub edge_count: Option<u64>,
+    #[serde(default)]
+    pub git_sha: Option<String>,
     pub created_at: DateTime<Utc>,
 }
 
