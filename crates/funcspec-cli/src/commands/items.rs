@@ -76,6 +76,15 @@ pub enum ItemsCmd {
         source: Option<String>,
         agent_run_id: Option<u64>,
     },
+    Report {
+        item: String,
+        status: Option<String>,
+        state: Option<String>,
+        commit: Option<String>,
+        drift: Option<String>,
+        note: Option<String>,
+        json: bool,
+    },
     Review {
         item: String,
         functional: bool,
@@ -480,6 +489,46 @@ pub fn build_command() -> clap::Command {
                         .help("Agent instruction version being followed"),
                 ),
         )
+        .subcommand(
+            clap::Command::new("report")
+                .about("Report-back: step impl status + workflow state, link a commit, record drift — in one call")
+                .arg(
+                    clap::Arg::new("item")
+                        .required(true)
+                        .help("Item permalink (e.g. F-1) or ID"),
+                )
+                .arg(
+                    clap::Arg::new("status")
+                        .long("status")
+                        .help("Target implementation status (steps through intermediate states)"),
+                )
+                .arg(
+                    clap::Arg::new("state")
+                        .long("state")
+                        .help("Target workflow state (steps through intermediate states)"),
+                )
+                .arg(
+                    clap::Arg::new("commit")
+                        .long("commit")
+                        .help("Git commit SHA to link to the item"),
+                )
+                .arg(
+                    clap::Arg::new("drift")
+                        .long("drift")
+                        .help("What drifted from the spec during implementation (recorded as a commit note)"),
+                )
+                .arg(
+                    clap::Arg::new("note")
+                        .long("note")
+                        .help("Freeform implementation note"),
+                )
+                .arg(
+                    clap::Arg::new("json")
+                        .long("json")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Output the per-leg result as JSON"),
+                ),
+        )
 }
 
 pub async fn dispatch(matches: &clap::ArgMatches, format: OutputFormat) -> Result<()> {
@@ -555,6 +604,15 @@ pub async fn dispatch(matches: &clap::ArgMatches, format: OutputFormat) -> Resul
         Some(("review", m)) => ItemsCmd::Review {
             item: m.get_one::<String>("item").unwrap().clone(),
             functional: m.get_flag("functional"),
+        },
+        Some(("report", m)) => ItemsCmd::Report {
+            item: m.get_one::<String>("item").unwrap().clone(),
+            status: m.get_one::<String>("status").cloned(),
+            state: m.get_one::<String>("state").cloned(),
+            commit: m.get_one::<String>("commit").cloned(),
+            drift: m.get_one::<String>("drift").cloned(),
+            note: m.get_one::<String>("note").cloned(),
+            json: m.get_flag("json"),
         },
         Some(("record-run", m)) => ItemsCmd::RecordRun {
             item: m.get_one::<String>("item").unwrap().clone(),
@@ -943,6 +1001,185 @@ pub async fn run(cmd: ItemsCmd, format: OutputFormat) -> Result<()> {
             Ok(())
         }
 
+        ItemsCmd::Report {
+            item,
+            status,
+            state,
+            commit,
+            drift,
+            note,
+            json,
+        } => {
+            let (client, project_id) = client_and_project().await?;
+            // Fetch current state so we can step through intermediate transitions.
+            let current = client.get_item(project_id, &item).await?;
+            let perm = current.attributes.permalink.clone();
+            let item_id = current.id;
+            let cur_state = current.attributes.state.clone();
+            let cur_impl = impl_status_str(&current.attributes.implementation_status).to_string();
+
+            let mut legs: Vec<serde_json::Value> = Vec::new();
+            let mut had_error = false;
+
+            // --- Leg 1: implementation status (stepped) ---
+            if let Some(ref target) = status {
+                for step in report_impl_path(&cur_impl, target) {
+                    match client
+                        .transition_item_implementation(project_id, item_id, &step)
+                        .await
+                    {
+                        Ok(()) => legs.push(serde_json::json!({
+                            "leg": "implementation_status", "to": step, "ok": true
+                        })),
+                        Err(e) => {
+                            had_error = true;
+                            legs.push(serde_json::json!({
+                                "leg": "implementation_status", "to": step, "ok": false,
+                                "error": e.to_string()
+                            }));
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // --- Leg 2: workflow state (stepped) ---
+            if let Some(ref target) = state {
+                for step in report_state_path(&cur_state, target) {
+                    match client.transition_item_state(project_id, &perm, &step).await {
+                        Ok(_) => legs.push(serde_json::json!({
+                            "leg": "state", "to": step, "ok": true
+                        })),
+                        Err(e) => {
+                            had_error = true;
+                            legs.push(serde_json::json!({
+                                "leg": "state", "to": step, "ok": false, "error": e.to_string()
+                            }));
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // --- Leg 3: link commit (drift/note folded into the commit message) ---
+            if let Some(ref sha) = commit {
+                let mut msg_parts: Vec<String> = Vec::new();
+                if let Some(ref d) = drift {
+                    msg_parts.push(format!("drift: {d}"));
+                }
+                if let Some(ref n) = note {
+                    msg_parts.push(n.clone());
+                }
+                let message = if msg_parts.is_empty() {
+                    None
+                } else {
+                    Some(msg_parts.join(" | "))
+                };
+                let params = LinkCommitParams {
+                    sha: sha.clone(),
+                    message,
+                    committed_at: None,
+                    source: Some("report".into()),
+                    agent_run_id: None,
+                };
+                match client.link_commit(project_id, item_id, &params).await {
+                    Ok(()) => legs.push(serde_json::json!({
+                        "leg": "link_commit", "sha": sha, "ok": true
+                    })),
+                    Err(e) => {
+                        // An already-linked commit is idempotent, not a failure.
+                        let msg = e.to_string();
+                        if msg.to_lowercase().contains("already linked") {
+                            legs.push(serde_json::json!({
+                                "leg": "link_commit", "sha": sha, "ok": true,
+                                "note": "already linked"
+                            }));
+                        } else {
+                            had_error = true;
+                            legs.push(serde_json::json!({
+                                "leg": "link_commit", "sha": sha, "ok": false, "error": msg
+                            }));
+                        }
+                    }
+                }
+            }
+
+            // --- Leg 4: drift/note without a commit -> record as an agent run note ---
+            if commit.is_none() && (drift.is_some() || note.is_some()) {
+                let mut parts: Vec<String> = Vec::new();
+                if let Some(ref d) = drift {
+                    parts.push(format!("drift: {d}"));
+                }
+                if let Some(ref n) = note {
+                    parts.push(n.clone());
+                }
+                let params = RecordRunParams {
+                    session_key: None,
+                    model: None,
+                    provider: Some("report".into()),
+                    status: Some(parts.join(" | ")),
+                    input_tokens: None,
+                    output_tokens: None,
+                    cost: None,
+                    instruction_version: None,
+                };
+                match client.record_run(project_id, item_id, &params).await {
+                    Ok(_) => legs.push(serde_json::json!({ "leg": "drift_note", "ok": true })),
+                    Err(e) => {
+                        had_error = true;
+                        legs.push(serde_json::json!({
+                            "leg": "drift_note", "ok": false, "error": e.to_string()
+                        }));
+                    }
+                }
+            }
+
+            // Re-fetch final state for the result.
+            let final_item = client.get_item(project_id, &item).await.ok();
+            let (fin_state, fin_impl) = match &final_item {
+                Some(it) => (
+                    it.attributes.state.clone(),
+                    impl_status_str(&it.attributes.implementation_status).to_string(),
+                ),
+                None => (cur_state.clone(), cur_impl.clone()),
+            };
+
+            if json {
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&serde_json::json!({
+                        "permalink": perm,
+                        "state": fin_state,
+                        "implementation_status": fin_impl,
+                        "legs": legs,
+                        "ok": !had_error,
+                    }))?
+                );
+            } else {
+                for leg in &legs {
+                    let ok = leg.get("ok").and_then(|v| v.as_bool()).unwrap_or(false);
+                    let mark = if ok { "✓" } else { "✗" };
+                    eprintln!("  {mark} {leg}");
+                }
+                let label = if had_error {
+                    style("report (with errors):").yellow()
+                } else {
+                    style("report:").green()
+                };
+                eprintln!(
+                    "{} {} -> state={} impl={}",
+                    label,
+                    style(&perm).cyan(),
+                    fin_state,
+                    fin_impl,
+                );
+            }
+            if had_error {
+                std::process::exit(1);
+            }
+            Ok(())
+        }
+
         ItemsCmd::Review { item, functional } => {
             let (client, project_id) = client_and_project().await?;
             let spec_item = client.get_item(project_id, &item).await?;
@@ -1013,6 +1250,62 @@ pub async fn run(cmd: ItemsCmd, format: OutputFormat) -> Result<()> {
             }
             Ok(())
         }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// items report helpers
+// ---------------------------------------------------------------------------
+
+/// Canonical string for an implementation status enum.
+fn impl_status_str(s: &ImplementationStatus) -> &'static str {
+    match s {
+        ImplementationStatus::NotStarted => "not_started",
+        ImplementationStatus::InProgress => "in_progress",
+        ImplementationStatus::Implemented => "implemented",
+        ImplementationStatus::Verified => "verified",
+        ImplementationStatus::Released => "released",
+    }
+}
+
+/// The ordered implementation-status chain. Both machines reject jumps, so a
+/// report must step through each intermediate state.
+fn report_impl_path(from: &str, to: &str) -> Vec<String> {
+    let chain = [
+        "not_started",
+        "in_progress",
+        "implemented",
+        "verified",
+        "released",
+    ];
+    step_chain(&chain, &norm_impl(from), &norm_impl(to))
+}
+
+/// The ordered workflow-state chain.
+fn report_state_path(from: &str, to: &str) -> Vec<String> {
+    let chain = ["inbox", "draft", "accepted", "integrated"];
+    step_chain(&chain, from, to)
+}
+
+/// Normalize dashed/underscored impl-status aliases to the canonical form.
+fn norm_impl(s: &str) -> String {
+    s.replace('-', "_")
+}
+
+/// Produce the forward or backward step sequence from `from` to `to` along a
+/// linear chain. Returns an empty vec when already there or when either end is
+/// unknown.
+fn step_chain(chain: &[&str], from: &str, to: &str) -> Vec<String> {
+    let fi = chain.iter().position(|s| *s == from);
+    let ti = chain.iter().position(|s| *s == to);
+    match (fi, ti) {
+        (Some(fi), Some(ti)) if ti > fi => {
+            chain[fi + 1..=ti].iter().map(|s| s.to_string()).collect()
+        }
+        (Some(fi), Some(ti)) if ti < fi => {
+            chain[ti..fi].iter().rev().map(|s| s.to_string()).collect()
+        }
+        _ => Vec::new(),
     }
 }
 
