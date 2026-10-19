@@ -73,6 +73,10 @@ async fn run(matches: clap::ArgMatches, format: OutputFormat) -> Result<()> {
             let args = commands::doctor::from_arg_matches(sub);
             commands::doctor::run(args).await
         }
+        Some(("drift", sub)) => {
+            let args = commands::drift::from_arg_matches(sub);
+            commands::drift::run(args, format).await
+        }
         Some(("search", sub)) => {
             let args = commands::search::from_arg_matches(sub);
             commands::search::run(args, format).await

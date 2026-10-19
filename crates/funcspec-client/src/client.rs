@@ -235,6 +235,39 @@ impl FuncspecClient {
         Ok((body.data, body.meta).into())
     }
 
+    /// Fetch every item matching `filter` by walking all pages to exhaustion.
+    ///
+    /// The server caps `per` at 100, so a large project needs several
+    /// round-trips. This loops `list_items_paged` using the pagination meta's
+    /// `total_pages` (falling back to "stop on a short page") so callers get
+    /// the complete set in one call.
+    pub async fn list_all_items(
+        &self,
+        project_id: u64,
+        filter: &ItemFilter,
+    ) -> Result<Vec<SpecItem>, Error> {
+        const PER: u32 = 100;
+        let mut all: Vec<SpecItem> = Vec::new();
+        let mut page: u32 = 1;
+        loop {
+            let resp = self.list_items_paged(project_id, filter, page, PER).await?;
+            let total_pages = resp.total_pages;
+            let items = resp.data;
+            let got = items.len() as u32;
+            all.extend(items);
+            let more = if total_pages > 0 {
+                page < total_pages
+            } else {
+                got == PER
+            };
+            if !more {
+                break;
+            }
+            page += 1;
+        }
+        Ok(all)
+    }
+
     /// Search spec items by full-text query, with optional type/tag filters.
     ///
     /// Calls GET /projects/{project_id}/spec/items?q=<query>[&type_of=...][&tag=...]

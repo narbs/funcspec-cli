@@ -76,6 +76,7 @@ pub fn build_cli() -> Command {
         .subcommand(commands::instructions::build_command())
         .subcommand(commands::onboard::build_command())
         .subcommand(commands::doctor::build_command())
+        .subcommand(commands::drift::build_command())
         .subcommand(commands::search::build_command())
         .subcommand(commands::stats::build_command())
         .subcommand(commands::export::build_command())
