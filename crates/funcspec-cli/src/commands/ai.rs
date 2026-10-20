@@ -178,7 +178,10 @@ async fn poll_job_with_spinner(
 // ---------------------------------------------------------------------------
 
 async fn handle_review(permalink: &str) -> Result<()> {
-    let (client, project_id) = client_and_project().await?;
+    // AI review is a synchronous long-running LLM call (like audit); use the
+    // longer audit timeout so plain `ai review` doesn't time out at 30s
+    // (overridable with --timeout).
+    let (client, project_id) = client_and_project_audit().await?;
 
     let pb = make_spinner(&format!("Fetching {permalink}…"));
     let item = client
@@ -203,7 +206,8 @@ async fn handle_review(permalink: &str) -> Result<()> {
 // ---------------------------------------------------------------------------
 
 async fn handle_review_all() -> Result<()> {
-    let (client, project_id) = client_and_project().await?;
+    // The batch-review trigger POST can also exceed 30s; use the audit timeout.
+    let (client, project_id) = client_and_project_audit().await?;
 
     let pb = make_spinner("Triggering batch review…");
     let job = client
