@@ -489,14 +489,30 @@ pub struct VersionDiffItem {
     pub implementation_status: Option<String>,
 }
 
+// ---------------------------------------------------------------------------
+// Async job reference (F-463: review/func_review 202 response)
+// ---------------------------------------------------------------------------
+
+/// The 202 response from an async endpoint: { data: { job_id, status } }.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct AsyncJobRef {
+    #[serde(default)]
+    pub job_id: Option<u64>,
+    #[serde(default)]
+    pub status: Option<String>,
+}
+
 // Job
 // ---------------------------------------------------------------------------
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Job {
     pub id: u64,
-    #[serde(rename = "type")]
+    /// The batch_jobs endpoint returns a FLAT object (no JSON-API type wrapper),
+    /// so `type` is optional and the job fields flatten into `attributes`.
+    #[serde(rename = "type", default)]
     pub resource_type: String,
+    #[serde(flatten)]
     pub attributes: JobAttributes,
 }
 
@@ -504,7 +520,12 @@ pub struct Job {
 pub struct JobAttributes {
     pub job_type: String,
     pub status: JobStatus,
-    pub progress: Option<f32>,
+    /// Progress is polymorphic server-side: a float percentage for some job
+    /// types, a structured object (e.g. { item_id, verdict, ... }) for review
+    /// jobs. Accept any JSON value so polling never fails to decode.
+    #[serde(default)]
+    pub progress: Option<serde_json::Value>,
+    #[serde(default)]
     pub result: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,

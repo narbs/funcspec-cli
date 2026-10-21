@@ -147,6 +147,7 @@ fn make_spinner(msg: &str) -> ProgressBar {
 
 async fn poll_job_with_spinner(
     client: &FuncspecClient,
+    project_id: u64,
     job_id: u64,
     spinner_msg: &str,
 ) -> Result<funcspec_client::Job> {
@@ -154,7 +155,7 @@ async fn poll_job_with_spinner(
     let timeout = Duration::from_secs(300);
 
     let result = tokio::select! {
-        result = client.poll_job_until_done(job_id, timeout) => result,
+        result = client.poll_job_until_done(project_id, job_id, timeout) => result,
         _ = tokio::signal::ctrl_c() => {
             pb.finish_with_message("Interrupted");
             anyhow::bail!("Interrupted by user (Ctrl-C)");
@@ -210,18 +211,19 @@ async fn handle_review_all() -> Result<()> {
     let (client, project_id) = client_and_project_audit().await?;
 
     let pb = make_spinner("Triggering batch review…");
-    let job = client
+    let job_id = client
         .review_all(project_id)
         .await
         .context("Failed to start batch review")?;
     pb.finish_and_clear();
 
-    println!("Job {} queued.", job.id);
+    println!("Job {job_id} queued.");
 
     let final_job = poll_job_with_spinner(
         &client,
-        job.id,
-        &format!("Job {} — reviewing all items…", job.id),
+        project_id,
+        job_id,
+        &format!("Job {job_id} — reviewing all items…"),
     )
     .await?;
 
