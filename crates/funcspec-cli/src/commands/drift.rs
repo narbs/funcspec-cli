@@ -10,6 +10,7 @@ pub struct DriftArgs {
     pub type_of: Option<String>,
     pub state: Option<String>,
     pub status: Option<String>,
+    pub release_version: Option<String>,
     pub json: bool,
     pub count: bool,
 }
@@ -44,6 +45,12 @@ pub fn build_command() -> clap::Command {
                 .help("Filter by implementation status"),
         )
         .arg(
+            clap::Arg::new("release_version")
+                .long("release-version")
+                .value_name("semver|id")
+                .help("Scope drift to a release version's members (semver 0.1.0 or id)"),
+        )
+        .arg(
             clap::Arg::new("json")
                 .long("json")
                 .action(clap::ArgAction::SetTrue)
@@ -62,6 +69,7 @@ pub fn from_arg_matches(matches: &clap::ArgMatches) -> DriftArgs {
         type_of: matches.get_one::<String>("type").cloned(),
         state: matches.get_one::<String>("state").cloned(),
         status: matches.get_one::<String>("status").cloned(),
+        release_version: matches.get_one::<String>("release_version").cloned(),
         json: matches.get_flag("json"),
         count: matches.get_flag("count"),
     }
@@ -157,6 +165,8 @@ pub async fn run(args: DriftArgs, format: OutputFormat) -> Result<()> {
             other => anyhow::bail!("Invalid type '{other}'. Use func or tech."),
         };
     }
+    // Scope to a release version's members when requested.
+    filter.release_version = args.release_version.clone();
 
     let items = client.list_all_items(project_id, &filter).await?;
 

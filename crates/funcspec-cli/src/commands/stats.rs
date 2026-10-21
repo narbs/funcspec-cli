@@ -91,7 +91,16 @@ pub async fn run(args: StatsArgs, _format: OutputFormat) -> Result<()> {
         return Ok(());
     }
 
-    let stats = client.get_project_stats(project.id).await?;
+    // --release-version scopes stats to that version's members, computed
+    // client-side from the member list (the server stats endpoint is
+    // project-wide only). This makes `stats --release-version 0.1.0` honest
+    // instead of silently returning full-project numbers.
+    let stats = if let Some(ref ver) = args.version {
+        let v = client.get_version(project.id, ver, false).await?;
+        version_scoped_stats(&v)
+    } else {
+        client.get_project_stats(project.id).await?
+    };
 
     let usage = if args.usage || args.month.is_some() {
         Some(
@@ -131,6 +140,42 @@ fn is_valid_month(s: &str) -> bool {
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
+
+/// Build a project-stats-shaped rollup from a release version's member items,
+/// so `stats --release-version` reports that version's numbers (not the whole
+/// project). Reviews/coverage/recent-activity are left at their defaults
+/// because those are not carried on version members.
+fn version_scoped_stats(
+    v: &funcspec_client::models::ReleaseVersion,
+) -> funcspec_client::models::ProjectStats {
+    use funcspec_client::models::{
+        ProjectStats, StatsCoverage, StatsRecentActivity, StatsReviews, StatsSpecItems,
+    };
+    use std::collections::HashMap;
+
+    let items = &v.attributes.items;
+    let mut by_type: HashMap<String, u32> = HashMap::new();
+    let mut by_state: HashMap<String, u32> = HashMap::new();
+    let mut by_impl: HashMap<String, u32> = HashMap::new();
+    for it in items {
+        *by_type.entry(it.type_of.clone()).or_insert(0) += 1;
+        *by_state.entry(it.state.clone()).or_insert(0) += 1;
+        *by_impl.entry(it.implementation_status.clone()).or_insert(0) += 1;
+    }
+
+    ProjectStats {
+        resource_type: Some("release_version_stats".into()),
+        spec_items: StatsSpecItems {
+            total: items.len() as u32,
+            by_type,
+            by_state,
+            by_implementation: by_impl,
+        },
+        reviews: StatsReviews::default(),
+        coverage: StatsCoverage::default(),
+        recent_activity: StatsRecentActivity::default(),
+    }
+}
 
 #[cfg(test)]
 mod tests {
