@@ -1381,6 +1381,87 @@ impl FuncspecClient {
         Ok(())
     }
 
+    /// T-509: diff two release versions by membership.
+    /// GET /projects/:pid/release_versions/:ver/diff/:other
+    pub async fn diff_versions(
+        &self,
+        project_id: u64,
+        version: &str,
+        other: &str,
+    ) -> Result<VersionDiff, Error> {
+        let url = self.api_url(&format!(
+            "/projects/{project_id}/release_versions/{version}/diff/{other}"
+        ));
+        debug!(%url, "diff_versions");
+        let resp = self
+            .request_with_retry(|| self.http.get(&url).send())
+            .await?;
+        if !resp.status().is_success() {
+            return Err(Error::from_response(resp).await);
+        }
+        let body: ApiResponse<VersionDiff> = resp.json().await?;
+        Ok(body.data)
+    }
+
+    /// T-509: clone a release version into a new one (copies memberships).
+    /// POST /projects/:pid/release_versions/:ver/clone
+    pub async fn clone_version(
+        &self,
+        project_id: u64,
+        version: &str,
+        semver: &str,
+        name: Option<&str>,
+        description: Option<&str>,
+        branch: Option<&str>,
+    ) -> Result<ReleaseVersion, Error> {
+        let url = self.api_url(&format!(
+            "/projects/{project_id}/release_versions/{version}/clone"
+        ));
+        debug!(%url, "clone_version");
+        let mut rv = serde_json::Map::new();
+        rv.insert(
+            "semver".into(),
+            serde_json::Value::String(semver.to_string()),
+        );
+        if let Some(n) = name {
+            rv.insert("name".into(), serde_json::Value::String(n.to_string()));
+        }
+        if let Some(d) = description {
+            rv.insert(
+                "description".into(),
+                serde_json::Value::String(d.to_string()),
+            );
+        }
+        if let Some(b) = branch {
+            rv.insert("branch".into(), serde_json::Value::String(b.to_string()));
+        }
+        let body = serde_json::json!({ "release_version": rv });
+        let resp = self
+            .request_with_retry(|| self.http.post(&url).json(&body).send())
+            .await?;
+        if !resp.status().is_success() {
+            return Err(Error::from_response(resp).await);
+        }
+        let body: ApiResponse<ReleaseVersion> = resp.json().await?;
+        Ok(body.data)
+    }
+
+    /// Delete a release version (does not delete its member items).
+    /// DELETE /projects/:pid/release_versions/:ver
+    pub async fn delete_version(&self, project_id: u64, version: &str) -> Result<(), Error> {
+        let url = self.api_url(&format!(
+            "/projects/{project_id}/release_versions/{version}"
+        ));
+        debug!(%url, "delete_version");
+        let resp = self
+            .request_with_retry(|| self.http.delete(&url).send())
+            .await?;
+        if !resp.status().is_success() {
+            return Err(Error::from_response(resp).await);
+        }
+        Ok(())
+    }
+
     /// List all release versions for a project.
     /// GET /projects/:pid/release_versions
     pub async fn list_versions(&self, project_id: u64) -> Result<Vec<ReleaseVersion>, Error> {

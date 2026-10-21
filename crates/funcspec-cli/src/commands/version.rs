@@ -73,6 +73,78 @@ pub fn build_command() -> clap::Command {
                         .help("Output as JSON"),
                 ),
         )
+        .subcommand(
+            clap::Command::new("diff")
+                .about("Compare two release versions (added/removed/shared members)")
+                .arg(
+                    clap::Arg::new("from")
+                        .required(true)
+                        .help("Base version: semver (0.1.0) or id"),
+                )
+                .arg(
+                    clap::Arg::new("to")
+                        .required(true)
+                        .help("Other version: semver (0.2.0) or id"),
+                )
+                .arg(
+                    clap::Arg::new("json")
+                        .long("json")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Output as JSON"),
+                ),
+        )
+        .subcommand(
+            clap::Command::new("clone")
+                .about("Clone a release version into a new one (copies member items)")
+                .arg(
+                    clap::Arg::new("source")
+                        .required(true)
+                        .help("Source version to clone from: semver (0.1.0) or id"),
+                )
+                .arg(
+                    clap::Arg::new("semver")
+                        .long("semver")
+                        .required(true)
+                        .help("Semver for the new version (e.g. 0.2.0)"),
+                )
+                .arg(
+                    clap::Arg::new("name")
+                        .long("name")
+                        .help("Name for the new version"),
+                )
+                .arg(
+                    clap::Arg::new("description")
+                        .long("description")
+                        .help("Description for the new version"),
+                )
+                .arg(
+                    clap::Arg::new("branch")
+                        .long("branch")
+                        .help("Code branch for the new version"),
+                )
+                .arg(
+                    clap::Arg::new("json")
+                        .long("json")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Output as JSON"),
+                ),
+        )
+        .subcommand(
+            clap::Command::new("delete")
+                .about("Delete a release version (member items are NOT deleted)")
+                .arg(
+                    clap::Arg::new("release_version")
+                        .required(true)
+                        .help("Release version to delete: semver (0.2.0) or id"),
+                )
+                .arg(
+                    clap::Arg::new("yes")
+                        .long("yes")
+                        .short('y')
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Skip confirmation"),
+                ),
+        )
 }
 
 pub async fn dispatch(
@@ -119,8 +191,92 @@ pub async fn dispatch(
             print_version_show(&v, json);
             Ok(())
         }
+        Some(("diff", m)) => {
+            let from = m.get_one::<String>("from").unwrap().clone();
+            let to = m.get_one::<String>("to").unwrap().clone();
+            let json = m.get_flag("json");
+            let (client, project_id) = crate::context::client_and_project().await?;
+            let diff = client.diff_versions(project_id, &from, &to).await?;
+            print_version_diff(&diff, json);
+            Ok(())
+        }
+        Some(("clone", m)) => {
+            let source = m.get_one::<String>("source").unwrap().clone();
+            let semver = m.get_one::<String>("semver").unwrap().clone();
+            let name = m.get_one::<String>("name").cloned();
+            let description = m.get_one::<String>("description").cloned();
+            let branch = m.get_one::<String>("branch").cloned();
+            let json = m.get_flag("json");
+            let (client, project_id) = crate::context::client_and_project().await?;
+            let v = client
+                .clone_version(
+                    project_id,
+                    &source,
+                    &semver,
+                    name.as_deref(),
+                    description.as_deref(),
+                    branch.as_deref(),
+                )
+                .await?;
+            if json {
+                println!("{}", serde_json::to_string_pretty(&v)?);
+            } else {
+                println!(
+                    "Cloned {} -> new version {} ({} items)",
+                    source,
+                    v.attributes.semver,
+                    v.attributes.items.len()
+                );
+            }
+            Ok(())
+        }
+        Some(("delete", m)) => {
+            let version = m.get_one::<String>("release_version").unwrap().clone();
+            let yes = m.get_flag("yes");
+            if !yes {
+                anyhow::bail!(
+                    "Refusing to delete version {version} without --yes (member items are kept)"
+                );
+            }
+            let (client, project_id) = crate::context::client_and_project().await?;
+            client.delete_version(project_id, &version).await?;
+            println!("Deleted release version {version}");
+            Ok(())
+        }
         _ => run(),
     }
+}
+
+/// Print a version diff (added/removed/shared).
+fn print_version_diff(diff: &funcspec_client::models::VersionDiff, json: bool) {
+    if json {
+        println!("{}", serde_json::to_string_pretty(diff).unwrap_or_default());
+        return;
+    }
+    let side = |s: &funcspec_client::models::VersionDiffSide| {
+        s.semver
+            .clone()
+            .unwrap_or_else(|| s.id.map(|i| i.to_string()).unwrap_or_else(|| "?".into()))
+    };
+    println!(
+        "{} {} -> {}",
+        "Version diff:".bold(),
+        side(&diff.from).cyan(),
+        side(&diff.to).cyan()
+    );
+    let block = |label: &str, items: &[funcspec_client::models::VersionDiffItem]| {
+        println!("\n  {} ({})", label, items.len());
+        for it in items {
+            println!(
+                "    {:8} {}",
+                it.permalink.clone().unwrap_or_default(),
+                it.title.clone().unwrap_or_default()
+            );
+        }
+    };
+    block(&"Added".green().to_string(), &diff.added);
+    block(&"Removed".red().to_string(), &diff.removed);
+    block(&"Shared".dimmed().to_string(), &diff.changed);
 }
 
 /// Order for rollup display.

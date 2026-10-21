@@ -448,6 +448,47 @@ pub struct ImplementationReportResult {
     pub errors: Vec<String>,
 }
 
+// ---------------------------------------------------------------------------
+// Version diff (T-509)
+// ---------------------------------------------------------------------------
+
+/// Result of comparing two release versions by membership.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct VersionDiff {
+    pub from: VersionDiffSide,
+    pub to: VersionDiffSide,
+    #[serde(default)]
+    pub added: Vec<VersionDiffItem>,
+    #[serde(default)]
+    pub removed: Vec<VersionDiffItem>,
+    #[serde(default)]
+    pub changed: Vec<VersionDiffItem>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct VersionDiffSide {
+    #[serde(default)]
+    pub id: Option<u64>,
+    #[serde(default)]
+    pub semver: Option<String>,
+    #[serde(default)]
+    pub name: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct VersionDiffItem {
+    #[serde(default)]
+    pub id: Option<u64>,
+    #[serde(default)]
+    pub permalink: Option<String>,
+    #[serde(default)]
+    pub title: Option<String>,
+    #[serde(default)]
+    pub state: Option<String>,
+    #[serde(default)]
+    pub implementation_status: Option<String>,
+}
+
 // Job
 // ---------------------------------------------------------------------------
 
