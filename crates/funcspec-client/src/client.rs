@@ -419,6 +419,22 @@ impl FuncspecClient {
         Ok(())
     }
 
+    /// Restore a previously out-of-scope (deprecated) spec item to active scope.
+    /// POST /projects/:pid/spec/items/:permalink/undeprecate
+    pub async fn undeprecate_item(&self, project_id: u64, permalink: &str) -> Result<(), Error> {
+        let url = self.api_url(&format!(
+            "/projects/{project_id}/spec/items/{permalink}/undeprecate"
+        ));
+        debug!(%url, "undeprecate_item");
+        let resp = self
+            .request_with_retry(|| self.http.post(&url).json(&serde_json::json!({})).send())
+            .await?;
+        if !resp.status().is_success() {
+            return Err(Error::from_response(resp).await);
+        }
+        Ok(())
+    }
+
     /// Transition a spec item's workflow state.
     ///
     /// Valid states: `inbox`, `draft`, `accepted`, `integrated`.

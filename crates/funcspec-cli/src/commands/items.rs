@@ -60,6 +60,9 @@ pub enum ItemsCmd {
         reason: Option<String>,
         confirm: bool,
     },
+    Undeprecate {
+        item: String,
+    },
     Transition {
         item: String,
         state: String,
@@ -353,6 +356,15 @@ pub fn build_command() -> clap::Command {
                 ),
         )
         .subcommand(
+            clap::Command::new("undeprecate")
+                .about("Restore an out-of-scope (deprecated) item to active scope")
+                .arg(
+                    clap::Arg::new("item")
+                        .required(true)
+                        .help("Item permalink (e.g. T-420) or ID"),
+                ),
+        )
+        .subcommand(
             clap::Command::new("transition")
                 .about(t!("cmd.items.transition.about").to_string())
                 .arg(
@@ -584,6 +596,9 @@ pub async fn dispatch(matches: &clap::ArgMatches, format: OutputFormat) -> Resul
             item: m.get_one::<String>("item").unwrap().clone(),
             reason: m.get_one::<String>("reason").cloned(),
             confirm: m.get_flag("confirm"),
+        },
+        Some(("undeprecate", m)) => ItemsCmd::Undeprecate {
+            item: m.get_one::<String>("item").unwrap().clone(),
         },
         Some(("transition", m)) => ItemsCmd::Transition {
             item: m.get_one::<String>("item").unwrap().clone(),
@@ -941,6 +956,13 @@ pub async fn run(cmd: ItemsCmd, format: OutputFormat) -> Result<()> {
                 .deprecate_item(project_id, &item, reason.as_deref(), confirm)
                 .await?;
             eprintln!("Deprecated {}", style(&item).cyan());
+            Ok(())
+        }
+
+        ItemsCmd::Undeprecate { item } => {
+            let (client, project_id) = client_and_project().await?;
+            client.undeprecate_item(project_id, &item).await?;
+            eprintln!("Restored {} to active scope", style(&item).cyan());
             Ok(())
         }
 
