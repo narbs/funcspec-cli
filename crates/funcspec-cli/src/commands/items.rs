@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use console::style;
 use funcspec_client::models::*;
 use rust_i18n::t;
@@ -80,7 +80,8 @@ pub enum ItemsCmd {
         agent_run_id: Option<u64>,
     },
     Report {
-        item: String,
+        item: Option<String>,
+        from_json: Option<String>,
         status: Option<String>,
         state: Option<String>,
         commit: Option<String>,
@@ -503,11 +504,17 @@ pub fn build_command() -> clap::Command {
         )
         .subcommand(
             clap::Command::new("report")
-                .about("Report-back: step impl status + workflow state, link a commit, record drift — in one call")
+                .about("Report-back: step impl status + workflow state, link a commit, record drift — in one call (or batch via --from-json)")
                 .arg(
                     clap::Arg::new("item")
-                        .required(true)
-                        .help("Item permalink (e.g. F-1) or ID"),
+                        .required(false)
+                        .help("Item permalink (e.g. F-1) or ID (omit when using --from-json)"),
+                )
+                .arg(
+                    clap::Arg::new("from_json")
+                        .long("from-json")
+                        .value_name("FILE")
+                        .help("Batch report-back: path to a JSON file (or - for stdin) matching the implementation_reports ingest contract. Posts all items + drift + new_items in one call."),
                 )
                 .arg(
                     clap::Arg::new("status")
@@ -621,7 +628,8 @@ pub async fn dispatch(matches: &clap::ArgMatches, format: OutputFormat) -> Resul
             functional: m.get_flag("functional"),
         },
         Some(("report", m)) => ItemsCmd::Report {
-            item: m.get_one::<String>("item").unwrap().clone(),
+            item: m.get_one::<String>("item").cloned(),
+            from_json: m.get_one::<String>("from_json").cloned(),
             status: m.get_one::<String>("status").cloned(),
             state: m.get_one::<String>("state").cloned(),
             commit: m.get_one::<String>("commit").cloned(),
@@ -1025,6 +1033,7 @@ pub async fn run(cmd: ItemsCmd, format: OutputFormat) -> Result<()> {
 
         ItemsCmd::Report {
             item,
+            from_json,
             status,
             state,
             commit,
@@ -1032,6 +1041,52 @@ pub async fn run(cmd: ItemsCmd, format: OutputFormat) -> Result<()> {
             note,
             json,
         } => {
+            // --- Batch mode: --from-json posts a structured report to the
+            // T-511 implementation_reports ingest endpoint in one call. ---
+            if let Some(path) = from_json {
+                let (client, project_id) = client_and_project().await?;
+                let raw = if path == "-" {
+                    use std::io::Read;
+                    let mut buf = String::new();
+                    std::io::stdin().read_to_string(&mut buf)?;
+                    buf
+                } else {
+                    std::fs::read_to_string(&path)
+                        .with_context(|| format!("Failed to read --from-json file: {path}"))?
+                };
+                let report: funcspec_client::models::ImplementationReport =
+                    serde_json::from_str(&raw)
+                        .context("--from-json: invalid implementation-report JSON")?;
+                let result = client.report_implementation(project_id, &report).await?;
+                if json {
+                    println!("{}", serde_json::to_string_pretty(&result)?);
+                } else {
+                    eprintln!(
+                        "{} report #{} — {} item(s) processed, {} new item(s) created{}",
+                        if result.errors.is_empty() {
+                            style("report:").green()
+                        } else {
+                            style("report (with errors):").yellow()
+                        },
+                        result.report_id.map(|i| i.to_string()).unwrap_or_default(),
+                        result.items_processed,
+                        result.new_items_created,
+                        if result.errors.is_empty() {
+                            String::new()
+                        } else {
+                            format!("\n  errors: {}", result.errors.join("; "))
+                        },
+                    );
+                }
+                if !result.errors.is_empty() {
+                    std::process::exit(1);
+                }
+                return Ok(());
+            }
+
+            // --- Single-item mode (default) ---
+            let item = item
+                .context("report requires an <item> (or use --from-json for batch report-back)")?;
             let (client, project_id) = client_and_project().await?;
             // Fetch current state so we can step through intermediate transitions.
             let current = client.get_item(project_id, &item).await?;

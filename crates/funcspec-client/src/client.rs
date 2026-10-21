@@ -1421,6 +1421,28 @@ impl FuncspecClient {
         let body: ApiResponse<ReleaseVersion> = resp.json().await?;
         Ok(body.data)
     }
+
+    /// T-511: batch implementation report-back ingest. Posts a structured
+    /// report (items with status/drift/notes + newly-created items) to the
+    /// server's implementation_reports endpoint, which records drift history
+    /// and steps each item's implementation status via the state machine.
+    /// POST /projects/:pid/implementation_reports
+    pub async fn report_implementation(
+        &self,
+        project_id: u64,
+        report: &ImplementationReport,
+    ) -> Result<ImplementationReportResult, Error> {
+        let url = self.api_url(&format!("/projects/{project_id}/implementation_reports"));
+        debug!(%url, "report_implementation");
+        let resp = self
+            .request_with_retry(|| self.http.post(&url).json(report).send())
+            .await?;
+        if !resp.status().is_success() {
+            return Err(Error::from_response(resp).await);
+        }
+        let body: ApiResponse<ImplementationReportResult> = resp.json().await?;
+        Ok(body.data)
+    }
 }
 
 // ---------------------------------------------------------------------------

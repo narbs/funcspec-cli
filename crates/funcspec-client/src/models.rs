@@ -382,6 +382,72 @@ pub struct VersionMember {
     pub deprecated: Option<bool>,
 }
 
+// ---------------------------------------------------------------------------
+// Implementation report-back (T-511 ingest contract)
+// ---------------------------------------------------------------------------
+
+/// Batch implementation report-back payload. Maps 1:1 to the server's
+/// POST /projects/:pid/implementation_reports endpoint.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct ImplementationReport {
+    /// Release version (semver "1.2.0" or numeric id) to scope the report +
+    /// link newly-created items to.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub release_version: Option<String>,
+    #[serde(default)]
+    pub items: Vec<ReportItem>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub new_items: Vec<ReportNewItem>,
+}
+
+/// One existing spec item in a report-back payload.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct ReportItem {
+    pub permalink: String,
+    /// Target implementation status; server steps the state machine to reach it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub drift: Option<ReportDrift>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub notes: Option<String>,
+}
+
+/// Drift detail for a reported item.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct ReportDrift {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub summary: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub diff: Option<String>,
+}
+
+/// A newly-created item discovered during implementation.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct ReportNewItem {
+    pub title: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    /// "functional" or "technical"; server defaults to functional.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub type_of: Option<String>,
+}
+
+/// Server response from an implementation report-back.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct ImplementationReportResult {
+    #[serde(default)]
+    pub report_id: Option<u64>,
+    #[serde(default)]
+    pub items_processed: u64,
+    #[serde(default)]
+    pub new_items_created: u64,
+    #[serde(default)]
+    pub new_item_ids: Vec<u64>,
+    #[serde(default)]
+    pub errors: Vec<String>,
+}
+
 // Job
 // ---------------------------------------------------------------------------
 
