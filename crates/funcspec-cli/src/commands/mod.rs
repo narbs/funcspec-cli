@@ -10,6 +10,7 @@ pub mod instructions;
 pub mod items;
 pub mod onboard;
 pub mod projects;
+pub mod repo;
 pub mod runs;
 pub mod search;
 pub mod snapshots;

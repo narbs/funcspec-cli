@@ -83,6 +83,7 @@ pub fn build_cli() -> Command {
         .subcommand(commands::import::build_command())
         .subcommand(commands::runs::build_command())
         .subcommand(commands::snapshots::build_command())
+        .subcommand(commands::repo::build_command())
         .subcommand(commands::view::build_command())
         .subcommand(commands::version::build_command())
         .subcommand(

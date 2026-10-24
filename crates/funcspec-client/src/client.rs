@@ -1759,6 +1759,123 @@ impl FuncspecClient {
         let body: ApiResponse<ImportResult> = resp.json().await?;
         Ok(body.data)
     }
+
+    // -----------------------------------------------------------------------
+    // ProjectRepository
+    // -----------------------------------------------------------------------
+
+    pub async fn list_repositories(
+        &self,
+        project_id: u64,
+    ) -> Result<Vec<ProjectRepository>, Error> {
+        let url = self.api_url(&format!("/projects/{project_id}/repositories"));
+        let resp = self
+            .request_with_retry(|| self.http.get(&url).send())
+            .await?;
+        if !resp.status().is_success() {
+            return Err(Error::from_response(resp).await);
+        }
+        let body: ApiListResponse<ProjectRepository> = resp.json().await?;
+        Ok(body.data)
+    }
+
+    pub async fn get_repository(
+        &self,
+        project_id: u64,
+        repo_id: u64,
+    ) -> Result<ProjectRepository, Error> {
+        let url = self.api_url(&format!("/projects/{project_id}/repositories/{repo_id}"));
+        let resp = self
+            .request_with_retry(|| self.http.get(&url).send())
+            .await?;
+        if !resp.status().is_success() {
+            return Err(Error::from_response(resp).await);
+        }
+        let body: ApiResponse<ProjectRepository> = resp.json().await?;
+        Ok(body.data)
+    }
+
+    pub async fn create_repository(
+        &self,
+        project_id: u64,
+        params: &CreateRepositoryParams,
+    ) -> Result<ProjectRepository, Error> {
+        let url = self.api_url(&format!("/projects/{project_id}/repositories"));
+        let body = serde_json::json!({ "project_repository": params });
+        let resp = self
+            .request_with_retry(|| self.http.post(&url).json(&body).send())
+            .await?;
+        if !resp.status().is_success() {
+            return Err(Error::from_response(resp).await);
+        }
+        let body: ApiResponse<ProjectRepository> = resp.json().await?;
+        Ok(body.data)
+    }
+
+    pub async fn update_repository(
+        &self,
+        project_id: u64,
+        repo_id: u64,
+        params: &UpdateRepositoryParams,
+    ) -> Result<ProjectRepository, Error> {
+        let url = self.api_url(&format!("/projects/{project_id}/repositories/{repo_id}"));
+        let body = serde_json::json!({ "project_repository": params });
+        let resp = self
+            .request_with_retry(|| self.http.patch(&url).json(&body).send())
+            .await?;
+        if !resp.status().is_success() {
+            return Err(Error::from_response(resp).await);
+        }
+        let body: ApiResponse<ProjectRepository> = resp.json().await?;
+        Ok(body.data)
+    }
+
+    pub async fn delete_repository(&self, project_id: u64, repo_id: u64) -> Result<(), Error> {
+        let url = self.api_url(&format!("/projects/{project_id}/repositories/{repo_id}"));
+        let resp = self
+            .request_with_retry(|| self.http.delete(&url).send())
+            .await?;
+        if !resp.status().is_success() {
+            return Err(Error::from_response(resp).await);
+        }
+        Ok(())
+    }
+
+    pub async fn sync_repository(
+        &self,
+        project_id: u64,
+        repo_id: u64,
+    ) -> Result<ProjectRepository, Error> {
+        let url = self.api_url(&format!(
+            "/projects/{project_id}/repositories/{repo_id}/sync"
+        ));
+        let resp = self
+            .request_with_retry(|| self.http.post(&url).json(&serde_json::json!({})).send())
+            .await?;
+        if !resp.status().is_success() {
+            return Err(Error::from_response(resp).await);
+        }
+        let body: ApiResponse<ProjectRepository> = resp.json().await?;
+        Ok(body.data)
+    }
+
+    pub async fn set_primary_repository(
+        &self,
+        project_id: u64,
+        repo_id: u64,
+    ) -> Result<ProjectRepository, Error> {
+        let url = self.api_url(&format!(
+            "/projects/{project_id}/repositories/{repo_id}/set_primary"
+        ));
+        let resp = self
+            .request_with_retry(|| self.http.post(&url).json(&serde_json::json!({})).send())
+            .await?;
+        if !resp.status().is_success() {
+            return Err(Error::from_response(resp).await);
+        }
+        let body: ApiResponse<ProjectRepository> = resp.json().await?;
+        Ok(body.data)
+    }
 }
 #[cfg(test)]
 mod tests {

@@ -1674,3 +1674,59 @@ pub struct ImportResultItem {
     #[serde(default)]
     pub type_of: String,
 }
+
+// ---------------------------------------------------------------------------
+// ProjectRepository
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProjectRepository {
+    pub id: u64,
+    #[serde(rename = "type", default)]
+    pub resource_type: String,
+    pub attributes: ProjectRepositoryAttributes,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProjectRepositoryAttributes {
+    #[serde(default)]
+    pub name: String,
+    #[serde(default)]
+    pub github_url: String,
+    #[serde(default)]
+    pub branch: String,
+    #[serde(default)]
+    pub status: String,
+    #[serde(default)]
+    pub is_primary: bool,
+    #[serde(default)]
+    pub sync_frequency: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_sync_at: Option<DateTime<Utc>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub commit_sha: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error_message: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct CreateRepositoryParams {
+    pub github_url: String,
+    pub branch: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sync_frequency: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct UpdateRepositoryParams {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub branch: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sync_frequency: Option<String>,
+}
