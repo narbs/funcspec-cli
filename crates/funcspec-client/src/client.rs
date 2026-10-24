@@ -1512,6 +1512,136 @@ impl FuncspecClient {
         Ok(())
     }
 
+    /// Create a new release version from scratch (F-503).
+    /// POST /projects/:pid/release_versions { release_version: { semver, name, description, branch } }
+    pub async fn create_version(
+        &self,
+        project_id: u64,
+        semver: &str,
+        name: Option<&str>,
+        description: Option<&str>,
+        branch: Option<&str>,
+    ) -> Result<ReleaseVersion, Error> {
+        let url = self.api_url(&format!("/projects/{project_id}/release_versions"));
+        debug!(%url, "create_version");
+        let mut rv = serde_json::Map::new();
+        rv.insert(
+            "semver".into(),
+            serde_json::Value::String(semver.to_string()),
+        );
+        if let Some(n) = name {
+            rv.insert("name".into(), serde_json::Value::String(n.to_string()));
+        }
+        if let Some(d) = description {
+            rv.insert(
+                "description".into(),
+                serde_json::Value::String(d.to_string()),
+            );
+        }
+        if let Some(b) = branch {
+            rv.insert("branch".into(), serde_json::Value::String(b.to_string()));
+        }
+        let body = serde_json::json!({ "release_version": rv });
+        let resp = self
+            .request_with_retry(|| self.http.post(&url).json(&body).send())
+            .await?;
+        if !resp.status().is_success() {
+            return Err(Error::from_response(resp).await);
+        }
+        let body: ApiResponse<ReleaseVersion> = resp.json().await?;
+        Ok(body.data)
+    }
+
+    /// Update a release version's metadata (F-503).
+    /// PATCH /projects/:pid/release_versions/:ver { release_version: { name, semver, description, branch } }
+    /// Only supplied fields are sent (and thus changed).
+    pub async fn update_version(
+        &self,
+        project_id: u64,
+        version: &str,
+        semver: Option<&str>,
+        name: Option<&str>,
+        description: Option<&str>,
+        branch: Option<&str>,
+    ) -> Result<ReleaseVersion, Error> {
+        let url = self.api_url(&format!(
+            "/projects/{project_id}/release_versions/{version}"
+        ));
+        debug!(%url, "update_version");
+        let mut rv = serde_json::Map::new();
+        if let Some(s) = semver {
+            rv.insert("semver".into(), serde_json::Value::String(s.to_string()));
+        }
+        if let Some(n) = name {
+            rv.insert("name".into(), serde_json::Value::String(n.to_string()));
+        }
+        if let Some(d) = description {
+            rv.insert(
+                "description".into(),
+                serde_json::Value::String(d.to_string()),
+            );
+        }
+        if let Some(b) = branch {
+            rv.insert("branch".into(), serde_json::Value::String(b.to_string()));
+        }
+        let body = serde_json::json!({ "release_version": rv });
+        let resp = self
+            .request_with_retry(|| self.http.patch(&url).json(&body).send())
+            .await?;
+        if !resp.status().is_success() {
+            return Err(Error::from_response(resp).await);
+        }
+        let body: ApiResponse<ReleaseVersion> = resp.json().await?;
+        Ok(body.data)
+    }
+
+    /// Step a release version's lifecycle (F-503): planned -> in_progress -> shipped.
+    /// POST /projects/:pid/release_versions/:ver/transition { lifecycle_state }
+    pub async fn transition_version(
+        &self,
+        project_id: u64,
+        version: &str,
+        lifecycle_state: &str,
+    ) -> Result<ReleaseVersion, Error> {
+        let url = self.api_url(&format!(
+            "/projects/{project_id}/release_versions/{version}/transition"
+        ));
+        debug!(%url, "transition_version");
+        let body = serde_json::json!({ "lifecycle_state": lifecycle_state });
+        let resp = self
+            .request_with_retry(|| self.http.post(&url).json(&body).send())
+            .await?;
+        if !resp.status().is_success() {
+            return Err(Error::from_response(resp).await);
+        }
+        let body: ApiResponse<ReleaseVersion> = resp.json().await?;
+        Ok(body.data)
+    }
+
+    /// Reorder a member item within a release version (F-503 ordered membership).
+    /// PATCH /projects/:pid/release_versions/:ver/items/:spec_item_key { position }
+    pub async fn move_item_in_version(
+        &self,
+        project_id: u64,
+        version: &str,
+        spec_item_key: &str,
+        position: i64,
+    ) -> Result<ReleaseVersion, Error> {
+        let url = self.api_url(&format!(
+            "/projects/{project_id}/release_versions/{version}/items/{spec_item_key}"
+        ));
+        debug!(%url, "move_item_in_version");
+        let body = serde_json::json!({ "position": position });
+        let resp = self
+            .request_with_retry(|| self.http.patch(&url).json(&body).send())
+            .await?;
+        if !resp.status().is_success() {
+            return Err(Error::from_response(resp).await);
+        }
+        let body: ApiResponse<ReleaseVersion> = resp.json().await?;
+        Ok(body.data)
+    }
+
     /// List all release versions for a project.
     /// GET /projects/:pid/release_versions
     pub async fn list_versions(&self, project_id: u64) -> Result<Vec<ReleaseVersion>, Error> {

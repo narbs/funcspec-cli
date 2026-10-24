@@ -130,6 +130,117 @@ pub fn build_command() -> clap::Command {
                 ),
         )
         .subcommand(
+            clap::Command::new("create")
+                .about("Create a new release version from scratch")
+                .arg(
+                    clap::Arg::new("semver")
+                        .long("semver")
+                        .required(true)
+                        .help("Semver for the new version (e.g. 0.2.0)"),
+                )
+                .arg(
+                    clap::Arg::new("name")
+                        .long("name")
+                        .help("Human-friendly display name (e.g. \"Public Launch\")"),
+                )
+                .arg(
+                    clap::Arg::new("description")
+                        .long("description")
+                        .help("Description for the new version"),
+                )
+                .arg(
+                    clap::Arg::new("branch")
+                        .long("branch")
+                        .help("Code branch for the new version"),
+                )
+                .arg(
+                    clap::Arg::new("json")
+                        .long("json")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Output as JSON"),
+                ),
+        )
+        .subcommand(
+            clap::Command::new("update")
+                .about("Update a release version's metadata (only supplied fields change)")
+                .arg(
+                    clap::Arg::new("release_version")
+                        .required(true)
+                        .help("Release version to update: semver (0.2.0) or id"),
+                )
+                .arg(
+                    clap::Arg::new("semver")
+                        .long("semver")
+                        .help("New semver (e.g. 0.2.1)"),
+                )
+                .arg(clap::Arg::new("name").long("name").help("New display name"))
+                .arg(
+                    clap::Arg::new("description")
+                        .long("description")
+                        .help("New description"),
+                )
+                .arg(
+                    clap::Arg::new("branch")
+                        .long("branch")
+                        .help("New code branch"),
+                )
+                .arg(
+                    clap::Arg::new("json")
+                        .long("json")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Output as JSON"),
+                ),
+        )
+        .subcommand(
+            clap::Command::new("transition")
+                .about("Step a version's lifecycle: planned -> in_progress -> shipped")
+                .arg(
+                    clap::Arg::new("release_version")
+                        .required(true)
+                        .help("Release version: semver (0.2.0) or id"),
+                )
+                .arg(
+                    clap::Arg::new("lifecycle_state")
+                        .required(true)
+                        .value_parser(["planned", "in_progress", "shipped"])
+                        .help("Target lifecycle state: planned | in_progress | shipped"),
+                )
+                .arg(
+                    clap::Arg::new("json")
+                        .long("json")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Output as JSON"),
+                ),
+        )
+        .subcommand(
+            clap::Command::new("move")
+                .about("Reorder a member item within a release version (ordered membership)")
+                .arg(
+                    clap::Arg::new("release_version")
+                        .required(true)
+                        .help("Release version: semver (0.2.0) or id"),
+                )
+                .arg(
+                    clap::Arg::new("item")
+                        .long("item")
+                        .required(true)
+                        .help("Spec item permalink or id to move (e.g. T-414)"),
+                )
+                .arg(
+                    clap::Arg::new("position")
+                        .long("position")
+                        .required(true)
+                        .value_parser(clap::value_parser!(i64))
+                        .help("New 1-based position within the version"),
+                )
+                .arg(
+                    clap::Arg::new("json")
+                        .long("json")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Output as JSON"),
+                ),
+        )
+        .subcommand(
             clap::Command::new("delete")
                 .about("Delete a release version (member items are NOT deleted)")
                 .arg(
@@ -226,6 +337,101 @@ pub async fn dispatch(
                     source,
                     v.attributes.semver,
                     v.attributes.items.len()
+                );
+            }
+            Ok(())
+        }
+        Some(("create", m)) => {
+            let semver = m.get_one::<String>("semver").unwrap().clone();
+            let name = m.get_one::<String>("name").cloned();
+            let description = m.get_one::<String>("description").cloned();
+            let branch = m.get_one::<String>("branch").cloned();
+            let json = m.get_flag("json");
+            let (client, project_id) = crate::context::client_and_project().await?;
+            let v = client
+                .create_version(
+                    project_id,
+                    &semver,
+                    name.as_deref(),
+                    description.as_deref(),
+                    branch.as_deref(),
+                )
+                .await?;
+            if json {
+                println!("{}", serde_json::to_string_pretty(&v)?);
+            } else {
+                println!(
+                    "Created release version {} ({})",
+                    v.attributes.semver,
+                    v.attributes.name.as_deref().unwrap_or("")
+                );
+            }
+            Ok(())
+        }
+        Some(("update", m)) => {
+            let version = m.get_one::<String>("release_version").unwrap().clone();
+            let semver = m.get_one::<String>("semver").cloned();
+            let name = m.get_one::<String>("name").cloned();
+            let description = m.get_one::<String>("description").cloned();
+            let branch = m.get_one::<String>("branch").cloned();
+            let json = m.get_flag("json");
+            if semver.is_none() && name.is_none() && description.is_none() && branch.is_none() {
+                anyhow::bail!(
+                    "Nothing to update: pass at least one of --semver / --name / --description / --branch"
+                );
+            }
+            let (client, project_id) = crate::context::client_and_project().await?;
+            let v = client
+                .update_version(
+                    project_id,
+                    &version,
+                    semver.as_deref(),
+                    name.as_deref(),
+                    description.as_deref(),
+                    branch.as_deref(),
+                )
+                .await?;
+            if json {
+                println!("{}", serde_json::to_string_pretty(&v)?);
+            } else {
+                println!("Updated release version {}", v.attributes.semver);
+            }
+            Ok(())
+        }
+        Some(("transition", m)) => {
+            let version = m.get_one::<String>("release_version").unwrap().clone();
+            let lifecycle_state = m.get_one::<String>("lifecycle_state").unwrap().clone();
+            let json = m.get_flag("json");
+            let (client, project_id) = crate::context::client_and_project().await?;
+            let v = client
+                .transition_version(project_id, &version, &lifecycle_state)
+                .await?;
+            if json {
+                println!("{}", serde_json::to_string_pretty(&v)?);
+            } else {
+                println!(
+                    "Release version {} -> lifecycle {}",
+                    v.attributes.semver,
+                    v.attributes.lifecycle_state.as_deref().unwrap_or("-")
+                );
+            }
+            Ok(())
+        }
+        Some(("move", m)) => {
+            let version = m.get_one::<String>("release_version").unwrap().clone();
+            let item = m.get_one::<String>("item").unwrap().clone();
+            let position = *m.get_one::<i64>("position").unwrap();
+            let json = m.get_flag("json");
+            let (client, project_id) = crate::context::client_and_project().await?;
+            let v = client
+                .move_item_in_version(project_id, &version, &item, position)
+                .await?;
+            if json {
+                println!("{}", serde_json::to_string_pretty(&v)?);
+            } else {
+                println!(
+                    "Moved {} to position {} in release version {}",
+                    item, position, v.attributes.semver
                 );
             }
             Ok(())
