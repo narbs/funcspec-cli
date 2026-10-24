@@ -790,16 +790,29 @@ async fn get_project_stats_not_found() {
 
 fn make_usage_stats_json() -> serde_json::Value {
     json!({
-        "data": {
-            "month": "2026-03",
-            "total_tokens": 45200,
-            "estimated_cost": 0.12,
-            "breakdown_by_operation": {
-                "review": {"tokens": 30000, "cost": 0.08},
-                "analysis": {"tokens": 15200, "cost": 0.04}
-            },
-            "last_updated": "2026-03-24T00:00:00Z"
-        }
+        "year": 2026,
+        "month": 3,
+        "total_calls": 120,
+        "total_tokens": 45200,
+        "total_cost_cents": 1200,
+        "by_action_type": [
+            {
+                "action_type": "review",
+                "call_count": 80,
+                "total_input_tokens": 20000,
+                "total_output_tokens": 10000,
+                "total_cost_cents": 800
+            }
+        ],
+        "by_model": [
+            {
+                "llm_model": "gpt-4o",
+                "call_count": 80,
+                "total_input_tokens": 20000,
+                "total_output_tokens": 10000,
+                "total_cost_cents": 800
+            }
+        ]
     })
 }
 
@@ -815,14 +828,13 @@ async fn get_usage_stats_success() {
         .await;
 
     let client = client_for(&server);
-    let stats = client.get_usage_stats(1, None).await.unwrap();
-    assert_eq!(stats.month, "2026-03");
+    let stats = client.get_usage_stats(1, None, None).await.unwrap();
+    assert_eq!(stats.year, 2026);
+    assert_eq!(stats.month, 3);
     assert_eq!(stats.total_tokens, 45200);
-    assert!((stats.estimated_cost - 0.12).abs() < 1e-9);
-    assert_eq!(
-        stats.breakdown_by_operation.get("review").map(|u| u.tokens),
-        Some(30000)
-    );
+    assert_eq!(stats.total_cost_cents, 1200);
+    assert_eq!(stats.by_action_type.len(), 1);
+    assert_eq!(stats.by_action_type[0].action_type, "review");
 }
 
 #[tokio::test]
@@ -831,13 +843,17 @@ async fn get_usage_stats_with_month_param() {
 
     Mock::given(method("GET"))
         .and(path("/api/v1/projects/1/usage"))
-        .and(query_param("month", "2026-02"))
+        .and(query_param("year", "2026"))
+        .and(query_param("month", "2"))
         .respond_with(ResponseTemplate::new(200).set_body_json(make_usage_stats_json()))
         .mount(&server)
         .await;
 
     let client = client_for(&server);
-    let stats = client.get_usage_stats(1, Some("2026-02")).await.unwrap();
+    let stats = client
+        .get_usage_stats(1, Some(2026), Some(2))
+        .await
+        .unwrap();
     assert_eq!(stats.total_tokens, 45200);
 }
 

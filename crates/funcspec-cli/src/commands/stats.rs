@@ -52,6 +52,14 @@ pub fn from_arg_matches(matches: &clap::ArgMatches) -> StatsArgs {
     }
 }
 
+/// Parse "YYYY-MM" string into (year, month) integers for the server API.
+fn parse_year_month(s: &str) -> Option<(i32, u32)> {
+    let mut parts = s.splitn(2, '-');
+    let year: i32 = parts.next()?.parse().ok()?;
+    let month: u32 = parts.next()?.parse().ok()?;
+    Some((year, month))
+}
+
 pub async fn run(args: StatsArgs, _format: OutputFormat) -> Result<()> {
     // Validate month format early
     if let Some(ref m) = args.month
@@ -84,9 +92,13 @@ pub async fn run(args: StatsArgs, _format: OutputFormat) -> Result<()> {
 
     // --usage only
     if args.usage && !args.json {
-        let usage = client
-            .get_usage_stats(project.id, args.month.as_deref())
-            .await?;
+        let (y, m) = args
+            .month
+            .as_deref()
+            .and_then(parse_year_month)
+            .map(|(y, m)| (Some(y), Some(m)))
+            .unwrap_or((None, None));
+        let usage = client.get_usage_stats(project.id, y, m).await?;
         output::format_usage_stats(&usage);
         return Ok(());
     }
@@ -103,11 +115,13 @@ pub async fn run(args: StatsArgs, _format: OutputFormat) -> Result<()> {
     };
 
     let usage = if args.usage || args.month.is_some() {
-        Some(
-            client
-                .get_usage_stats(project.id, args.month.as_deref())
-                .await?,
-        )
+        let (y, m) = args
+            .month
+            .as_deref()
+            .and_then(parse_year_month)
+            .map(|(y, m)| (Some(y), Some(m)))
+            .unwrap_or((None, None));
+        Some(client.get_usage_stats(project.id, y, m).await?)
     } else {
         None
     };

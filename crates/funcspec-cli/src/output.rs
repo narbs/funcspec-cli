@@ -1,4 +1,3 @@
-use std::cmp::Reverse;
 use std::io::{self, IsTerminal};
 
 use anyhow::Result;
@@ -725,11 +724,12 @@ pub fn format_stats_dashboard(
 
     // Usage (inline, if caller fetched it)
     if let Some(u) = usage {
+        let cost_dollars = u.total_cost_cents as f64 / 100.0;
         println!(
             "{:<12}{} tokens this month (~${:.2})",
             "Usage:".cyan().bold(),
             format_token_count(u.total_tokens),
-            u.estimated_cost,
+            cost_dollars,
         );
     }
 
@@ -748,31 +748,101 @@ pub fn format_stats_dashboard(
 
 /// Print the LLM usage summary to stdout.
 pub fn format_usage_stats(stats: &funcspec_client::models::UsageStats) {
-    let header = format!("Usage — {}", stats.month);
+    let header = format!("Usage — {}/{:02}", stats.year, stats.month);
     let sep = "─".repeat(header.chars().count().max(36));
     println!("{}", header.bold());
     println!("{}", sep.dimmed());
+    println!("{:<12}{} calls", "Calls:".cyan().bold(), stats.total_calls,);
     println!(
         "{:<12}{} tokens",
-        "Total:".cyan().bold(),
+        "Tokens:".cyan().bold(),
         format_token_count(stats.total_tokens),
     );
-    println!("{:<12}~${:.2}", "Cost:".cyan().bold(), stats.estimated_cost);
+    println!(
+        "{:<12}~${:.2}",
+        "Cost:".cyan().bold(),
+        stats.total_cost_cents as f64 / 100.0,
+    );
 
-    if !stats.breakdown_by_operation.is_empty() {
-        println!("\n{}", "By operation:".cyan().bold());
-        let mut ops: Vec<(&String, &funcspec_client::models::TokenUsage)> =
-            stats.breakdown_by_operation.iter().collect();
-        ops.sort_by_key(|x| Reverse(x.1.tokens));
-        for (op, u) in ops {
+    if !stats.by_action_type.is_empty() {
+        println!("\n{}", "By action type:".cyan().bold());
+        for row in &stats.by_action_type {
+            let tokens = row.total_input_tokens + row.total_output_tokens;
+            let cost = row.total_cost_cents as f64 / 100.0;
             println!(
-                "  {:<22} {} tokens  ~${:.2}",
-                op,
-                format_token_count(u.tokens),
-                u.cost,
+                "  {:<24} {:>5} calls  {} tokens  ~${:.2}",
+                row.action_type,
+                row.call_count,
+                format_token_count(tokens),
+                cost,
             );
         }
     }
+
+    if !stats.by_model.is_empty() {
+        println!("\n{}", "By model:".cyan().bold());
+        for row in &stats.by_model {
+            let tokens = row.total_input_tokens + row.total_output_tokens;
+            let cost = row.total_cost_cents as f64 / 100.0;
+            println!(
+                "  {:<32} {:>5} calls  {} tokens  ~${:.2}",
+                row.llm_model,
+                row.call_count,
+                format_token_count(tokens),
+                cost,
+            );
+        }
+    }
+}
+
+/// Print LLM usage log entries as a compact table.
+pub fn format_usage_logs(
+    entries: &[funcspec_client::models::UsageLogEntry],
+    total: u32,
+    page: u32,
+    per: u32,
+) {
+    if entries.is_empty() {
+        println!("No usage log entries.");
+        return;
+    }
+    println!(
+        "{:<6} {:<32} {:<22} {:>7} {:>8} {:>7}  {:<16}  Item",
+        "ID", "Model", "Action", "In", "Out", "Cost", "Date"
+    );
+    println!("{}", "─".repeat(120).dimmed());
+    for e in entries {
+        let cost = format!("${:.4}", e.estimated_cost_cents as f64 / 100.0);
+        let date = &e.created_at.get(..10).unwrap_or(&e.created_at);
+        let item = e.spec_item_title.as_deref().unwrap_or("—");
+        let item_short = if item.chars().count() > 28 {
+            let t: String = item.chars().take(25).collect();
+            format!("{t}...")
+        } else {
+            item.to_string()
+        };
+        println!(
+            "{:<6} {:<32} {:<22} {:>7} {:>8} {:>7}  {:<16}  {}",
+            e.id,
+            truncate(&e.llm_model, 32),
+            truncate(&e.action_type, 22),
+            e.input_tokens,
+            e.output_tokens,
+            cost,
+            date,
+            item_short,
+        );
+    }
+    println!(
+        "\n{} total  (page {}/{})",
+        total,
+        page,
+        per_to_pages(total, per),
+    );
+}
+
+fn per_to_pages(total: u32, per: u32) -> u32 {
+    if per == 0 { 1 } else { total.div_ceil(per) }
 }
 
 // -- helpers -----------------------------------------------------------------
@@ -785,7 +855,7 @@ pub fn progress_bar(pct: f64, width: usize) -> String {
 }
 
 /// Format a large token count compactly: 45_200 → "45.2k", 1_500_000 → "1.5M".
-pub fn format_token_count(n: u32) -> String {
+pub fn format_token_count(n: u64) -> String {
     if n >= 1_000_000 {
         format!("{:.1}M", n as f64 / 1_000_000.0)
     } else if n >= 1_000 {
@@ -1164,22 +1234,45 @@ mod tests {
     #[test]
     fn format_usage_stats_does_not_panic() {
         use funcspec_client::models::*;
-        let mut breakdown = std::collections::HashMap::new();
-        breakdown.insert(
-            "review".to_string(),
-            TokenUsage {
-                tokens: 30_000,
-                cost: 0.08,
-            },
-        );
 
         let stats = UsageStats {
-            month: "2026-03".to_string(),
+            year: 2026,
+            month: 3,
+            total_calls: 120,
             total_tokens: 45_200,
-            estimated_cost: 0.12,
-            breakdown_by_operation: breakdown,
-            last_updated: chrono::Utc::now(),
+            total_cost_cents: 1200,
+            by_action_type: vec![ActionTypeUsage {
+                action_type: "review".to_string(),
+                call_count: 80,
+                total_input_tokens: 20_000,
+                total_output_tokens: 10_000,
+                total_cost_cents: 800,
+            }],
+            by_model: vec![ModelUsage {
+                llm_model: "gpt-4o".to_string(),
+                call_count: 80,
+                total_input_tokens: 20_000,
+                total_output_tokens: 10_000,
+                total_cost_cents: 800,
+            }],
         };
         format_usage_stats(&stats);
+    }
+
+    #[test]
+    fn format_usage_logs_does_not_panic() {
+        use funcspec_client::models::UsageLogEntry;
+        let entries = vec![UsageLogEntry {
+            id: 1,
+            llm_model: "gpt-4o".to_string(),
+            action_type: "review".to_string(),
+            spec_item_id: Some(42),
+            spec_item_title: Some("Test item".to_string()),
+            input_tokens: 1000,
+            output_tokens: 500,
+            estimated_cost_cents: 15,
+            created_at: "2026-10-01T12:00:00Z".to_string(),
+        }];
+        format_usage_logs(&entries, 1, 1, 25);
     }
 }

@@ -9,6 +9,7 @@ pub mod blocking;
 pub use client::FuncspecClient;
 pub use error::Error;
 pub use models::{
+    ActionTypeUsage,
     AgentInstructions,
     AuditResult,
     CreateItemParams,
@@ -28,6 +29,7 @@ pub use models::{
     ItemType,
     Job,
     JobStatus,
+    ModelUsage,
     PaginationMeta,
     Project,
     ProjectAttributes,
@@ -55,12 +57,11 @@ pub use models::{
     StatsSpecItems,
     TechProposal,
     TechProposals,
-    TokenUsage,
     UpdateItemParams,
     UpdateProjectParams,
     UpdateRepositoryParams,
     UsageFilter,
-    UsageLog,
+    UsageLogEntry,
     UsageStats,
     UserInfo,
 };

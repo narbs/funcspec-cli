@@ -552,24 +552,29 @@ impl std::fmt::Display for JobStatus {
 }
 
 // ---------------------------------------------------------------------------
-// Usage Log
+// Usage Log (flat row returned by /projects/:id/usage/logs)
 // ---------------------------------------------------------------------------
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct UsageLog {
+pub struct UsageLogEntry {
+    #[serde(default)]
     pub id: u64,
-    #[serde(rename = "type")]
-    pub resource_type: String,
-    pub attributes: UsageLogAttributes,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct UsageLogAttributes {
-    pub user_id: String,
-    pub action: String,
-    pub resource_type: String,
-    pub resource_id: String,
-    pub timestamp: DateTime<Utc>,
+    #[serde(default)]
+    pub llm_model: String,
+    #[serde(default)]
+    pub action_type: String,
+    #[serde(default)]
+    pub spec_item_id: Option<u64>,
+    #[serde(default)]
+    pub spec_item_title: Option<String>,
+    #[serde(default)]
+    pub input_tokens: u64,
+    #[serde(default)]
+    pub output_tokens: u64,
+    #[serde(default)]
+    pub estimated_cost_cents: u64,
+    #[serde(default)]
+    pub created_at: String,
 }
 
 // ---------------------------------------------------------------------------
@@ -804,19 +809,51 @@ pub struct StatsRecentActivity {
     pub agent_runs_24h: u32,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// Flat summary returned by GET /projects/:id/usage (no JSON:API wrapper).
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct UsageStats {
-    pub month: String,
-    pub total_tokens: u32,
-    pub estimated_cost: f64,
-    pub breakdown_by_operation: std::collections::HashMap<String, TokenUsage>,
-    pub last_updated: DateTime<Utc>,
+    #[serde(default)]
+    pub year: i32,
+    #[serde(default)]
+    pub month: u32,
+    #[serde(default)]
+    pub total_calls: u64,
+    #[serde(default)]
+    pub total_tokens: u64,
+    #[serde(default)]
+    pub total_cost_cents: u64,
+    #[serde(default)]
+    pub by_action_type: Vec<ActionTypeUsage>,
+    #[serde(default)]
+    pub by_model: Vec<ModelUsage>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TokenUsage {
-    pub tokens: u32,
-    pub cost: f64,
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct ActionTypeUsage {
+    #[serde(default)]
+    pub action_type: String,
+    #[serde(default)]
+    pub call_count: u64,
+    #[serde(default)]
+    pub total_input_tokens: u64,
+    #[serde(default)]
+    pub total_output_tokens: u64,
+    #[serde(default)]
+    pub total_cost_cents: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct ModelUsage {
+    #[serde(default)]
+    pub llm_model: String,
+    #[serde(default)]
+    pub call_count: u64,
+    #[serde(default)]
+    pub total_input_tokens: u64,
+    #[serde(default)]
+    pub total_output_tokens: u64,
+    #[serde(default)]
+    pub total_cost_cents: u64,
 }
 
 // ---------------------------------------------------------------------------
@@ -825,7 +862,9 @@ pub struct TokenUsage {
 
 #[derive(Debug, Default)]
 pub struct UsageFilter {
-    pub month: Option<String>,
+    pub year: Option<i32>,
+    pub month: Option<u32>,
+    pub action_type: Option<String>,
     pub page: Option<u32>,
     pub per: Option<u32>,
 }
@@ -833,8 +872,14 @@ pub struct UsageFilter {
 impl UsageFilter {
     pub fn to_query_pairs(&self) -> Vec<(String, String)> {
         let mut pairs = Vec::new();
-        if let Some(ref m) = self.month {
-            pairs.push(("month".into(), m.clone()));
+        if let Some(y) = self.year {
+            pairs.push(("year".into(), y.to_string()));
+        }
+        if let Some(m) = self.month {
+            pairs.push(("month".into(), m.to_string()));
+        }
+        if let Some(ref a) = self.action_type {
+            pairs.push(("action_type".into(), a.clone()));
         }
         if let Some(p) = self.page {
             pairs.push(("page".into(), p.to_string()));
@@ -1348,23 +1393,30 @@ mod tests {
     #[test]
     fn usage_stats_deserialize() {
         let json = r#"{
-            "month": "2026-03",
+            "year": 2026,
+            "month": 3,
+            "total_calls": 120,
             "total_tokens": 45200,
-            "estimated_cost": 0.12,
-            "breakdown_by_operation": {
-                "review": {"tokens": 30000, "cost": 0.08},
-                "analysis": {"tokens": 15200, "cost": 0.04}
-            },
-            "last_updated": "2026-03-24T00:00:00Z"
+            "total_cost_cents": 1234,
+            "by_action_type": [
+                {"action_type": "review", "call_count": 80,
+                 "total_input_tokens": 20000, "total_output_tokens": 10000,
+                 "total_cost_cents": 800}
+            ],
+            "by_model": [
+                {"llm_model": "gpt-4o", "call_count": 80,
+                 "total_input_tokens": 20000, "total_output_tokens": 10000,
+                 "total_cost_cents": 800}
+            ]
         }"#;
         let s: UsageStats = serde_json::from_str(json).unwrap();
-        assert_eq!(s.month, "2026-03");
+        assert_eq!(s.year, 2026);
+        assert_eq!(s.month, 3);
         assert_eq!(s.total_tokens, 45200);
-        assert!((s.estimated_cost - 0.12).abs() < 1e-9);
-        assert_eq!(
-            s.breakdown_by_operation.get("review").map(|u| u.tokens),
-            Some(30000)
-        );
+        assert_eq!(s.total_cost_cents, 1234);
+        assert_eq!(s.by_action_type.len(), 1);
+        assert_eq!(s.by_action_type[0].action_type, "review");
+        assert_eq!(s.by_model[0].llm_model, "gpt-4o");
     }
 
     #[test]
@@ -1497,12 +1549,20 @@ mod tests {
     #[test]
     fn usage_filter_query_pairs() {
         let f = UsageFilter {
-            month: Some("2026-03".into()),
+            year: Some(2026),
+            month: Some(3),
+            action_type: Some("review".into()),
             page: Some(2),
             per: Some(20),
         };
         let pairs = f.to_query_pairs();
-        assert!(pairs.iter().any(|(k, v)| k == "month" && v == "2026-03"));
+        assert!(pairs.iter().any(|(k, v)| k == "year" && v == "2026"));
+        assert!(pairs.iter().any(|(k, v)| k == "month" && v == "3"));
+        assert!(
+            pairs
+                .iter()
+                .any(|(k, v)| k == "action_type" && v == "review")
+        );
         assert!(pairs.iter().any(|(k, v)| k == "page" && v == "2"));
         assert!(pairs.iter().any(|(k, v)| k == "per" && v == "20"));
     }

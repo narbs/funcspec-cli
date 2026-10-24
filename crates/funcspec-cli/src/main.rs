@@ -85,6 +85,7 @@ async fn run(matches: clap::ArgMatches, format: OutputFormat) -> Result<()> {
             let args = commands::stats::from_arg_matches(sub);
             commands::stats::run(args, format).await
         }
+        Some(("usage", sub)) => commands::usage::dispatch(sub, format).await,
         Some(("export", sub)) => {
             let args = commands::export::from_arg_matches(sub);
             commands::export::run(args).await

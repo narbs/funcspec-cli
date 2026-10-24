@@ -834,7 +834,7 @@ impl FuncspecClient {
 
     // -- Usage --
 
-    pub async fn list_usage(&self) -> Result<Vec<UsageLog>, Error> {
+    pub async fn list_usage(&self) -> Result<Vec<UsageLogEntry>, Error> {
         let url = self.api_url("/usage");
         let resp = self
             .request_with_retry(|| self.http.get(&url).send())
@@ -842,7 +842,7 @@ impl FuncspecClient {
         if !resp.status().is_success() {
             return Err(Error::from_response(resp).await);
         }
-        let body: ApiListResponse<UsageLog> = resp.json().await?;
+        let body: ApiListResponse<UsageLogEntry> = resp.json().await?;
         Ok(body.data)
     }
 
@@ -868,12 +868,12 @@ impl FuncspecClient {
         Ok(body.data)
     }
 
-    /// Fetch LLM usage logs for a project, with optional month filter.
+    /// Fetch LLM usage logs for a project (flat rows, no JSON:API wrapper).
     pub async fn get_usage_logs(
         &self,
         project_id: u64,
         filter: &UsageFilter,
-    ) -> Result<PagedResponse<UsageLog>, Error> {
+    ) -> Result<PagedResponse<UsageLogEntry>, Error> {
         let url = self.api_url(&format!("/projects/{project_id}/usage/logs"));
         debug!(%url, "get_usage_logs");
         let pairs = filter.to_query_pairs();
@@ -883,19 +883,24 @@ impl FuncspecClient {
         if !resp.status().is_success() {
             return Err(Error::from_response(resp).await);
         }
-        let body: ApiListResponse<UsageLog> = resp.json().await?;
+        let body: ApiListResponse<UsageLogEntry> = resp.json().await?;
         Ok((body.data, body.meta).into())
     }
 
-    /// Fetch LLM usage summary for a project. Pass `month` as "YYYY-MM" to filter.
+    /// Fetch LLM usage summary for a project (flat JSON, no JSON:API wrapper).
+    /// Pass `year` and `month` as integers to filter; defaults to the current month.
     pub async fn get_usage_stats(
         &self,
         project_id: u64,
-        month: Option<&str>,
+        year: Option<i32>,
+        month: Option<u32>,
     ) -> Result<UsageStats, Error> {
         let url = self.api_url(&format!("/projects/{project_id}/usage"));
         debug!(%url, "get_usage_stats");
         let mut pairs: Vec<(String, String)> = Vec::new();
+        if let Some(y) = year {
+            pairs.push(("year".into(), y.to_string()));
+        }
         if let Some(m) = month {
             pairs.push(("month".into(), m.to_string()));
         }
@@ -905,8 +910,17 @@ impl FuncspecClient {
         if !resp.status().is_success() {
             return Err(Error::from_response(resp).await);
         }
-        let body: ApiResponse<UsageStats> = resp.json().await?;
-        Ok(body.data)
+        let text = resp
+            .text()
+            .await
+            .map_err(|e| Error::Network(e.to_string()))?;
+        let body: UsageStats = serde_json::from_str(&text).map_err(|e| {
+            Error::Other(format!(
+                "Failed to parse usage stats: {e}
+Body: {text}"
+            ))
+        })?;
+        Ok(body)
     }
 
     // -- Export --

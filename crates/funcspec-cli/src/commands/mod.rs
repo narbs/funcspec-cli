@@ -15,5 +15,6 @@ pub mod runs;
 pub mod search;
 pub mod snapshots;
 pub mod stats;
+pub mod usage;
 pub mod version;
 pub mod view;
