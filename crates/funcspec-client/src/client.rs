@@ -1704,12 +1704,62 @@ impl FuncspecClient {
         let body: ApiResponse<ImplementationReportResult> = resp.json().await?;
         Ok(body.data)
     }
+
+    // -- Import --
+
+    /// Validate a CSV or JSON import file without committing.
+    ///
+    /// Sends the raw file contents to `POST /projects/:id/import/preview`.
+    /// The server detects the format (CSV vs JSON) from the body content and
+    /// returns a preview with counts, duplicate titles, parsed items, and warnings.
+    pub async fn preview_import(
+        &self,
+        project_id: u64,
+        raw_body: &str,
+    ) -> Result<ImportPreview, Error> {
+        let url = self.api_url(&format!("/projects/{project_id}/import/preview"));
+        debug!(%url, "preview_import");
+        let body_bytes = raw_body.as_bytes().to_vec();
+        let resp = self
+            .request_with_retry(|| {
+                self.http
+                    .post(&url)
+                    .header("Content-Type", "text/plain")
+                    .body(body_bytes.clone())
+                    .send()
+            })
+            .await?;
+        if !resp.status().is_success() {
+            return Err(Error::from_response(resp).await);
+        }
+        let body: ApiResponse<ImportPreview> = resp.json().await?;
+        Ok(body.data)
+    }
+
+    /// Commit a set of parsed import items, creating spec items in the project.
+    ///
+    /// Calls `POST /projects/{project_id}/import/commit` with JSON body `{{"items":[...]}}`.
+    /// Returns an [`ImportResult`] with the count of created items and their
+    /// permalinks. NOTE: the commit endpoint does not accept a release version —
+    /// use `add_items_to_version` after commit to assign the created items.
+    pub async fn commit_import(
+        &self,
+        project_id: u64,
+        items: &[ImportItem],
+    ) -> Result<ImportResult, Error> {
+        let url = self.api_url(&format!("/projects/{project_id}/import/commit"));
+        debug!(%url, items_count = items.len(), "commit_import");
+        let body = serde_json::json!({ "items": items });
+        let resp = self
+            .request_with_retry(|| self.http.post(&url).json(&body).send())
+            .await?;
+        if !resp.status().is_success() {
+            return Err(Error::from_response(resp).await);
+        }
+        let body: ApiResponse<ImportResult> = resp.json().await?;
+        Ok(body.data)
+    }
 }
-
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
 #[cfg(test)]
 mod tests {
     use super::*;

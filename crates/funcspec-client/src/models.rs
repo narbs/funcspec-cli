@@ -581,6 +581,8 @@ pub struct CreateProjectParams {
     pub name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub slug: Option<String>,
 }
 
 #[derive(Debug, Default, Serialize)]
@@ -1595,4 +1597,80 @@ pub enum ExportData {
     Text(String),
     /// Binary format (pdf, docx).
     Binary(Vec<u8>),
+}
+
+// ---------------------------------------------------------------------------
+// Import
+// ---------------------------------------------------------------------------
+
+/// One item in an import payload — used both for the parsed items returned by
+/// `preview_import` and as the request body elements for `commit_import`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImportItem {
+    pub title: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    pub type_of: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parent_title: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub position: Option<i64>,
+}
+
+/// Response from `POST .../import/preview`.
+/// Wrapped in `ApiResponse<ImportPreview>`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImportPreview {
+    #[serde(rename = "type", default)]
+    pub resource_type: String,
+    pub attributes: ImportPreviewAttributes,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImportPreviewAttributes {
+    #[serde(default)]
+    pub format: String,
+    #[serde(default)]
+    pub total: u32,
+    #[serde(default)]
+    pub functional_count: u32,
+    #[serde(default)]
+    pub technical_count: u32,
+    #[serde(default)]
+    pub duplicate_titles: Vec<String>,
+    /// Parsed items from the file — same shape as the `commit_import` request body.
+    #[serde(default)]
+    pub items: Vec<ImportItem>,
+    #[serde(default)]
+    pub warnings: Vec<String>,
+}
+
+/// Response from `POST .../import/commit`.
+/// Wrapped in `ApiResponse<ImportResult>`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImportResult {
+    #[serde(rename = "type", default)]
+    pub resource_type: String,
+    pub attributes: ImportResultAttributes,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImportResultAttributes {
+    #[serde(default)]
+    pub created: u32,
+    #[serde(default)]
+    pub items: Vec<ImportResultItem>,
+}
+
+/// A single item created by `commit_import`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImportResultItem {
+    #[serde(default)]
+    pub id: u64,
+    #[serde(default)]
+    pub permalink: String,
+    #[serde(default)]
+    pub title: String,
+    #[serde(default)]
+    pub type_of: String,
 }

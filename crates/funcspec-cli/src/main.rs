@@ -89,6 +89,10 @@ async fn run(matches: clap::ArgMatches, format: OutputFormat) -> Result<()> {
             let args = commands::export::from_arg_matches(sub);
             commands::export::run(args).await
         }
+        Some(("import", sub)) => {
+            let args = commands::import::from_arg_matches(sub);
+            commands::import::run(args).await
+        }
         Some(("run", sub)) => commands::runs::dispatch(sub, format).await,
         Some(("snapshots", sub)) => commands::snapshots::dispatch(sub, format).await,
         Some(("view", sub)) => {

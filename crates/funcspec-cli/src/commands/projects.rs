@@ -5,11 +5,25 @@ use rust_i18n::t;
 use crate::config::Config;
 use crate::context::client_and_config;
 use crate::output::{self, OutputFormat};
+use funcspec_client::models::CreateProjectParams;
 
 pub enum ProjectsCmd {
-    List { json: bool },
-    Show { slug: String, json: bool },
-    SetDefault { slug: String },
+    List {
+        json: bool,
+    },
+    Show {
+        slug: String,
+        json: bool,
+    },
+    Create {
+        name: String,
+        description: Option<String>,
+        slug: Option<String>,
+        json: bool,
+    },
+    SetDefault {
+        slug: String,
+    },
 }
 
 pub fn build_command() -> clap::Command {
@@ -42,6 +56,27 @@ pub fn build_command() -> clap::Command {
                 ),
         )
         .subcommand(
+            clap::Command::new("create")
+                .about("Create a new project")
+                .arg(clap::Arg::new("name").required(true).help("Project name"))
+                .arg(
+                    clap::Arg::new("description")
+                        .long("description")
+                        .help("Project description"),
+                )
+                .arg(
+                    clap::Arg::new("slug")
+                        .long("slug")
+                        .help("URL slug (auto-derived from name if omitted)"),
+                )
+                .arg(
+                    clap::Arg::new("json")
+                        .long("json")
+                        .action(clap::ArgAction::SetTrue)
+                        .help("Output as JSON"),
+                ),
+        )
+        .subcommand(
             clap::Command::new("set-default")
                 .about(t!("cmd.projects.set_default.about").to_string())
                 .arg(
@@ -59,6 +94,12 @@ pub async fn dispatch(matches: &clap::ArgMatches, format: OutputFormat) -> Resul
         },
         Some(("show", m)) => ProjectsCmd::Show {
             slug: m.get_one::<String>("slug").unwrap().clone(),
+            json: m.get_flag("json"),
+        },
+        Some(("create", m)) => ProjectsCmd::Create {
+            name: m.get_one::<String>("name").unwrap().clone(),
+            description: m.get_one::<String>("description").cloned(),
+            slug: m.get_one::<String>("slug").cloned(),
             json: m.get_flag("json"),
         },
         Some(("set-default", m)) => ProjectsCmd::SetDefault {
@@ -85,6 +126,24 @@ pub async fn run(cmd: ProjectsCmd, format: OutputFormat) -> Result<()> {
         ProjectsCmd::Show { slug, json } => {
             let (client, _) = client_and_config()?;
             let project = client.get_project(&slug).await?;
+            let fmt = if json { OutputFormat::Json } else { format };
+            output::format_project_detail(&project, fmt)?;
+            Ok(())
+        }
+
+        ProjectsCmd::Create {
+            name,
+            description,
+            slug,
+            json,
+        } => {
+            let (client, _) = client_and_config()?;
+            let params = CreateProjectParams {
+                name,
+                description,
+                slug,
+            };
+            let project = client.create_project(&params).await?;
             let fmt = if json { OutputFormat::Json } else { format };
             output::format_project_detail(&project, fmt)?;
             Ok(())
