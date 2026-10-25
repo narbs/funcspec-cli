@@ -5,7 +5,7 @@ use clap::ValueEnum;
 use funcspec_client::ExportData;
 use rust_i18n::t;
 
-use crate::context::client_and_config;
+use crate::context::client_and_project;
 
 /// Export format options.
 #[derive(Debug, Clone, Copy, PartialEq, ValueEnum)]
@@ -119,20 +119,15 @@ pub async fn run(args: ExportArgs) -> Result<()> {
         bail!("--open is only valid with --format html");
     }
 
-    let (client, config) = client_and_config()?;
-    let profile = config
-        .active_profile()
-        .context("Not logged in. Run `funcspec auth login`.")?;
-    let project_slug = profile
-        .default_project
-        .as_deref()
-        .context("No default project set. Run `funcspec projects set-default <slug>`.")?;
+    // Honor the --project override (and the full priority chain) like every other
+    // command. client_and_project() resolves flag > env > local .funcspec > default.
+    let (client, project_id) = client_and_project().await?;
+    // Re-fetch the resolved project for its slug (used for default binary filenames).
     let project = client
-        .get_project(project_slug)
+        .get_project(&project_id.to_string())
         .await
-        .with_context(|| format!("Project '{}' not found", project_slug))?;
-    let project_id = project.id;
-    let slug = &project.attributes.slug;
+        .with_context(|| format!("Project id {} not found", project_id))?;
+    let slug = project.attributes.slug.clone();
 
     let item_type = args.r#type.as_deref().map(|t| match t {
         "func" | "functional" => "functional",
