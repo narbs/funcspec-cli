@@ -1,0 +1,36 @@
+[
+  {
+    "title": "Image preview rendering",
+    "description": "Render a real-time preview of the selected image in the terminal using ANSI/terminal graphics. Support kitty and iTerm2 graphical protocols on compatible terminals, with multiple picture-to-text converters (chafa, jp2a) selectable at runtime via TAB.",
+    "type_of": "functional",
+    "position": 1
+  },
+  {
+    "title": "File list navigation",
+    "description": "Navigate the file browser with arrow keys or vim-style j/k, page up/down, jump by 10 files with f/b, Home/End to list ends, Enter to descend into a directory, and Backspace to go to the parent directory.",
+    "type_of": "functional",
+    "parent_title": "Image preview rendering",
+    "position": 1
+  },
+  {
+    "title": "Star rating via XMP sidecars",
+    "description": "Rate the selected file 0-5 (0 clears, * = 5). Persist ratings as XMP sidecar files holding the standard xmp:Rating property, interoperable with darktable, digiKam, RawTherapee and Lightroom. Prompt once per folder before creating sidecars; fall back to a private state.json when declined. Honor stars.sidecars config of always/never.",
+    "type_of": "functional",
+    "parent_title": "Image preview rendering",
+    "position": 2
+  },
+  {
+    "title": "Sort file list",
+    "description": "Sort the file list by date (newest/oldest), name (A-Z/Z-A), or rating (best-first/unrated-first) via the d, n, s keys. Repeated press of the sort key reverses the order; files sharing a key are ordered by name.",
+    "type_of": "functional",
+    "parent_title": "Image preview rendering",
+    "position": 3
+  },
+  {
+    "title": "Slideshow mode",
+    "description": "Enter a slideshow with the space key, advancing with arrow keys or j/k. Support transitions when using the jp2a converter. Allow quitting from anywhere with q/Esc/Ctrl+C including while a dialog is open.",
+    "type_of": "functional",
+    "parent_title": "Image preview rendering",
+    "position": 4
+  }
+]
