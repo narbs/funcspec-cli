@@ -260,8 +260,11 @@ pub fn build_command() -> clap::Command {
 
 pub async fn dispatch(
     matches: &clap::ArgMatches,
-    _format: crate::output::OutputFormat,
+    format: crate::output::OutputFormat,
 ) -> Result<()> {
+    // Global --format json (or the piped-stdout default) counts as json for the
+    // read subcommands below, in addition to each subcommand's own --json flag.
+    let global_json = matches!(format.resolve(), crate::output::OutputFormat::Json);
     match matches.subcommand() {
         Some(("assign", m)) => {
             let version = m.get_one::<String>("release_version").unwrap().clone();
@@ -287,7 +290,7 @@ pub async fn dispatch(
             Ok(())
         }
         Some(("list", m)) => {
-            let json = m.get_flag("json");
+            let json = m.get_flag("json") || global_json;
             let (client, project_id) = crate::context::client_and_project().await?;
             let versions = client.list_versions(project_id).await?;
             print_version_list(&versions, json);
@@ -296,7 +299,7 @@ pub async fn dispatch(
         Some(("show", m)) => {
             let version = m.get_one::<String>("release_version").unwrap().clone();
             let deprecated = m.get_flag("deprecated");
-            let json = m.get_flag("json");
+            let json = m.get_flag("json") || global_json;
             let (client, project_id) = crate::context::client_and_project().await?;
             let v = client.get_version(project_id, &version, deprecated).await?;
             print_version_show(&v, json);

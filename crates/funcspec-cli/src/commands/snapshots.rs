@@ -58,8 +58,15 @@ pub fn build_command() -> clap::Command {
                     clap::Arg::new("name")
                         .long("name")
                         .short('n')
-                        .required(true)
                         .help(t!("cmd.snapshots.create.name").to_string()),
+                )
+                .arg(
+                    // Positional alias so `snapshots create <name>` works too, not
+                    // only `--name <name>`. Either form supplies the name.
+                    clap::Arg::new("name_pos")
+                        .value_name("NAME")
+                        .index(1)
+                        .help("Snapshot name (positional alias for --name)"),
                 )
                 .arg(
                     clap::Arg::new("description")
@@ -137,10 +144,22 @@ pub async fn dispatch(matches: &clap::ArgMatches, format: OutputFormat) -> Resul
         Some(("list", m)) => SnapshotsCmd::List {
             json: m.get_flag("json"),
         },
-        Some(("create", m)) => SnapshotsCmd::Create {
-            name: m.get_one::<String>("name").unwrap().clone(),
-            description: m.get_one::<String>("description").cloned(),
-        },
+        Some(("create", m)) => {
+            // Name may come from --name or the positional alias; require one.
+            let name = m
+                .get_one::<String>("name")
+                .or_else(|| m.get_one::<String>("name_pos"))
+                .cloned();
+            let Some(name) = name else {
+                anyhow::bail!(
+                    "a snapshot name is required: `snapshots create <name>` or `--name <name>`"
+                );
+            };
+            SnapshotsCmd::Create {
+                name,
+                description: m.get_one::<String>("description").cloned(),
+            }
+        }
         Some(("show", m)) => SnapshotsCmd::Show {
             identifier: m.get_one::<String>("identifier").unwrap().clone(),
             json: m.get_flag("json"),

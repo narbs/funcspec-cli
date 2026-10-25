@@ -56,6 +56,7 @@ impl ExportFormat {
 /// Arguments for `funcspec export`.
 pub struct ExportArgs {
     pub export_format: ExportFormat,
+    pub export_format_explicit: bool,
     pub output: Option<PathBuf>,
     pub r#type: Option<String>,
     pub tag: Option<String>,
@@ -110,11 +111,16 @@ pub fn build_command() -> clap::Command {
 }
 
 pub fn from_arg_matches(matches: &clap::ArgMatches) -> ExportArgs {
+    // Whether -F/--export-format was given explicitly (vs the clap default), so we
+    // can fall back to the global --format only when the user did NOT pick one.
+    let export_format_explicit =
+        matches.value_source("export_format") == Some(clap::parser::ValueSource::CommandLine);
     ExportArgs {
         export_format: matches
             .get_one::<ExportFormat>("export_format")
             .copied()
             .unwrap_or(ExportFormat::Md),
+        export_format_explicit,
         output: matches.get_one::<PathBuf>("output").cloned(),
         r#type: matches.get_one::<String>("type").cloned(),
         tag: matches.get_one::<String>("tag").cloned(),
@@ -123,7 +129,28 @@ pub fn from_arg_matches(matches: &clap::ArgMatches) -> ExportArgs {
     }
 }
 
-pub async fn run(args: ExportArgs) -> Result<()> {
+/// Map the global --format (OutputFormat) onto an ExportFormat when the user did
+/// not explicitly pass -F/--export-format. Only the document-capable formats map;
+/// others (table/minimal/bare/auto) leave the markdown default untouched.
+fn export_format_from_global(g: crate::output::OutputFormat) -> Option<ExportFormat> {
+    use crate::output::OutputFormat as G;
+    match g {
+        G::Json => Some(ExportFormat::Json),
+        G::Csv => Some(ExportFormat::Csv),
+        G::Markdown => Some(ExportFormat::Md),
+        _ => None,
+    }
+}
+
+pub async fn run(mut args: ExportArgs, global_format: crate::output::OutputFormat) -> Result<()> {
+    // If the user did not explicitly pass -F, honor a document-capable global
+    // --format (e.g. `export --format json`) instead of silently defaulting to
+    // markdown. Non-document global formats (table/minimal/bare) keep the default.
+    if !args.export_format_explicit
+        && let Some(ef) = export_format_from_global(global_format.resolve())
+    {
+        args.export_format = ef;
+    }
     if args.open && args.export_format != ExportFormat::Html {
         bail!("--open is only valid with --format html");
     }
