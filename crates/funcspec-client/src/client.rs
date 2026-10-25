@@ -938,6 +938,7 @@ Body: {text}"
         format: &str,
         item_type: Option<&str>,
         tag: Option<&str>,
+        release_version: Option<&str>,
     ) -> Result<ExportData, Error> {
         // Map short format names to API path segments
         let format_path = match format {
@@ -957,6 +958,9 @@ Body: {text}"
         }
         if let Some(t) = tag {
             pairs.push(("tag".into(), t.to_string()));
+        }
+        if let Some(rv) = release_version {
+            pairs.push(("release_version".into(), rv.to_string()));
         }
         let resp = self
             .request_with_retry(|| self.http.get(&url).query(&pairs).send())
@@ -1969,7 +1973,7 @@ mod tests {
 
         let client = make_client(&server.uri()).await;
         let result = client
-            .export_project(42, "markdown", None, None)
+            .export_project(42, "markdown", None, None, None)
             .await
             .unwrap();
         match result {
@@ -1991,7 +1995,7 @@ mod tests {
 
         let client = make_client(&server.uri()).await;
         let result = client
-            .export_project(42, "csv", Some("functional"), Some("v1"))
+            .export_project(42, "csv", Some("functional"), Some("v1"), None)
             .await
             .unwrap();
         match result {
@@ -2011,7 +2015,10 @@ mod tests {
             .await;
 
         let client = make_client(&server.uri()).await;
-        let result = client.export_project(7, "pdf", None, None).await.unwrap();
+        let result = client
+            .export_project(7, "pdf", None, None, None)
+            .await
+            .unwrap();
         match result {
             ExportData::Binary(bytes) => assert_eq!(bytes, pdf_bytes),
             ExportData::Text(_) => panic!("expected binary"),
@@ -2029,7 +2036,10 @@ mod tests {
             .await;
 
         let client = make_client(&server.uri()).await;
-        let result = client.export_project(5, "docx", None, None).await.unwrap();
+        let result = client
+            .export_project(5, "docx", None, None, None)
+            .await
+            .unwrap();
         match result {
             ExportData::Binary(bytes) => assert_eq!(bytes, docx_bytes),
             ExportData::Text(_) => panic!("expected binary"),
@@ -2049,7 +2059,9 @@ mod tests {
             .await;
 
         let client = make_client(&server.uri()).await;
-        let result = client.export_project(99, "markdown", None, None).await;
+        let result = client
+            .export_project(99, "markdown", None, None, None)
+            .await;
         assert!(matches!(result, Err(Error::NotFound(_))));
     }
 

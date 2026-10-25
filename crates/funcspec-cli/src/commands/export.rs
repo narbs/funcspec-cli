@@ -59,11 +59,13 @@ pub struct ExportArgs {
     pub output: Option<PathBuf>,
     pub r#type: Option<String>,
     pub tag: Option<String>,
+    pub release_version: Option<String>,
     pub open: bool,
 }
 
 pub fn build_command() -> clap::Command {
     clap::Command::new("export")
+        .disable_version_flag(true)
         .about(t!("cmd.export.about").to_string())
         .long_about(t!("cmd.export.long_about").to_string())
         .arg(
@@ -94,6 +96,12 @@ pub fn build_command() -> clap::Command {
                 .help(t!("cmd.export.tag").to_string()),
         )
         .arg(
+            clap::Arg::new("version")
+                .long("version")
+                .value_name("SEMVER")
+                .help("Scope the export to a release version's members (semver or id)"),
+        )
+        .arg(
             clap::Arg::new("open")
                 .long("open")
                 .action(clap::ArgAction::SetTrue)
@@ -110,6 +118,7 @@ pub fn from_arg_matches(matches: &clap::ArgMatches) -> ExportArgs {
         output: matches.get_one::<PathBuf>("output").cloned(),
         r#type: matches.get_one::<String>("type").cloned(),
         tag: matches.get_one::<String>("tag").cloned(),
+        release_version: matches.get_one::<String>("version").cloned(),
         open: matches.get_flag("open"),
     }
 }
@@ -141,6 +150,7 @@ pub async fn run(args: ExportArgs) -> Result<()> {
             args.export_format.api_name(),
             item_type,
             args.tag.as_deref(),
+            args.release_version.as_deref(),
         )
         .await?;
 
