@@ -94,3 +94,35 @@ Each step maps to a real CLI command (or a known gap). `<slug>` = the run-id pro
 
 ## Token discipline
 Steps 7, 8, 13 are the only token-heavy ones. `--quick` skips them; `--full` runs the true E2E.
+
+---
+
+## Mechanized quick mode (`regression/run-quick.sh`)
+
+For routine "did this break?" checks, prefer the shell harness over an LLM run — it is
+deterministic and spends ~zero API tokens (no AI review/audit).
+
+```
+./regression/run-quick.sh            # prod; structural + repo(org#1) steps
+./regression/run-quick.sh --keep     # keep the throwaway project even on PASS
+./regression/run-quick.sh --no-repo  # skip the clone step (pure API/structural)
+./regression/run-quick.sh --staging  # run against staging (api_key query-param hack)
+```
+
+Lifecycle: creates `ptui-regression-<YYYYMMDD-HHMM>` under org #1 "Tambit Software",
+runs the --quick steps (1–6, 10, 11, 14) asserting PASS/FAIL, then:
+- PASS -> deletes the project (DELETE /api/v1/projects/:id; no CLI delete command yet).
+- FAIL -> KEEPS it for post-mortem and exits 1 (prints inspect/delete hints).
+- `--keep` -> keeps regardless.
+
+Covers: project create, version create (name+branch required), version-aware import
+(dry-run==committed), reparent round-trip, stats, repo add + clone-ready verify,
+version-scoped export + `-p` differential, drift, snapshot save/diff.
+
+Run-authoring gotchas baked into the script (learned 2026-10-26):
+- Address the project by its BARE slug; the CLI's `-p org/slug` form 404s for subcommands.
+- List JSON nests fields under `.attributes` (items, repos) — assertions read there.
+- `repo add` hits an ORG-level url-uniqueness validation, but the repo still attaches to
+  the new project; resolve authoritatively via `repo list`, don't parse the add error.
+- `snapshots diff` and `projects show` take a POSITIONAL identifier, not `-p`.
+- Prod config profile is `[profiles.default]`; staging embeds basic-auth in the host.
