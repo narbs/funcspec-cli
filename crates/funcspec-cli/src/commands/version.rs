@@ -346,7 +346,13 @@ pub async fn dispatch(
         }
         Some(("create", m)) => {
             let semver = m.get_one::<String>("semver").unwrap().clone();
-            let name = m.get_one::<String>("name").cloned();
+            // The server requires a non-blank name. --name LOOKS optional in
+            // --help but a blank name is rejected; auto-derive it from the
+            // semver when omitted so `version create --semver X` just works.
+            let name = m
+                .get_one::<String>("name")
+                .cloned()
+                .or_else(|| Some(semver.clone()));
             let description = m.get_one::<String>("description").cloned();
             let branch = m.get_one::<String>("branch").cloned();
             let json = m.get_flag("json");
