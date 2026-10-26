@@ -43,13 +43,13 @@ SHA256 checksums are provided in `checksums.sha256` on each release.
 funcspec login
 
 # List your projects
-funcspec project list
+funcspec projects list
 
 # Create a functional spec item
-funcspec item create --title "User authentication flow"
+funcspec items create --title "User authentication flow"
 
 # List items in a project
-funcspec item list
+funcspec items list
 
 # Run an AI review on your specs
 funcspec ai review
@@ -66,10 +66,12 @@ funcspec [OPTIONS] <COMMAND>
 Commands:
   login       Authenticate with funcspec.net
   logout      Remove stored credentials
-  project     Manage projects (list, create, show, switch)
-  item        Manage spec items (list, create, show, update, delete)
+  projects    Manage projects (list, create, show, delete, set-default)
+  items       Manage spec items (list, create, show, update, delete)
+  version     Manage release versions
+  run         Manage audit runs
   tag         Manage tags
-  snapshot    Create and manage snapshots
+  snapshots   Create and manage snapshots
   export      Export specs (json, csv, markdown)
   ai          AI operations (review, generate, suggest)
   dashboard   View project summary dashboard
@@ -78,7 +80,8 @@ Commands:
 
 Options:
   -p, --project <ID>   Override active project
-  -o, --output <FMT>   Output format: table, json, csv (default: table)
+      --profile <NAME> Use a named config profile (or set FUNCSPEC_PROFILE)
+      --format <FMT>   Output format: table, json, csv, markdown (default: auto)
   -q, --quiet          Suppress non-essential output
   -v, --verbose        Enable debug logging
   -h, --help           Print help
@@ -93,23 +96,33 @@ funcspec login --token <tok> # API token login
 funcspec logout
 ```
 
+Config supports named profiles (e.g. a default prod profile and a staging
+profile). Pick one per-invocation with `--profile <name>` or the
+`FUNCSPEC_PROFILE` env var; otherwise the config active profile is used.
+
+```sh
+funcspec --profile staging projects list
+FUNCSPEC_PROFILE=staging funcspec projects list
+```
+
 ### Projects
 
 ```sh
-funcspec project list
-funcspec project create --name "My App"
-funcspec project show <id>
-funcspec project switch <id>
+funcspec projects list
+funcspec projects create "My App"
+funcspec projects show <id-or-slug>
+funcspec projects set-default <id-or-slug>
+funcspec projects delete <id-or-slug> --yes   # owner/admin only; irreversible
 ```
 
 ### Items
 
 ```sh
-funcspec item list [--status draft|active|archived] [--tag <tag>]
-funcspec item create --title "Feature name" [--body "Description"]
-funcspec item show <id>
-funcspec item update <id> --status active
-funcspec item delete <id>
+funcspec items list [--status draft|active|archived] [--tag <tag>]
+funcspec items create --title "Feature name" [--body "Description"]
+funcspec items show <permalink>
+funcspec items update <permalink> --status active   # --format json prints the updated item
+funcspec items delete <permalink>
 ```
 
 ### AI operations
@@ -126,9 +139,20 @@ funcspec ai suggest --context "feature description"
 ```sh
 funcspec export --format markdown > specs.md
 funcspec export --format json > specs.json
-funcspec snapshot create --name "v1.0 baseline"
-funcspec snapshot list
-funcspec snapshot diff <id1> <id2>
+funcspec snapshots create "v1.0 baseline"
+funcspec snapshots list
+funcspec snapshots diff <name>
+```
+
+### Release versions
+
+```sh
+funcspec version list
+# --name is optional; it defaults to the semver when omitted
+funcspec version create --semver 0.1.0 --branch main
+funcspec version create --semver 0.2.0 --name "Public Launch" --branch main
+funcspec version assign 0.1.0 F-1 F-2
+funcspec version show 0.1.0
 ```
 
 ### Audit runs
@@ -152,7 +176,7 @@ given.
 ```sh
 funcspec run create --type func              # shows "N items will be audited" + [y/N]
 funcspec run create --type func --yes        # skip confirmation
-funcspec run create --item-ids 12,34,56      # explicit scope, no prompt
+funcspec run create --item-ids F-1,F-2       # explicit scope (permalinks or numeric ids), no prompt
 ```
 
 ```sh
