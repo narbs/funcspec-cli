@@ -47,6 +47,9 @@ async fn main() {
     let timeout = matches.get_one::<u64>("timeout").copied();
     context::set_timeout_override(timeout);
 
+    let profile = matches.get_one::<String>("profile").cloned();
+    context::set_profile_override(profile);
+
     if let Err(err) = run(matches, format).await {
         eprintln!("{} {err:#}", "error:".red().bold());
         std::process::exit(1);

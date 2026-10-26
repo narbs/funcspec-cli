@@ -6,6 +6,7 @@ use crate::config::{Config, LocalConfig};
 
 static PROJECT_OVERRIDE: OnceLock<Option<String>> = OnceLock::new();
 static TIMEOUT_OVERRIDE: OnceLock<Option<u64>> = OnceLock::new();
+static PROFILE_OVERRIDE: OnceLock<Option<String>> = OnceLock::new();
 
 /// Default request timeout (seconds) when no --timeout override is given.
 const DEFAULT_TIMEOUT_SECS: u64 = 30;
@@ -20,6 +21,30 @@ pub fn set_project_override(project: Option<String>) {
 /// Set the global request-timeout override from --timeout flag (call once at startup).
 pub fn set_timeout_override(timeout_secs: Option<u64>) {
     let _ = TIMEOUT_OVERRIDE.set(timeout_secs);
+}
+
+/// Set the global profile override from the --profile flag (call once at startup).
+pub fn set_profile_override(profile: Option<String>) {
+    let _ = PROFILE_OVERRIDE.set(profile);
+}
+
+/// Resolve the effective profile NAME: --profile flag > FUNCSPEC_PROFILE env > None
+/// (None means "use the config's active_profile field unchanged").
+fn profile_name_override() -> Option<String> {
+    PROFILE_OVERRIDE
+        .get()
+        .and_then(|o| o.clone())
+        .or_else(|| std::env::var("FUNCSPEC_PROFILE").ok())
+}
+
+/// Load the config and apply any --profile / FUNCSPEC_PROFILE override to its
+/// active_profile field, so every downstream active_profile() call uses it.
+fn load_config_with_profile() -> Result<Config> {
+    let mut config = Config::load()?;
+    if let Some(name) = profile_name_override() {
+        config.active_profile = name;
+    }
+    Ok(config)
 }
 
 /// Resolve the effective request timeout: explicit --timeout wins, else the
@@ -68,7 +93,7 @@ pub fn resolve_project_slug<'a>(
 
 /// Build a client from the active profile. Returns (client, config).
 pub fn client_and_config() -> Result<(FuncspecClient, Config)> {
-    let config = Config::load()?;
+    let config = load_config_with_profile()?;
     let profile = config
         .active_profile()
         .context("Not logged in. Run `funcspec auth login` to connect.")?;

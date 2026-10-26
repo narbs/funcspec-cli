@@ -67,6 +67,12 @@ pub fn build_cli() -> Command {
                 .value_parser(clap::value_parser!(u64))
                 .help("Request timeout in seconds (default 30; audit calls default to 180)"),
         )
+        .arg(
+            Arg::new("profile")
+                .long("profile")
+                .global(true)
+                .help("Config profile to use (overrides active_profile; also FUNCSPEC_PROFILE)"),
+        )
         .subcommand(commands::ai::build_command())
         .subcommand(commands::auth::build_command())
         .subcommand(commands::config::build_command())
@@ -112,5 +118,21 @@ mod tests {
             "t! returned raw key — locale data not embedded"
         );
         assert!(s.contains("FuncSpec"), "unexpected: {s}");
+    }
+}
+
+#[cfg(test)]
+mod profile_flag_tests {
+    use super::*;
+
+    #[test]
+    fn global_profile_flag_parses() {
+        let m = build_cli()
+            .try_get_matches_from(["funcspec", "--profile", "staging", "projects", "list"])
+            .unwrap();
+        assert_eq!(
+            m.get_one::<String>("profile").map(|s| s.as_str()),
+            Some("staging")
+        );
     }
 }
