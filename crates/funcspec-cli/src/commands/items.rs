@@ -657,6 +657,7 @@ pub async fn dispatch(matches: &clap::ArgMatches, format: OutputFormat) -> Resul
 }
 
 pub async fn run(cmd: ItemsCmd, format: OutputFormat) -> Result<()> {
+    let as_json = matches!(format.resolve(), OutputFormat::Json);
     match cmd {
         ItemsCmd::List {
             r#type,
@@ -871,11 +872,15 @@ pub async fn run(cmd: ItemsCmd, format: OutputFormat) -> Result<()> {
             let updated = client
                 .update_item(project_id, spec_item.id, &params)
                 .await?;
-            eprintln!(
-                "Updated {} {}",
-                style(&updated.attributes.permalink).cyan().bold(),
-                updated.attributes.title
-            );
+            if as_json {
+                println!("{}", serde_json::to_string_pretty(&updated)?);
+            } else {
+                eprintln!(
+                    "Updated {} {}",
+                    style(&updated.attributes.permalink).cyan().bold(),
+                    updated.attributes.title
+                );
+            }
             Ok(())
         }
 
