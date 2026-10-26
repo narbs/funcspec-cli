@@ -18,7 +18,7 @@ pub enum RunsCmd {
         status: Option<String>,
         score_below: Option<u32>,
         tag: Option<String>,
-        item_ids: Vec<u64>,
+        item_ids: Vec<String>,
         concurrency: Option<u32>,
         name: Option<String>,
         no_start: bool,
@@ -110,8 +110,7 @@ pub fn build_command() -> clap::Command {
                         .long("item-ids")
                         .num_args(1..)
                         .value_delimiter(',')
-                        .value_parser(clap::value_parser!(u64))
-                        .help("Explicit item IDs to include (comma-separated)"),
+                        .help("Explicit items to include: permalinks (F-1) or numeric ids, comma-separated"),
                 )
                 .arg(
                     clap::Arg::new("concurrency")
@@ -283,8 +282,8 @@ pub async fn dispatch(matches: &clap::ArgMatches, format: OutputFormat) -> Resul
             score_below: m.get_one::<u32>("score_below").copied(),
             tag: m.get_one::<String>("tag").cloned(),
             item_ids: m
-                .get_many::<u64>("item_ids")
-                .map(|v| v.copied().collect())
+                .get_many::<String>("item_ids")
+                .map(|v| v.cloned().collect())
                 .unwrap_or_default(),
             concurrency: m.get_one::<u32>("concurrency").copied(),
             name: m.get_one::<String>("name").cloned(),
@@ -399,6 +398,20 @@ pub async fn run(cmd: RunsCmd, format: OutputFormat) -> Result<()> {
             yes,
         } => {
             let (client, project_id) = client_and_project().await?;
+
+            // --item-ids accepts permalinks (F-1) or numeric ids; the server
+            // run filter takes INTERNAL numeric ids, so resolve each entry.
+            let mut resolved_ids: Vec<u64> = Vec::with_capacity(item_ids.len());
+            for it in &item_ids {
+                let id = if it.chars().all(|c| c.is_ascii_digit()) {
+                    it.parse::<u64>().unwrap_or(0)
+                } else {
+                    client.resolve_item_id(project_id, it).await?
+                };
+                resolved_ids.push(id);
+            }
+            let item_ids = resolved_ids;
+
             let mut params = CreateRunParams {
                 type_of,
                 status,
@@ -794,12 +807,21 @@ mod tests {
     #[test]
     fn dispatch_create_item_ids_parse() {
         let cmd = build_command();
+        // --item-ids now accepts permalinks (F-1) and numeric ids as strings;
+        // resolution to internal ids happens in the handler.
         let m = cmd
-            .try_get_matches_from(["run", "create", "--item-ids", "1,2,3"])
+            .try_get_matches_from(["run", "create", "--item-ids", "F-1,2,T-3"])
             .expect("create --item-ids should parse");
         let sub = m.subcommand_matches("create").unwrap();
-        let ids: Vec<u64> = sub.get_many::<u64>("item_ids").unwrap().copied().collect();
-        assert_eq!(ids, vec![1, 2, 3]);
+        let ids: Vec<String> = sub
+            .get_many::<String>("item_ids")
+            .unwrap()
+            .cloned()
+            .collect();
+        assert_eq!(
+            ids,
+            vec!["F-1".to_string(), "2".to_string(), "T-3".to_string()]
+        );
     }
 
     #[test]
