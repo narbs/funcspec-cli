@@ -98,23 +98,14 @@ teardown() {
 }
 trap teardown EXIT
 
-# delete_project <slug> â no `projects delete` CLI command yet; use the API.
+# delete_project <slug> -- dogfoods the \`funcspec projects delete\` CLI command
+# (added v0.2.43, owner/admin gated). Falls back to nothing: if the CLI delete
+# fails, the caller reports it and leaves the project for manual cleanup.
 delete_project() {
   local slug="$1"
-  local pid host key profile
-  # prod lives under the [profiles.default] block in the config.
-  profile="$ENV_NAME"; [[ "$ENV_NAME" == "prod" ]] && profile="default"
-  pid="$("$FUNCSPEC" projects show "$slug" --format json 2>/dev/null | jq -r '.id // empty')"
-  [[ -z "$pid" ]] && return 1
-  host="$(awk -v p="$profile" '$0 ~ "\\[profiles."p"\\]"{f=1} f&&/host/{gsub(/.*= *"/,"");gsub(/".*/,"");print;exit}' ~/.config/funcspec/config.toml)"
-  key="$(awk -v p="$profile" '$0 ~ "\\[profiles."p"\\]"{f=1} f&&/api_key/{gsub(/.*= *"/,"");gsub(/".*/,"");print;exit}' ~/.config/funcspec/config.toml)"
-  # staging host embeds basic-auth creds; strip them for the API base and pass api_key as query param.
-  if [[ "$ENV_NAME" == "staging" ]]; then
-    host="$(echo "$host" | sed -E 's#https://[^@]*@#https://#')"
-    curl -sS -X DELETE "${host}/api/v1/projects/${pid}?api_key=${key}" -o /dev/null -w '%{http_code}' | grep -q '^204$'
-  else
-    curl -sS -X DELETE "${host}/api/v1/projects/${pid}" -H "X-Api-Key: ${key}" -o /dev/null -w '%{http_code}' | grep -q '^204$'
-  fi
+  # Uses the active config profile (prod = default), same as every fs() call.
+  # The CLI has no --profile flag; staging teardown relies on the active profile.
+  "$FUNCSPEC" projects delete "$slug" --yes >/dev/null 2>&1
 }
 
 # =============================================================================
