@@ -71,13 +71,24 @@ pub struct SpecItem {
     pub attributes: SpecItemAttributes,
 }
 
+/// A lightweight reference to a release version an item belongs to, as
+/// embedded in a spec item's \`release_versions\` array (semver + name only).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReleaseVersionRef {
+    #[serde(default)]
+    pub semver: Option<String>,
+    #[serde(default)]
+    pub name: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SpecItemAttributes {
     pub title: String,
     pub description: Option<String>,
     pub type_of: ItemType,
     pub state: String,
-    pub implementation_status: ImplementationStatus,
+    #[serde(default)]
+    pub implementation_status: Option<ImplementationStatus>,
     pub permalink: String,
     pub url: String,
     pub version: u32,
@@ -87,6 +98,19 @@ pub struct SpecItemAttributes {
     pub tags: Vec<String>,
     pub parent_id: Option<u64>,
     pub project_id: u64,
+    /// Agent-feedback status: none/pending/in_progress/resolved/escalated.
+    #[serde(default)]
+    pub feedback_status: Option<String>,
+    /// Whether the item is out-of-scope (deprecated).
+    #[serde(default)]
+    pub deprecated: Option<bool>,
+    #[serde(default)]
+    pub deprecated_at: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub deprecation_reason: Option<String>,
+    /// Release versions this item is a member of (semver + name).
+    #[serde(default)]
+    pub release_versions: Vec<ReleaseVersionRef>,
     pub review: Option<ReviewSummary>,
     #[serde(default)]
     pub share_url: Option<String>,
@@ -99,6 +123,10 @@ pub struct SpecItemAttributes {
 pub enum ItemType {
     Functional,
     Technical,
+    /// Fallback for any value the server adds later, so a single unexpected
+    /// variant never fails the whole response decode.
+    #[serde(other)]
+    Unknown,
 }
 
 impl std::fmt::Display for ItemType {
@@ -106,6 +134,7 @@ impl std::fmt::Display for ItemType {
         match self {
             ItemType::Functional => write!(f, "functional"),
             ItemType::Technical => write!(f, "technical"),
+            ItemType::Unknown => write!(f, "unknown"),
         }
     }
 }
@@ -118,6 +147,9 @@ pub enum ImplementationStatus {
     Implemented,
     Verified,
     Released,
+    /// Fallback for any value the server adds later.
+    #[serde(other)]
+    Unknown,
 }
 
 impl std::fmt::Display for ImplementationStatus {
@@ -128,6 +160,7 @@ impl std::fmt::Display for ImplementationStatus {
             ImplementationStatus::Implemented => write!(f, "implemented"),
             ImplementationStatus::Verified => write!(f, "verified"),
             ImplementationStatus::Released => write!(f, "released"),
+            ImplementationStatus::Unknown => write!(f, "unknown"),
         }
     }
 }
@@ -539,6 +572,9 @@ pub enum JobStatus {
     Running,
     Completed,
     Failed,
+    /// Fallback for any value the server adds later.
+    #[serde(other)]
+    Unknown,
 }
 
 impl std::fmt::Display for JobStatus {
@@ -549,6 +585,7 @@ impl std::fmt::Display for JobStatus {
             JobStatus::Running => write!(f, "running"),
             JobStatus::Completed => write!(f, "completed"),
             JobStatus::Failed => write!(f, "failed"),
+            JobStatus::Unknown => write!(f, "unknown"),
         }
     }
 }
@@ -1246,7 +1283,7 @@ mod tests {
         assert_eq!(item.attributes.type_of, ItemType::Functional);
         assert_eq!(
             item.attributes.implementation_status,
-            ImplementationStatus::NotStarted
+            Some(ImplementationStatus::NotStarted)
         );
     }
 

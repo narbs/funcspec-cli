@@ -737,7 +737,7 @@ pub async fn run(cmd: ItemsCmd, format: OutputFormat) -> Result<()> {
                         return false;
                     }
                     if let Some(ref s) = filter.status
-                        && item.attributes.implementation_status != *s
+                        && item.attributes.implementation_status.as_ref() != Some(s)
                     {
                         return false;
                     }
@@ -1340,13 +1340,15 @@ pub async fn run(cmd: ItemsCmd, format: OutputFormat) -> Result<()> {
 // ---------------------------------------------------------------------------
 
 /// Canonical string for an implementation status enum.
-fn impl_status_str(s: &ImplementationStatus) -> &'static str {
+fn impl_status_str(s: &Option<ImplementationStatus>) -> &'static str {
     match s {
-        ImplementationStatus::NotStarted => "not_started",
-        ImplementationStatus::InProgress => "in_progress",
-        ImplementationStatus::Implemented => "implemented",
-        ImplementationStatus::Verified => "verified",
-        ImplementationStatus::Released => "released",
+        Some(ImplementationStatus::NotStarted) => "not_started",
+        Some(ImplementationStatus::InProgress) => "in_progress",
+        Some(ImplementationStatus::Implemented) => "implemented",
+        Some(ImplementationStatus::Verified) => "verified",
+        Some(ImplementationStatus::Released) => "released",
+        Some(ImplementationStatus::Unknown) => "unknown",
+        None => "unknown",
     }
 }
 

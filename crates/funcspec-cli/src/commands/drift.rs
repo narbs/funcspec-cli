@@ -88,23 +88,26 @@ fn state_rank(s: &str) -> i32 {
     }
 }
 
-fn impl_rank(s: &ImplementationStatus) -> i32 {
+fn impl_rank(s: &Option<ImplementationStatus>) -> i32 {
     match s {
-        ImplementationStatus::NotStarted => 0,
-        ImplementationStatus::InProgress => 1,
-        ImplementationStatus::Implemented => 2,
-        ImplementationStatus::Verified => 3,
-        ImplementationStatus::Released => 4,
+        Some(ImplementationStatus::NotStarted) => 0,
+        Some(ImplementationStatus::InProgress) => 1,
+        Some(ImplementationStatus::Implemented) => 2,
+        Some(ImplementationStatus::Verified) => 3,
+        Some(ImplementationStatus::Released) => 4,
+        Some(ImplementationStatus::Unknown) | None => 0,
     }
 }
 
-fn impl_str(s: &ImplementationStatus) -> &'static str {
+fn impl_str(s: &Option<ImplementationStatus>) -> &'static str {
     match s {
-        ImplementationStatus::NotStarted => "not_started",
-        ImplementationStatus::InProgress => "in_progress",
-        ImplementationStatus::Implemented => "implemented",
-        ImplementationStatus::Verified => "verified",
-        ImplementationStatus::Released => "released",
+        Some(ImplementationStatus::NotStarted) => "not_started",
+        Some(ImplementationStatus::InProgress) => "in_progress",
+        Some(ImplementationStatus::Implemented) => "implemented",
+        Some(ImplementationStatus::Verified) => "verified",
+        Some(ImplementationStatus::Released) => "released",
+        Some(ImplementationStatus::Unknown) => "unknown",
+        None => "unknown",
     }
 }
 
@@ -140,15 +143,15 @@ fn evaluate(item: &SpecItem) -> Option<(&'static str, &'static str)> {
     let ir = impl_rank(im);
 
     // 1. Built (implemented/verified/released) but workflow state < accepted.
-    if ir >= impl_rank(&ImplementationStatus::Implemented) && sr < state_rank("accepted") {
+    if ir >= impl_rank(&Some(ImplementationStatus::Implemented)) && sr < state_rank("accepted") {
         return Some(("built-but-not-accepted", "accepted"));
     }
     // 2. Released but not integrated.
-    if ir == impl_rank(&ImplementationStatus::Released) && st != "integrated" {
+    if ir == impl_rank(&Some(ImplementationStatus::Released)) && st != "integrated" {
         return Some(("released-but-not-integrated", "integrated"));
     }
     // 3. Reverse drift: integrated workflow but implementation never started.
-    if st == "integrated" && ir == impl_rank(&ImplementationStatus::NotStarted) {
+    if st == "integrated" && ir == impl_rank(&Some(ImplementationStatus::NotStarted)) {
         return Some(("integrated-but-not-started", "accepted"));
     }
     None
@@ -209,7 +212,7 @@ pub async fn run(args: DriftArgs, format: OutputFormat) -> Result<()> {
             .map(|d| {
                 serde_json::json!({
                     "permalink": d.item.attributes.permalink,
-                    "type": match d.item.attributes.type_of { ItemType::Functional => "functional", ItemType::Technical => "technical" },
+                    "type": match d.item.attributes.type_of { ItemType::Functional => "functional", ItemType::Technical => "technical", ItemType::Unknown => "unknown" },
                     "state": d.item.attributes.state,
                     "implementation_status": impl_str(&d.item.attributes.implementation_status),
                     "violation": d.violation,

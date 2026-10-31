@@ -44,6 +44,16 @@ impl OutputFormat {
 // ---------------------------------------------------------------------------
 
 /// Return current terminal width, or 80 if not detectable.
+/// Render an optional implementation status for display. A None (server sent
+/// null) or Unknown variant both degrade to a readable label instead of
+/// failing.
+fn impl_status_display(s: &Option<funcspec_client::models::ImplementationStatus>) -> String {
+    match s {
+        Some(v) => v.to_string(),
+        None => "—".to_string(),
+    }
+}
+
 pub fn terminal_width() -> usize {
     terminal_size::terminal_size()
         .map(|(terminal_size::Width(w), _)| w as usize)
@@ -199,7 +209,7 @@ pub fn format_items(
                     a.permalink.as_str(),
                     &a.type_of.to_string(),
                     a.title.as_str(),
-                    &a.implementation_status.to_string(),
+                    impl_status_display(&a.implementation_status).as_str(),
                     score.as_str(),
                     &a.tags.join(","),
                 ])?;
@@ -222,7 +232,11 @@ pub fn format_items(
                     .unwrap_or_default();
                 println!(
                     "{}\t{}\t{}\t{}\t{}",
-                    a.permalink, a.type_of, a.title, a.implementation_status, score
+                    a.permalink,
+                    a.type_of,
+                    a.title,
+                    impl_status_display(&a.implementation_status),
+                    score
                 );
             }
         }
@@ -233,7 +247,8 @@ pub fn format_items(
                 println!("## {} — {}", a.permalink, a.title);
                 println!(
                     "- **Type**: {} | **Status**: {}",
-                    a.type_of, a.implementation_status
+                    a.type_of,
+                    impl_status_display(&a.implementation_status)
                 );
                 if !a.tags.is_empty() {
                     println!("- **Tags**: {}", a.tags.join(", "));
@@ -270,7 +285,7 @@ pub fn format_item_detail(item: &SpecItem, format: OutputFormat) -> Result<()> {
                 a.permalink.as_str(),
                 &a.type_of.to_string(),
                 a.title.as_str(),
-                &a.implementation_status.to_string(),
+                impl_status_display(&a.implementation_status).as_str(),
                 a.description.as_deref().unwrap_or(""),
                 &a.tags.join(","),
             ])?;
@@ -289,7 +304,11 @@ pub fn format_item_detail(item: &SpecItem, format: OutputFormat) -> Result<()> {
                 .unwrap_or_default();
             println!(
                 "{}\t{}\t{}\t{}\t{}",
-                a.permalink, a.type_of, a.title, a.implementation_status, score
+                a.permalink,
+                a.type_of,
+                a.title,
+                impl_status_display(&a.implementation_status),
+                score
             );
         }
         OutputFormat::Markdown => item_detail_markdown(item),
@@ -500,13 +519,16 @@ fn items_table(items: &[SpecItem], meta: Option<&PaginationMeta>) {
         let type_str = match item.attributes.type_of {
             ItemType::Functional => "func".blue().to_string(),
             ItemType::Technical => "tech".magenta().to_string(),
+            ItemType::Unknown => "unknown".dimmed().to_string(),
         };
         let status_str = match item.attributes.implementation_status {
-            ImplementationStatus::Implemented => "implemented".green().to_string(),
-            ImplementationStatus::InProgress => "in_progress".yellow().to_string(),
-            ImplementationStatus::NotStarted => "not_started".dimmed().to_string(),
-            ImplementationStatus::Verified => "verified".cyan().to_string(),
-            ImplementationStatus::Released => "released".blue().to_string(),
+            Some(ImplementationStatus::Implemented) => "implemented".green().to_string(),
+            Some(ImplementationStatus::InProgress) => "in_progress".yellow().to_string(),
+            Some(ImplementationStatus::NotStarted) => "not_started".dimmed().to_string(),
+            Some(ImplementationStatus::Verified) => "verified".cyan().to_string(),
+            Some(ImplementationStatus::Released) => "released".blue().to_string(),
+            Some(ImplementationStatus::Unknown) => "unknown".dimmed().to_string(),
+            None => "—".dimmed().to_string(),
         };
         let score = item
             .attributes
@@ -539,7 +561,33 @@ fn item_detail(item: &SpecItem) {
     let a = &item.attributes;
     println!("{} {}", a.permalink.bold(), a.title.bold());
     println!("Type: {}", a.type_of);
-    println!("Status: {}", a.implementation_status);
+    println!("Status: {}", impl_status_display(&a.implementation_status));
+    if let Some(ref fb) = a.feedback_status
+        && fb != "none"
+    {
+        println!("Feedback: {fb}");
+    }
+    if a.deprecated == Some(true) {
+        let reason = a.deprecation_reason.as_deref().unwrap_or("");
+        if reason.is_empty() {
+            println!("Deprecated: yes");
+        } else {
+            println!("Deprecated: yes ({reason})");
+        }
+    }
+    if !a.release_versions.is_empty() {
+        let vs: Vec<String> = a
+            .release_versions
+            .iter()
+            .map(|v| match (&v.semver, &v.name) {
+                (Some(s), Some(n)) => format!("{s} ({n})"),
+                (Some(s), None) => s.clone(),
+                (None, Some(n)) => n.clone(),
+                (None, None) => "?".to_string(),
+            })
+            .collect();
+        println!("Release versions: {}", vs.join(", "));
+    }
     if !a.tags.is_empty() {
         println!("Tags: {}", a.tags.join(", "));
     }
@@ -588,7 +636,31 @@ fn item_detail_markdown(item: &SpecItem) {
     let a = &item.attributes;
     println!("## {} — {}\n", a.permalink, a.title);
     println!("- **Type**: {}", a.type_of);
-    println!("- **Status**: {}", a.implementation_status);
+    println!(
+        "- **Status**: {}",
+        impl_status_display(&a.implementation_status)
+    );
+    if let Some(ref fb) = a.feedback_status
+        && fb != "none"
+    {
+        println!("- **Feedback**: {fb}");
+    }
+    if a.deprecated == Some(true) {
+        let reason = a.deprecation_reason.as_deref().unwrap_or("");
+        if reason.is_empty() {
+            println!("- **Deprecated**: yes");
+        } else {
+            println!("- **Deprecated**: yes ({reason})");
+        }
+    }
+    if !a.release_versions.is_empty() {
+        let vs: Vec<String> = a
+            .release_versions
+            .iter()
+            .filter_map(|v| v.semver.clone().or_else(|| v.name.clone()))
+            .collect();
+        println!("- **Release versions**: {}", vs.join(", "));
+    }
     if !a.tags.is_empty() {
         println!("- **Tags**: {}", a.tags.join(", "));
     }
