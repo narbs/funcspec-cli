@@ -1778,6 +1778,128 @@ Body: {text}"
         Ok(body.data)
     }
 
+    // -- Document import sessions (T-540) --
+    //
+    // These endpoints return top-level JSON (not wrapped in `data:`) and error
+    // bodies of the form `{ error, code, retry }`; errors are surfaced as
+    // [`Error::Api`] so callers can branch on the code.
+
+    /// Upload a raw document (PDF / DOCX / Markdown / text) to start an import
+    /// session. `POST /projects/:id/import/upload` (multipart field `file`).
+    pub async fn upload_document(
+        &self,
+        project_id: u64,
+        filename: &str,
+        mime_type: &str,
+        bytes: Vec<u8>,
+    ) -> Result<DocumentUpload, Error> {
+        let url = self.api_url(&format!("/projects/{project_id}/import/upload"));
+        debug!(%url, filename, size = bytes.len(), "upload_document");
+        // Validate the mime type once so the per-attempt builder below can't fail.
+        reqwest::multipart::Part::bytes(Vec::new()).mime_str(mime_type)?;
+        let resp = self
+            .request_with_retry(|| {
+                let part = reqwest::multipart::Part::bytes(bytes.clone())
+                    .file_name(filename.to_string())
+                    .mime_str(mime_type)
+                    .expect("mime type validated above");
+                let form = reqwest::multipart::Form::new().part("file", part);
+                self.http.post(&url).multipart(form).send()
+            })
+            .await?;
+        if !resp.status().is_success() {
+            return Err(Error::from_coded_response(resp).await);
+        }
+        Ok(resp.json().await?)
+    }
+
+    /// Queue pass-1 extraction. `POST .../import/sessions/:sid/extract` (202).
+    /// A 409 (`invalid_state`) means a run is already in progress.
+    pub async fn start_extract(
+        &self,
+        project_id: u64,
+        session_id: u64,
+    ) -> Result<ImportStageStarted, Error> {
+        self.start_import_stage(project_id, session_id, "extract")
+            .await
+    }
+
+    /// Queue the optional pass-2 enrichment. `POST .../import/sessions/:sid/enrich` (202).
+    pub async fn start_enrich(
+        &self,
+        project_id: u64,
+        session_id: u64,
+    ) -> Result<ImportStageStarted, Error> {
+        self.start_import_stage(project_id, session_id, "enrich")
+            .await
+    }
+
+    async fn start_import_stage(
+        &self,
+        project_id: u64,
+        session_id: u64,
+        stage: &str,
+    ) -> Result<ImportStageStarted, Error> {
+        let url = self.api_url(&format!(
+            "/projects/{project_id}/import/sessions/{session_id}/{stage}"
+        ));
+        debug!(%url, "start_import_stage");
+        let resp = self
+            .request_with_retry(|| self.http.post(&url).send())
+            .await?;
+        if !resp.status().is_success() {
+            return Err(Error::from_coded_response(resp).await);
+        }
+        Ok(resp.json().await?)
+    }
+
+    /// Fetch a document import session's status, candidate items, cost and
+    /// errors. `GET /projects/:id/import/sessions/:sid`.
+    pub async fn poll_import_session(
+        &self,
+        project_id: u64,
+        session_id: u64,
+    ) -> Result<ImportSession, Error> {
+        let url = self.api_url(&format!(
+            "/projects/{project_id}/import/sessions/{session_id}"
+        ));
+        debug!(%url, "poll_import_session");
+        let resp = self
+            .request_with_retry(|| self.http.get(&url).send())
+            .await?;
+        if !resp.status().is_success() {
+            return Err(Error::from_coded_response(resp).await);
+        }
+        Ok(resp.json().await?)
+    }
+
+    /// Commit a reviewed session, creating spec items.
+    /// `POST .../import/sessions/:sid/commit`. With `items: None` the server
+    /// commits the session's extracted items; otherwise items with
+    /// `included: Some(false)` are skipped.
+    pub async fn commit_import_session(
+        &self,
+        project_id: u64,
+        session_id: u64,
+        items: Option<&[DocumentImportItem]>,
+    ) -> Result<DocumentImportCommit, Error> {
+        let url = self.api_url(&format!(
+            "/projects/{project_id}/import/sessions/{session_id}/commit"
+        ));
+        debug!(%url, "commit_import_session");
+        let body = match items {
+            Some(items) => serde_json::json!({ "items": items }),
+            None => serde_json::json!({}),
+        };
+        let resp = self
+            .request_with_retry(|| self.http.post(&url).json(&body).send())
+            .await?;
+        if !resp.status().is_success() {
+            return Err(Error::from_coded_response(resp).await);
+        }
+        Ok(resp.json().await?)
+    }
+
     // -----------------------------------------------------------------------
     // ProjectRepository
     // -----------------------------------------------------------------------

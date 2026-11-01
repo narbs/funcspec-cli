@@ -1775,6 +1775,136 @@ pub struct ImportResultItem {
 }
 
 // ---------------------------------------------------------------------------
+// Document import sessions (T-540 server / T-528 client)
+//
+// These endpoints return top-level JSON (NOT wrapped in `data:`).
+// ---------------------------------------------------------------------------
+
+/// Response from `POST /projects/:id/import/upload` (201).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DocumentUpload {
+    pub session_id: u64,
+    #[serde(default)]
+    pub status: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub original_filename: Option<String>,
+    #[serde(default)]
+    pub sections_count: u64,
+    #[serde(default)]
+    pub warnings: Vec<String>,
+}
+
+/// Response from `POST .../import/sessions/:sid/{extract,enrich}` (202).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImportStageStarted {
+    #[serde(default)]
+    pub session_id: u64,
+    #[serde(default)]
+    pub status: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stage: Option<String>,
+}
+
+/// A candidate item extracted from a document. Also the element type of the
+/// optional commit body; `included: Some(false)` skips the item on commit.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DocumentImportItem {
+    #[serde(default)]
+    pub title: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(default)]
+    pub type_of: String,
+    /// LLM confidence — kept as raw JSON (number or label) so decode never fails.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub confidence: Option<serde_json::Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parent_title: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub position: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub included: Option<bool>,
+}
+
+/// Lifecycle of a document import session:
+/// uploaded -> extracting -> reviewing -> committing -> committed, plus failed / cancelled.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ImportSessionStatus {
+    Uploaded,
+    Extracting,
+    Reviewing,
+    Committing,
+    Committed,
+    Failed,
+    Cancelled,
+    #[serde(other)]
+    Unknown,
+}
+
+impl ImportSessionStatus {
+    /// True when a background extract/enrich run is no longer in progress.
+    pub fn is_settled(self) -> bool {
+        !matches!(
+            self,
+            ImportSessionStatus::Extracting | ImportSessionStatus::Committing
+        )
+    }
+}
+
+impl std::fmt::Display for ImportSessionStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            ImportSessionStatus::Uploaded => "uploaded",
+            ImportSessionStatus::Extracting => "extracting",
+            ImportSessionStatus::Reviewing => "reviewing",
+            ImportSessionStatus::Committing => "committing",
+            ImportSessionStatus::Committed => "committed",
+            ImportSessionStatus::Failed => "failed",
+            ImportSessionStatus::Cancelled => "cancelled",
+            ImportSessionStatus::Unknown => "unknown",
+        };
+        f.write_str(s)
+    }
+}
+
+/// Response from `GET /projects/:id/import/sessions/:sid`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImportSession {
+    pub session_id: u64,
+    pub status: ImportSessionStatus,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub original_filename: Option<String>,
+    #[serde(default)]
+    pub items: Vec<DocumentImportItem>,
+    #[serde(default)]
+    pub item_count: u64,
+    #[serde(default)]
+    pub cost_cents: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cost_limit_cents: Option<u64>,
+    #[serde(default)]
+    pub warnings: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error_code: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error_message: Option<String>,
+}
+
+/// Response from `POST .../import/sessions/:sid/commit` (201).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DocumentImportCommit {
+    #[serde(default)]
+    pub session_id: u64,
+    #[serde(default)]
+    pub status: String,
+    #[serde(default)]
+    pub created: u32,
+    #[serde(default)]
+    pub items: Vec<ImportResultItem>,
+}
+
+// ---------------------------------------------------------------------------
 // ProjectRepository
 // ---------------------------------------------------------------------------
 

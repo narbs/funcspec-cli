@@ -1159,3 +1159,176 @@ async fn diff_snapshot_empty() {
     assert!(diff.spec_items.modified.is_empty());
     assert_eq!(diff.summary.items_added, 0);
 }
+
+// -- Document import sessions (T-540 contract) -------------------------------
+
+#[tokio::test]
+async fn document_import_round_trip() {
+    use funcspec_client::models::ImportSessionStatus;
+    use wiremock::matchers::{body_json, body_string_contains, header_regex};
+
+    let server = MockServer::start().await;
+
+    Mock::given(method("POST"))
+        .and(path("/api/v1/projects/7/import/upload"))
+        .and(header("X-Api-Key", "test-key"))
+        .and(header_regex(
+            "content-type",
+            "^multipart/form-data; boundary=",
+        ))
+        .and(body_string_contains("name=\"file\"; filename=\"spec.pdf\""))
+        .and(body_string_contains("%PDF-1.4 fake"))
+        .respond_with(ResponseTemplate::new(201).set_body_json(json!({
+            "session_id": 42,
+            "status": "uploaded",
+            "original_filename": "spec.pdf",
+            "sections_count": 3,
+            "warnings": ["page 2 had no text"]
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    Mock::given(method("POST"))
+        .and(path("/api/v1/projects/7/import/sessions/42/extract"))
+        .and(header("X-Api-Key", "test-key"))
+        .respond_with(ResponseTemplate::new(202).set_body_json(json!({
+            "session_id": 42, "status": "extracting", "stage": "outline"
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    Mock::given(method("GET"))
+        .and(path("/api/v1/projects/7/import/sessions/42"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "session_id": 42,
+            "status": "reviewing",
+            "source_type": "upload",
+            "original_filename": "spec.pdf",
+            "items": [
+                {"title": "Login", "description": "Users can log in", "type_of": "functional",
+                 "confidence": 0.9, "parent_title": null},
+                {"title": "Session store", "description": "Redis", "type_of": "technical",
+                 "confidence": "high", "parent_title": null}
+            ],
+            "item_count": 2,
+            "cost_cents": 12,
+            "cost_limit_cents": 100,
+            "warnings": [],
+            "error_code": null,
+            "error_message": null,
+            "created_at": "2026-10-31T00:00:00Z",
+            "updated_at": "2026-10-31T00:00:00Z"
+        })))
+        .mount(&server)
+        .await;
+
+    Mock::given(method("POST"))
+        .and(path("/api/v1/projects/7/import/sessions/42/commit"))
+        .and(body_json(json!({})))
+        .respond_with(ResponseTemplate::new(201).set_body_json(json!({
+            "session_id": 42,
+            "status": "committed",
+            "created": 2,
+            "items": [
+                {"id": 1, "permalink": "F-1", "title": "Login", "type_of": "functional", "parent_id": null},
+                {"id": 2, "permalink": "T-2", "title": "Session store", "type_of": "technical", "parent_id": null}
+            ]
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let client = FuncspecClient::new(&server.uri(), "test-key").unwrap();
+
+    let upload = client
+        .upload_document(7, "spec.pdf", "application/pdf", b"%PDF-1.4 fake".to_vec())
+        .await
+        .unwrap();
+    assert_eq!(upload.session_id, 42);
+    assert_eq!(upload.sections_count, 3);
+    assert_eq!(upload.warnings.len(), 1);
+
+    let started = client.start_extract(7, 42).await.unwrap();
+    assert_eq!(started.status, "extracting");
+
+    let session = client.poll_import_session(7, 42).await.unwrap();
+    assert_eq!(session.status, ImportSessionStatus::Reviewing);
+    assert!(session.status.is_settled());
+    assert_eq!(session.items.len(), 2);
+    assert_eq!(session.cost_cents, 12);
+    assert_eq!(session.items[0].type_of, "functional");
+
+    let commit = client.commit_import_session(7, 42, None).await.unwrap();
+    assert_eq!(commit.created, 2);
+    assert_eq!(commit.items[1].permalink, "T-2");
+}
+
+#[tokio::test]
+async fn document_upload_error_preserves_code() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/api/v1/projects/7/import/upload"))
+        .respond_with(ResponseTemplate::new(415).set_body_json(json!({
+            "error": "Unsupported format: .xls", "code": "unsupported_format", "retry": false
+        })))
+        .mount(&server)
+        .await;
+
+    let client = FuncspecClient::new(&server.uri(), "test-key").unwrap();
+    let err = client
+        .upload_document(7, "a.xls", "application/octet-stream", vec![1, 2, 3])
+        .await
+        .unwrap_err();
+    match err {
+        Error::Api {
+            status,
+            code,
+            message,
+        } => {
+            assert_eq!(status, 415);
+            assert_eq!(code, "unsupported_format");
+            assert!(message.contains(".xls"));
+        }
+        other => panic!("expected Error::Api, got {other:?}"),
+    }
+}
+
+#[tokio::test]
+async fn extract_conflict_is_409_api_error() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/api/v1/projects/7/import/sessions/42/extract"))
+        .respond_with(ResponseTemplate::new(409).set_body_json(json!({
+            "error": "Session is extracting; cannot start outline.",
+            "code": "invalid_state", "retry": false
+        })))
+        .mount(&server)
+        .await;
+
+    let client = FuncspecClient::new(&server.uri(), "test-key").unwrap();
+    let err = client.start_extract(7, 42).await.unwrap_err();
+    assert!(matches!(err, Error::Api { status: 409, ref code, .. } if code == "invalid_state"));
+}
+
+#[tokio::test]
+async fn poll_failed_session_surfaces_error_code() {
+    use funcspec_client::models::ImportSessionStatus;
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/api/v1/projects/7/import/sessions/9"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "session_id": 9, "status": "failed", "items": [], "item_count": 0,
+            "cost_cents": 100, "warnings": [],
+            "error_code": "cost_limit", "error_message": "Import cost limit reached"
+        })))
+        .mount(&server)
+        .await;
+
+    let client = FuncspecClient::new(&server.uri(), "test-key").unwrap();
+    let s = client.poll_import_session(7, 9).await.unwrap();
+    assert_eq!(s.status, ImportSessionStatus::Failed);
+    assert_eq!(s.error_code.as_deref(), Some("cost_limit"));
+    assert_eq!(s.cost_cents, 100);
+}

@@ -39,6 +39,15 @@ pub enum Error {
     #[error("JSON error: {0}")]
     Json(#[from] serde_json::Error),
 
+    /// Structured API error carrying the server's machine-readable `code`
+    /// (e.g. document import: `unsupported_format`, `file_too_large`).
+    #[error("{message} ({code}, HTTP {status})")]
+    Api {
+        status: u16,
+        code: String,
+        message: String,
+    },
+
     /// Any other error
     #[error("{0}")]
     Other(String),
@@ -133,7 +142,59 @@ impl Error {
                 )
             }
             Error::Json(e) => format!("Failed to parse server response: {e}"),
+            Error::Api { message, .. } => message.clone(),
             Error::Other(msg) => msg.clone(),
+        }
+    }
+}
+
+impl Error {
+    /// Like [`Error::from_response`], but preserves the server's `code` field
+    /// (`{ error, code, retry }` bodies) as [`Error::Api`]. 401 and 429 keep
+    /// their dedicated variants; bodies without a `code` fall back to the
+    /// generic mapping.
+    pub async fn from_coded_response(response: reqwest::Response) -> Self {
+        let status = response.status().as_u16();
+        if status == 401 || status == 429 {
+            return Error::from_response(response).await;
+        }
+        let body = response.text().await.unwrap_or_default();
+        let val = serde_json::from_str::<serde_json::Value>(&body).ok();
+        let code = val.as_ref().and_then(|v| {
+            v.get("code")
+                .or_else(|| v.get("error_code"))
+                .and_then(|c| c.as_str())
+                .map(str::to_string)
+        });
+        let message = extract_error_message(&body);
+        match code {
+            Some(code) => Error::Api {
+                status,
+                code,
+                message: if message.is_empty() {
+                    format!("Server returned {status}")
+                } else {
+                    message
+                },
+            },
+            None => match status {
+                403 => Error::Forbidden(message),
+                404 => Error::NotFound(if message.is_empty() {
+                    "Resource not found.".into()
+                } else {
+                    message
+                }),
+                422 => Error::Validation(if message.is_empty() { body } else { message }),
+                s if s >= 500 => Error::Server {
+                    status: s,
+                    message: if message.is_empty() {
+                        format!("Server returned {s}")
+                    } else {
+                        message
+                    },
+                },
+                _ => Error::Other(format!("Unexpected status {status}: {message}")),
+            },
         }
     }
 }
