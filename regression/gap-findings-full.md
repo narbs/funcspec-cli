@@ -268,3 +268,22 @@
   - No minimum Rust toolchain version or edition specified for source builds.
   - No system-level prerequisites listed for either Arch Linux or macOS (e.g. libjpeg-turbo, Xcode CLT).
   - No explanation of what the 'fast-jpeg' feature flag does, when it should be enabled, or what dependencies it requires.
+
+
+---
+
+## 2026-10-31 — Document-import path (F-539): server→job architecture decision
+
+**Context:** T-528 (CLI `funcspec import` for PDF/Word) was blocked on the server import flow being HTML-form-only. Scoped the full path as F-539 with a server item (T-540) + CLI item (T-528).
+
+**Decision — Option B (stepped session API + background-job extraction) over Option A (one-shot sync JSON endpoint).**
+- Rationale: extraction is synchronous and can run up to `TOTAL_TIMEOUT 600s` (chunked LLM, `CHUNK_TIMEOUT 60s`, `MAX_COST_PER_SESSION` $1.00). A one-shot HTTP request would risk proxy timeouts on large PDFs. Discrete, independently-inspectable/retriable stages + a poll endpoint is more flexible and robust.
+- Trade-off accepted: more upfront work (background job + poll + session-state GET) vs. a single endpoint.
+
+**Shipped (T-540, merged to main @ `f5a36a7`, rspec 3762/0, rubocop+brakeman clean):**
+- api/v1 JSON endpoints: `POST import/upload` (201), `.../extract` + `.../enrich` (202, queue `DocumentExtractionJob`), `GET import/sessions/:sid` (poll), `POST .../commit` (201).
+- Background job moves session `extracting → reviewing`, persists items/cost/warnings; failures → `failed` + `error_code`.
+- New `import_sessions` columns: `cost_cents`, `warnings`, `error_code`; new `uploaded` status.
+- Responses are top-level JSON (not `data:`-wrapped). `extract` returns 409 if a run is in progress.
+
+**Still open:** T-528 (CLI driver) — now unblocked, build against the T-540 contract recorded on the item. Pre-check: confirm `reqwest` multipart feature is enabled in the client crate. Extend this harness with a real fixture PDF end-to-end through the CLI.
