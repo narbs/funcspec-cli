@@ -40,7 +40,7 @@ SHA256 checksums are provided in `checksums.sha256` on each release.
 
 ```sh
 # Authenticate with funcspec.net
-funcspec login
+funcspec auth login
 
 # List your projects
 funcspec projects list
@@ -64,8 +64,8 @@ funcspec dashboard
 funcspec [OPTIONS] <COMMAND>
 
 Commands:
-  login       Authenticate with funcspec.net
-  logout      Remove stored credentials
+  auth        Authenticate (login, logout, status)
+  config      Manage configuration values and profiles
   projects    Manage projects (list, create, show, delete, set-default)
   items       Manage spec items (list, create, show, update, delete)
   version     Manage release versions
@@ -91,9 +91,10 @@ Options:
 ### Authentication
 
 ```sh
-funcspec login               # Interactive login
-funcspec login --token <tok> # API token login
-funcspec logout
+funcspec auth login                 # Interactive login (prompts for API key)
+funcspec auth login --key <key>     # Non-interactive (or set FUNCSPEC_API_KEY)
+funcspec auth status                # Show current auth state
+funcspec auth logout
 ```
 
 Config supports named profiles (e.g. a default prod profile and a staging
