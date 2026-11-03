@@ -754,14 +754,32 @@ pub fn format_stats_dashboard(
         .get("not_started")
         .copied()
         .unwrap_or(0);
-    let pct_impl = percent(implemented, total);
+    let verified = stats
+        .spec_items
+        .by_implementation
+        .get("verified")
+        .copied()
+        .unwrap_or(0);
+    let released = stats
+        .spec_items
+        .by_implementation
+        .get("released")
+        .copied()
+        .unwrap_or(0);
+    // Implementation %: implemented + verified + released, over total
+    // (matches the GUI and `funcspec version show`). Verified/released items
+    // are implemented-or-beyond, not unbuilt.
+    let built = implemented + verified + released;
+    let pct_impl = percent(built, total);
     let bar = progress_bar(pct_impl, 10);
     println!(
-        "{:<12}{} {} implemented ({:.1}%) │ {} in progress │ {} not started",
+        "{:<12}{} {} implemented ({:.1}%) │ {} verified │ {} released │ {} in progress │ {} not started",
         "Status:".cyan().bold(),
         bar,
         implemented.to_string().green(),
         pct_impl,
+        verified.to_string().green(),
+        released.to_string().green(),
         in_progress.to_string().yellow(),
         not_started.to_string().dimmed(),
     );
@@ -783,13 +801,15 @@ pub fn format_stats_dashboard(
     );
 
     // Verdict distribution
-    let pass = rev.by_verdict.get("pass").copied().unwrap_or(0);
+    // Server verdict keys are: ready | needs_refinement | major_gaps
+    // (see verdict_colored in commands/runs.rs). There is no "pass" key.
+    let ready = rev.by_verdict.get("ready").copied().unwrap_or(0);
     let needs_ref = rev.by_verdict.get("needs_refinement").copied().unwrap_or(0);
     let major_gaps = rev.by_verdict.get("major_gaps").copied().unwrap_or(0);
     println!(
-        "{:<12}{} pass │ {} needs refinement │ {} major gaps",
+        "{:<12}{} ready │ {} needs refinement │ {} major gaps",
         "Verdicts:".cyan().bold(),
-        pass.to_string().green(),
+        ready.to_string().green(),
         needs_ref.to_string().yellow(),
         major_gaps.to_string().red(),
     );
@@ -1266,11 +1286,13 @@ mod tests {
 
         let mut by_implementation = std::collections::HashMap::new();
         by_implementation.insert("implemented".to_string(), 28u32);
+        by_implementation.insert("verified".to_string(), 10u32);
+        by_implementation.insert("released".to_string(), 4u32);
         by_implementation.insert("in_progress".to_string(), 8u32);
         by_implementation.insert("not_started".to_string(), 6u32);
 
         let mut by_verdict = std::collections::HashMap::new();
-        by_verdict.insert("pass".to_string(), 20u32);
+        by_verdict.insert("ready".to_string(), 20u32);
         by_verdict.insert("needs_refinement".to_string(), 12u32);
 
         let stats = ProjectStats {
@@ -1301,6 +1323,56 @@ mod tests {
             },
         };
         format_stats_dashboard("my-project", &stats, None);
+    }
+
+    // Regression: the stats dashboard once computed implementation % as
+    // implemented/total, ignoring the verified and released buckets (states
+    // *past* implemented). It also read a non-existent "pass" verdict key.
+    // Both drifted from the GUI / `funcspec version show`. Assert the contract
+    // directly on the pure math + the real server verdict keys.
+    #[test]
+    fn stats_implementation_pct_counts_verified_and_released() {
+        use std::collections::HashMap;
+        let mut by_impl: HashMap<String, u32> = HashMap::new();
+        by_impl.insert("implemented".to_string(), 188);
+        by_impl.insert("verified".to_string(), 44);
+        by_impl.insert("released".to_string(), 3);
+        by_impl.insert("in_progress".to_string(), 3);
+        by_impl.insert("not_started".to_string(), 2);
+        let total: u32 = by_impl.values().sum();
+        assert_eq!(total, 240, "buckets must sum to the item total");
+
+        let implemented = *by_impl.get("implemented").unwrap();
+        let verified = *by_impl.get("verified").unwrap();
+        let released = *by_impl.get("released").unwrap();
+        let built = implemented + verified + released;
+        assert_eq!(built, 235);
+
+        // Mirrors the GUI's 98% (and `version show`), NOT the old 78.3%.
+        let pct = percent(built, total);
+        assert!((pct - 97.9).abs() < 0.05, "expected ~97.9%, got {pct}");
+        assert_ne!(
+            percent(implemented, total).round(),
+            pct.round(),
+            "old implemented-only math must differ from the corrected pct"
+        );
+    }
+
+    #[test]
+    fn stats_verdict_keys_match_server_contract() {
+        use std::collections::HashMap;
+        // The server emits ready | needs_refinement | major_gaps (see
+        // verdict_colored in commands/runs.rs). There is no "pass" key.
+        let mut by_verdict: HashMap<String, u32> = HashMap::new();
+        by_verdict.insert("ready".to_string(), 57);
+        by_verdict.insert("needs_refinement".to_string(), 273);
+        by_verdict.insert("major_gaps".to_string(), 51);
+
+        assert_eq!(by_verdict.get("ready").copied().unwrap_or(0), 57);
+        assert_eq!(by_verdict.get("needs_refinement").copied().unwrap_or(0), 273);
+        assert_eq!(by_verdict.get("major_gaps").copied().unwrap_or(0), 51);
+        // The old renderer looked up "pass", which the API never sends.
+        assert_eq!(by_verdict.get("pass").copied().unwrap_or(0), 0);
     }
 
     #[test]

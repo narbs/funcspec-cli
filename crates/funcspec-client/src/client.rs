@@ -849,11 +849,23 @@ impl FuncspecClient {
     // -- Stats --
 
     /// Fetch aggregated dashboard stats for a project.
-    pub async fn get_project_stats(&self, project_id: u64) -> Result<ProjectStats, Error> {
+    ///
+    /// When `release_version` is `Some`, the server scopes every figure
+    /// (item counts, reviews, verdicts, coverage) to that version's member
+    /// items. The response `type` becomes `release_version_stats`.
+    pub async fn get_project_stats(
+        &self,
+        project_id: u64,
+        release_version: Option<&str>,
+    ) -> Result<ProjectStats, Error> {
         let url = self.api_url(&format!("/projects/{project_id}/stats"));
-        debug!(%url, "get_project_stats");
+        debug!(%url, ?release_version, "get_project_stats");
+        let mut pairs: Vec<(String, String)> = Vec::new();
+        if let Some(rv) = release_version {
+            pairs.push(("release_version".into(), rv.to_string()));
+        }
         let resp = self
-            .request_with_retry(|| self.http.get(&url).send())
+            .request_with_retry(|| self.http.get(&url).query(&pairs).send())
             .await?;
         if !resp.status().is_success() {
             return Err(Error::from_response(resp).await);

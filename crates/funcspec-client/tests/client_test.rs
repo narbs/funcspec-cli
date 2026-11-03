@@ -759,7 +759,7 @@ async fn get_project_stats_success() {
         .await;
 
     let client = client_for(&server);
-    let stats = client.get_project_stats(1).await.unwrap();
+    let stats = client.get_project_stats(1, None).await.unwrap();
     assert_eq!(stats.spec_items.total, 42);
     assert_eq!(stats.spec_items.by_type.get("functional"), Some(&12u32));
     assert_eq!(stats.spec_items.by_type.get("technical"), Some(&30u32));
@@ -782,7 +782,7 @@ async fn get_project_stats_not_found() {
         .await;
 
     let client = client_for(&server);
-    let err = client.get_project_stats(999).await.unwrap_err();
+    let err = client.get_project_stats(999, None).await.unwrap_err();
     assert!(matches!(err, Error::NotFound(_)));
 }
 
