@@ -1369,7 +1369,10 @@ mod tests {
         by_verdict.insert("major_gaps".to_string(), 51);
 
         assert_eq!(by_verdict.get("ready").copied().unwrap_or(0), 57);
-        assert_eq!(by_verdict.get("needs_refinement").copied().unwrap_or(0), 273);
+        assert_eq!(
+            by_verdict.get("needs_refinement").copied().unwrap_or(0),
+            273
+        );
         assert_eq!(by_verdict.get("major_gaps").copied().unwrap_or(0), 51);
         // The old renderer looked up "pass", which the API never sends.
         assert_eq!(by_verdict.get("pass").copied().unwrap_or(0), 0);
