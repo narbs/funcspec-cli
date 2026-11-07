@@ -3,6 +3,7 @@ use console::style;
 use rust_i18n::t;
 
 use crate::config::{Config, LocalConfig};
+use crate::context::profile_name_override;
 
 pub enum ConfigCmd {
     Set {
@@ -116,23 +117,27 @@ pub async fn run(cmd: ConfigCmd) -> Result<()> {
             }
 
             let mut config = Config::load()?;
+            // Honor the global --profile / FUNCSPEC_PROFILE override so writes land
+            // on the selected profile, not just the stored active_profile.
+            let target_profile =
+                profile_name_override().unwrap_or_else(|| config.active_profile.clone());
             match key.as_str() {
                 "project" | "default_project" => {
-                    let profile_name = config.active_profile.clone();
+                    let profile_name = target_profile.clone();
                     let profile = config.profiles.get_mut(&profile_name).ok_or_else(|| {
                         anyhow::anyhow!("No active profile. Run `funcspec auth login` first.")
                     })?;
                     profile.default_project = Some(value.clone());
                 }
                 "host" => {
-                    let profile_name = config.active_profile.clone();
+                    let profile_name = target_profile.clone();
                     let profile = config.profiles.get_mut(&profile_name).ok_or_else(|| {
                         anyhow::anyhow!("No active profile. Run `funcspec auth login` first.")
                     })?;
                     profile.host = value.clone();
                 }
                 "api_key" | "key" => {
-                    let profile_name = config.active_profile.clone();
+                    let profile_name = target_profile.clone();
                     let profile = config.profiles.get_mut(&profile_name).ok_or_else(|| {
                         anyhow::anyhow!("No active profile. Run `funcspec auth login` first.")
                     })?;

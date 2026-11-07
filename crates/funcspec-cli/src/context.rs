@@ -30,7 +30,7 @@ pub fn set_profile_override(profile: Option<String>) {
 
 /// Resolve the effective profile NAME: --profile flag > FUNCSPEC_PROFILE env > None
 /// (None means "use the config's active_profile field unchanged").
-fn profile_name_override() -> Option<String> {
+pub(crate) fn profile_name_override() -> Option<String> {
     PROFILE_OVERRIDE
         .get()
         .and_then(|o| o.clone())
