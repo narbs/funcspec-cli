@@ -821,11 +821,15 @@ pub async fn run(cmd: ItemsCmd, format: OutputFormat) -> Result<()> {
             };
 
             let created = client.create_item(project_id, &params).await?;
-            eprintln!(
-                "Created {} {}",
-                style(&created.attributes.permalink).cyan().bold(),
-                created.attributes.title
-            );
+            if as_json {
+                println!("{}", serde_json::to_string_pretty(&created)?);
+            } else {
+                eprintln!(
+                    "Created {} {}",
+                    style(&created.attributes.permalink).cyan().bold(),
+                    created.attributes.title
+                );
+            }
             Ok(())
         }
 
