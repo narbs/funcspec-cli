@@ -133,10 +133,14 @@ pub fn build_command() -> clap::Command {
             clap::Command::new("create")
                 .about("Create a new release version from scratch")
                 .arg(
+                    clap::Arg::new("semver_pos")
+                        .value_name("SEMVER")
+                        .help("Semver for the new version, positional (e.g. 0.2.0)"),
+                )
+                .arg(
                     clap::Arg::new("semver")
                         .long("semver")
-                        .required(true)
-                        .help("Semver for the new version (e.g. 0.2.0)"),
+                        .help("Semver for the new version (alias for the positional SEMVER)"),
                 )
                 .arg(
                     clap::Arg::new("name")
@@ -345,7 +349,15 @@ pub async fn dispatch(
             Ok(())
         }
         Some(("create", m)) => {
-            let semver = m.get_one::<String>("semver").unwrap().clone();
+            let semver = m
+                .get_one::<String>("semver_pos")
+                .or_else(|| m.get_one::<String>("semver"))
+                .ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "Missing semver: pass it positionally (version create 0.2.0) or via --semver 0.2.0"
+                    )
+                })?
+                .clone();
             // The server requires a non-blank name. --name LOOKS optional in
             // --help but a blank name is rejected; auto-derive it from the
             // semver when omitted so `version create --semver X` just works.
