@@ -215,16 +215,34 @@ impl From<reqwest::Error> for Error {
 
 fn extract_error_message(body: &str) -> String {
     if let Ok(val) = serde_json::from_str::<serde_json::Value>(body) {
-        // Try common error fields: "error", "message", "errors"
+        // Base message from the common error fields: "error", "message", "errors".
+        let mut base = String::new();
         if let Some(msg) = val.get("error").and_then(|v| v.as_str()) {
-            return msg.to_string();
+            base = msg.to_string();
+        } else if let Some(msg) = val.get("message").and_then(|v| v.as_str()) {
+            base = msg.to_string();
+        } else if let Some(errors) = val.get("errors") {
+            base = errors.to_string();
         }
-        if let Some(msg) = val.get("message").and_then(|v| v.as_str()) {
-            return msg.to_string();
+        // Append the server's structured per-item validation_errors (import, etc.)
+        // so the CLI surfaces WHY validation failed instead of a bare message.
+        if let Some(ve) = val.get("validation_errors").and_then(|v| v.as_array()) {
+            let details: Vec<String> = ve
+                .iter()
+                .filter_map(|e| e.as_str().map(|s| s.to_string()))
+                .collect();
+            if !details.is_empty() {
+                let joined = details
+                    .iter()
+                    .map(|d| format!("\n  - {d}"))
+                    .collect::<String>();
+                if base.is_empty() {
+                    return joined.trim_start().to_string();
+                }
+                return format!("{base}:{joined}");
+            }
         }
-        if let Some(errors) = val.get("errors") {
-            return errors.to_string();
-        }
+        return base;
     }
     String::new()
 }
@@ -232,6 +250,30 @@ fn extract_error_message(body: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn extract_includes_validation_errors() {
+        let body = r#"{"error":"Validation failed","validation_errors":["Row 2: type_of must be functional or technical, got bogus","Row 3: title is required"]}"#;
+        let msg = extract_error_message(body);
+        assert!(
+            msg.contains("Validation failed"),
+            "base message kept: {msg}"
+        );
+        assert!(
+            msg.contains("Row 2: type_of must be functional"),
+            "row 2 surfaced: {msg}"
+        );
+        assert!(
+            msg.contains("Row 3: title is required"),
+            "row 3 surfaced: {msg}"
+        );
+    }
+
+    #[test]
+    fn extract_plain_error_without_validation_errors() {
+        let body = r#"{"error":"Not found"}"#;
+        assert_eq!(extract_error_message(body), "Not found");
+    }
 
     #[test]
     fn auth_error_is_not_retryable() {
