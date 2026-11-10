@@ -216,6 +216,25 @@ step "10. drift"
 fs drift >/dev/null 2>&1; assert "drift runs (exit ok)" $?
 
 # =============================================================================
+# STEP 13b -- report-back with a --note and no commit (guards T-582)
+# Regression: report --note used to route note text into the agent-run status
+# validator (not a valid status), failing the drift_note leg. The note must
+# attach as a freeform run note, not a status, so this must exit 0.
+# =============================================================================
+step "13b. report-back --note (T-582 drift_note leg)"
+RB_PERM="$(fs items create --title "reg-report-note-${RUN_ID}-$$" --type func -d "throwaway for T-582 regression" 2>/dev/null | jq -r '.attributes.permalink // empty')"
+if [ -n "$RB_PERM" ]; then
+  REPORT_OUT="$(fs items report "$RB_PERM" --status in_progress --note "deployed + verified: T-582 regression note" 2>&1)"
+  # drift_note leg must succeed (pre-T-582 it failed: note routed into the
+  # agent-run status validator -> "not a valid status"). Count a failed leg.
+  DRIFT_BAD=$(printf '%s' "$REPORT_OUT" | grep -c 'drift_note.*false' || true)
+  [ "$DRIFT_BAD" = "0" ]
+  assert "report --note drift_note leg records note, not routed to status (T-582)" $?
+else
+  assert "report --note setup: created throwaway item" 1
+fi
+
+# =============================================================================
 # STEP 14 â snapshots save + diff
 # =============================================================================
 step "14. snapshots create + diff"

@@ -694,6 +694,11 @@ pub struct RecordRunParams {
     pub provider: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub status: Option<String>,
+    /// Freeform implementation note / drift text. Stored server-side as the
+    /// run's prompt_text; must NOT be routed into `status` (that field is
+    /// validated against the fixed run-status enum). See T-582.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub prompt_text: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub input_tokens: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]

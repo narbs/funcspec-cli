@@ -1199,11 +1199,18 @@ pub async fn run(cmd: ItemsCmd, format: OutputFormat) -> Result<()> {
                 if let Some(ref n) = note {
                     parts.push(n.clone());
                 }
+                // The note/drift text goes in prompt_text (freeform), NOT status:
+                // the server validates agent-run status against a fixed enum
+                // (pending/success/failure/timeout/capture_failed), so putting
+                // note text there fails with "'<text>' is not a valid status"
+                // (T-582). Record the run as "success" — a report-back is a
+                // completed, successful implementation step.
                 let params = RecordRunParams {
                     session_key: None,
                     model: None,
                     provider: Some("report".into()),
-                    status: Some(parts.join(" | ")),
+                    status: Some("success".into()),
+                    prompt_text: Some(parts.join(" | ")),
                     input_tokens: None,
                     output_tokens: None,
                     cost: None,
@@ -1303,6 +1310,7 @@ pub async fn run(cmd: ItemsCmd, format: OutputFormat) -> Result<()> {
                 model,
                 provider,
                 status,
+                prompt_text: None,
                 input_tokens,
                 output_tokens,
                 cost,
