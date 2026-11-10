@@ -1,4 +1,4 @@
-.PHONY: build test clippy fmt fmt-check release clean check
+.PHONY: build test clippy fmt fmt-check release install clean check
 
 # Default target
 all: fmt-check clippy test
@@ -11,6 +11,20 @@ build:
 release:
 	cargo build --release -p funcspec-cli
 	@echo "Binary at: target/release/funcspec"
+
+## Build release AND install it onto PATH.
+## The published install.sh COPIES the binary into the install dir (a standalone
+## file, NOT a symlink to target/release), so `make release` alone never updates
+## an already-installed funcspec. `make install` builds, then copies it into place.
+## Install dir (matches install.sh): INSTALL_DIR override wins; else /usr/local/bin
+## if writable; else ~/.local/bin.
+INSTALL_DIR ?= $(shell if [ -w /usr/local/bin ]; then echo /usr/local/bin; else echo $(HOME)/.local/bin; fi)
+
+install: release
+	@mkdir -p "$(INSTALL_DIR)"
+	@install -m 0755 target/release/funcspec "$(INSTALL_DIR)/funcspec"
+	@echo "Installed funcspec -> $(INSTALL_DIR)/funcspec"
+	@"$(INSTALL_DIR)/funcspec" --version 2>/dev/null || true
 
 ## Run all tests
 test:
